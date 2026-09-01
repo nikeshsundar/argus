@@ -25,6 +25,7 @@ function setStatus(text: string, state: StatusState = 'idle'): void {
   status.textContent = text
   status.dataset['state'] = state
   status.hidden = !text
+  queueMicrotask(syncHeight)
 }
 
 function syncChip(): void {
@@ -102,6 +103,7 @@ function renderOptions(): void {
 
 function paintOptions(): void {
   if (highlighted >= visible.length) highlighted = visible.length - 1
+  queueMicrotask(syncHeight)
 
   optionList.replaceChildren(
     ...visible.map((option, index) => {
@@ -326,12 +328,21 @@ input.addEventListener('keydown', (event) => {
   submit(input.value)
 })
 
-// Keep the window exactly as tall as its content.
-new ResizeObserver(() => {
+/**
+ * Tells the main process how tall the bar needs to be.
+ *
+ * Called explicitly rather than left to the ResizeObserver alone: the window is
+ * reset to its default height each time it opens, but the content re-renders to
+ * the same size it was, so the observer sees no change and never fires - which
+ * left the bar clipped on every open after the first.
+ */
+function syncHeight(): void {
   const style = getComputedStyle(bar)
   const margins = parseFloat(style.marginTop) + parseFloat(style.marginBottom)
   window.argus.resize(Math.ceil(bar.getBoundingClientRect().height + margins))
-}).observe(bar)
+}
+
+new ResizeObserver(syncHeight).observe(bar)
 
 syncChip()
 renderOptions()

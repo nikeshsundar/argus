@@ -56,6 +56,12 @@ export function createRequestBar(): BrowserWindow {
 /** Where the user last dragged the bar, so it reopens where they left it. */
 let lastPosition: { x: number; y: number } | null = null
 
+/**
+ * Height the content needed last time. Reopening at the default would show a
+ * clipped bar until the renderer measured itself again.
+ */
+let lastContentHeight = HEIGHT
+
 /** Moves the bar onto the display the cursor is on, then shows and focuses it. */
 export function showRequestBar(payload: OpenedEvent): void {
   if (!win || win.isDestroyed()) return
@@ -77,7 +83,7 @@ export function showRequestBar(payload: OpenedEvent): void {
         y: Math.round(bounds.y + bounds.height * VERTICAL_ANCHOR)
       }
 
-  win.setBounds({ ...position, width: WIDTH, height: HEIGHT })
+  win.setBounds({ ...position, width: WIDTH, height: lastContentHeight })
 
   win.showInactive()
   win.focus()
@@ -92,8 +98,9 @@ export function resizeRequestBar(contentHeight: number): void {
   if (!win || win.isDestroyed()) return
 
   const { bounds } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  const maxHeight = Math.round(bounds.height * 0.7)
+  const maxHeight = Math.round(bounds.height * 0.85)
   const height = Math.min(Math.max(Math.round(contentHeight), HEIGHT), maxHeight)
+  lastContentHeight = height
 
   const current = win.getBounds()
   if (current.height === height) return
