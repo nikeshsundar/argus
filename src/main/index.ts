@@ -3,7 +3,7 @@ import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
 import type { SubmitResult, Turn } from '../shared/types'
 import { parseMode } from '../shared/types'
-import { disposeHotkeys, hotkeyStrategy, registerHotkey } from './hotkey'
+import { disposeHotkeys, hotkeyStrategy, registerHotkey, watchEscape } from './hotkey'
 import { createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
 import {
@@ -50,11 +50,45 @@ function abortInFlight(): void {
 }
 
 /**
+ * Escape closes the bar even when it doesn't have focus.
+ *
+ * Without this the bar can strand itself: it stays on top, no longer hides on
+ * blur, and its own Escape handler only fires while the input is focused - so
+ * after clicking into another window there was no way to dismiss it.
+ */
+let stopEscapeWatch: (() => void) | null = null
+let lastEscape = 0
+
+function watchForDismiss(): void {
+  stopEscapeWatch?.()
+  lastEscape = 0
+  stopEscapeWatch = watchEscape(() => {
+    if (!isRequestBarVisible()) return
+
+    const now = Date.now()
+    if (now - lastEscape < 900) {
+      lastEscape = 0
+      abortInFlight()
+      clearPendingCapture()
+      hideRequestBar()
+      return
+    }
+    lastEscape = now
+  })
+}
+
+function stopWatchingForDismiss(): void {
+  stopEscapeWatch?.()
+  stopEscapeWatch = null
+}
+
+/**
  * Hotkey handler: capture the screen *before* showing our own UI, so the bar
  * never appears in the image the model sees.
  */
 async function openRequestBar(notice?: string): Promise<void> {
   if (isRequestBarVisible()) {
+    stopWatchingForDismiss()
     hideRequestBar()
     return
   }
@@ -71,6 +105,8 @@ async function openRequestBar(notice?: string): Promise<void> {
       error: error instanceof Error ? error.message : 'Screen capture failed'
     })
   }
+
+  watchForDismiss()
 }
 
 /**
@@ -261,6 +297,7 @@ function registerIpc(): void {
   })
 
   ipcMain.on('argus:hide', () => {
+    stopWatchingForDismiss()
     abortInFlight()
     clearPendingCapture()
     hideRequestBar()

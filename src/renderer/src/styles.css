@@ -25,8 +25,6 @@ body {
 }
 
 .bar {
-  /* The panel itself is the drag handle; interactive parts opt out below. */
-  -webkit-app-region: drag;
   margin: 14px;
   padding: 18px 20px 14px;
   border: 1px solid var(--border);
@@ -43,6 +41,23 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* The only draggable surface, so clicks and text selection behave normally
+   everywhere else. */
+.grip {
+  flex: none;
+  width: 14px;
+  height: 22px;
+  cursor: grab;
+  background-image: radial-gradient(circle, var(--muted) 1px, transparent 1px);
+  background-size: 5px 6px;
+  opacity: 0.5;
+  -webkit-app-region: drag;
+}
+
+.grip:hover {
+  opacity: 0.9;
 }
 
 .chip {
@@ -101,7 +116,9 @@ body {
 }
 
 .thread {
-  max-height: 40vh;
+  /* Deliberately a fixed height, not vh: the window resizes to fit its
+     content, so a viewport-relative cap feeds back into its own input. */
+  max-height: 260px;
   overflow-y: auto;
   -webkit-app-region: no-drag;
 }

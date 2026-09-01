@@ -182,6 +182,14 @@ window.argus.onAgentStep((event) => {
 
 closeButton.addEventListener('click', () => window.argus.hide())
 
+// Clicking back onto the bar should let you type again without having to aim
+// at the input itself - but never steal a text selection the user is making.
+bar.addEventListener('mouseup', () => {
+  if (awaitingAnswer) return
+  if (window.getSelection()?.toString()) return
+  input.focus()
+})
+
 input.addEventListener('input', () => {
   highlighted = -1
   syncChip()
