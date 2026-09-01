@@ -1,6 +1,9 @@
 /** Which of the two product modes a request is asking for. */
 export type Mode = 'talk' | 'agent'
 
+/** Vision backends Talk Mode can run on. Agent Mode is Claude-only. */
+export type ProviderName = 'claude' | 'gemini' | 'openai' | 'ollama'
+
 /** Metadata about a screen capture. The image itself never leaves the main process. */
 export interface CaptureInfo {
   width: number

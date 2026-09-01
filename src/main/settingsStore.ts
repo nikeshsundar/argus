@@ -2,7 +2,9 @@ import { app } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-export type ProviderName = 'claude' | 'gemini' | 'openai' | 'ollama'
+import type { ProviderName } from '../shared/types'
+
+export type { ProviderName }
 
 export interface Settings {
   /** Electron accelerator string for the global hotkey. */
@@ -26,7 +28,7 @@ const DEFAULTS: Settings = {
   talkProvider: 'claude',
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
-  geminiModel: 'gemini-2.5-flash',
+  geminiModel: 'gemini-3.6-flash',
   geminiApiKey: '',
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434'

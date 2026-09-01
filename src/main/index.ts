@@ -1,4 +1,5 @@
 import { app, ipcMain } from 'electron'
+import { inferProviderFromKey } from '../shared/keys'
 import type { SubmitResult } from '../shared/types'
 import { parseMode } from '../shared/types'
 import { registerHotkey, unregisterHotkey } from './hotkey'
@@ -90,17 +91,24 @@ function handleSlashCommand(text: string): SubmitResult | null {
   const key = /^\/key\s+(\S+)$/i.exec(text)
   if (key) {
     const value = key[1]!
-    switch (settings.talkProvider) {
+    // Route by key format so pasting a Gemini key while Claude is selected
+    // doesn't quietly store it in the wrong slot.
+    const target = inferProviderFromKey(value) ?? settings.talkProvider
+    switch (target) {
       case 'gemini':
-        updateSettings({ geminiApiKey: value })
+        updateSettings({ geminiApiKey: value, talkProvider: 'gemini' })
         break
       case 'openai':
-        updateSettings({ openaiApiKey: value })
+        updateSettings({ openaiApiKey: value, talkProvider: 'openai' })
         break
       default:
-        updateSettings({ claudeApiKey: value })
+        updateSettings({ claudeApiKey: value, talkProvider: 'claude' })
     }
-    return ok(`${settings.talkProvider} API key saved. Ask away.`)
+    return ok(
+      target === settings.talkProvider
+        ? `${target} API key saved. Ask away.`
+        : `Recognised a ${target} key — saved it and switched Talk Mode to ${target}.`
+    )
   }
 
   const provider = /^\/provider\s+(\w+)$/i.exec(text)
