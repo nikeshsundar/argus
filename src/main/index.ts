@@ -108,7 +108,9 @@ function setupHotkey(): string | null {
   const configured = loadSettings().hotkey
   for (const candidate of [configured, ...HOTKEY_FALLBACKS]) {
     if (!registerHotkey(candidate, () => void openRequestBar())) continue
-    if (candidate !== configured) updateSettings({ hotkey: candidate })
+    // Always write it back, so settings.json reflects the hotkey actually in
+    // force rather than a superseded default that was migrated in memory.
+    updateSettings({ hotkey: candidate })
     return candidate
   }
   return null
