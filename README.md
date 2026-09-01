@@ -1,24 +1,39 @@
 <div align="center">
 
-<img src="resources/icon.png" width="96" alt="Argus" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f1120,100:1a2a4a&height=190&section=header&text=ARGUS&fontSize=68&fontColor=56D3F5&fontAlignY=38&desc=The%20all-seeing%20desktop%20assistant&descAlignY=58&descSize=18&descColor=8A90A6&animation=fadeIn" width="100%" alt="Argus" />
 
-# Argus
+<img src="resources/icon.png" width="72" alt="Argus icon" />
+
+[![Typing SVG](https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=56D3F5&center=true&vCenter=true&width=640&lines=Press+a+hotkey.+Ask+about+your+screen.;Or+say+%22agent%22+and+hand+it+the+wheel.;Open+source.+Self-hosted.+Yours.)](https://git.io/typing-svg)
 
 **An open-source, screen-aware AI assistant for Windows.**
-
-Press a hotkey anywhere. Ask about what you see, or hand control to an AI agent to do the work.
 Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4)
-![Status](https://img.shields.io/badge/status-early%20development-orange)
+![Status](https://img.shields.io/badge/status-actively%20developed-brightgreen)
 ![Built with Electron+Vite](https://img.shields.io/badge/electron-vite-9feaf9?logo=electron)
+![Powered by Gemini](https://img.shields.io/badge/powered%20by-Gemini-8E75FF?logo=googlegemini&logoColor=white)
+[![GitHub stars](https://img.shields.io/github/stars/nikeshsundar/argus?style=social)](https://github.com/nikeshsundar/argus/stargazers)
 
 </div>
 
 ---
 
 > **Status: Actively developed.** Talk Mode and Agent Mode are fully functional. See the [roadmap](#roadmap) for upcoming features.
+
+### Contents
+
+[Demo](#demo) · [Features](#features) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+
+## Demo
+
+> [!TIP]
+> **A GIF belongs right here.** Record <kbd>Alt</kbd>+<kbd>`</kbd> → ask a question → get an answer, and separately an Agent Mode task, with [ScreenToGif](https://www.screentogif.com/) or [ShareX](https://getsharex.com/) — both free, both built for exactly this. Save it as `docs/demo.gif` and drop this in above:
+>
+> ```markdown
+> ![Argus demo](docs/demo.gif)
+> ```
 
 ## Features
 
@@ -61,6 +76,24 @@ Follow-ups understand what came before, so you don't have to re-explain yourself
 
 It looks at the screen, decides the next click or keystroke, does it, looks again, and repeats until the task is done.
 
+## How it works
+
+```mermaid
+flowchart LR
+    A["Press Alt + `"] --> B["Screenshot captured\n(RAM only, never saved)"]
+    B --> C{What did you ask?}
+    C -->|"a question"| D["Talk Mode\nGemini vision"]
+    C -->|"'agent ...'"| E["Agent Mode\nGemini + tools"]
+    D --> F["Answer streams\ninto the bar"]
+    E --> G["One action:\nlaunch app · click · type · scroll"]
+    G --> H["Action runs\non your real PC"]
+    H --> I{Task done?}
+    I -->|no| B
+    I -->|yes| J["Summary shown,\noverlay disappears"]
+```
+
+Every Agent Mode step re-captures the screen before deciding the next move — it never fires off a blind sequence of actions.
+
 ## Why Argus?
 
 **Open source & self-hosted.** Proprietary screen-aware assistants exist, but they're closed-source, Mac-only, or cost $20–100/month. Argus is free, for Windows, and you have the source.
@@ -78,7 +111,7 @@ It looks at the screen, decides the next click or keystroke, does it, looks agai
 ## Requirements
 
 - Windows 10/11
-- An API key from Google (Gemini) or Anthropic (Claude)
+- A free [Google Gemini API key](https://ai.google.dev)
 
 ## Getting Started
 
@@ -253,6 +286,8 @@ All PRs should maintain TypeScript strict mode and pass the existing test suite.
 
 **Made with ❤️ by [nikeshsundar](https://github.com/nikeshsundar)**
 
-[⭐ Star us on GitHub](https://github.com/nikeshsundar/argus) if you find Argus useful!
+[⭐ Star this repo](https://github.com/nikeshsundar/argus/stargazers) if Argus is useful to you — it genuinely helps.
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:1a2a4a,100:0f1120&height=100&section=footer" width="100%" alt="" />
 
 </div>
