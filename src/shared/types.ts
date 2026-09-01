@@ -26,6 +26,23 @@ export interface Turn {
   text: string
 }
 
+/** A saved conversation. Text only - screenshots are never written to disk. */
+export interface Thread {
+  id: string
+  title: string
+  createdAt: number
+  updatedAt: number
+  turns: Turn[]
+}
+
+/** A thread as shown in the history list. */
+export interface ThreadSummary {
+  id: string
+  title: string
+  updatedAt: number
+  questions: number
+}
+
 /** Progress report sent to the overlay while Agent Mode is running. */
 export interface AgentStepEvent {
   description: string

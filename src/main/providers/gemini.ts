@@ -19,21 +19,29 @@ export function createGeminiProvider(options: { apiKey: string; model: string })
   return {
     name: 'gemini',
 
-    async ask({ prompt, image, history, onDelta, signal }: VisionRequest): Promise<string> {
-      // The screenshot rides on the first user turn only - later questions are
-      // about the same screen, so re-sending it would just burn tokens.
+    async ask({
+      prompt,
+      image,
+      history,
+      imageAnchor,
+      onDelta,
+      signal
+    }: VisionRequest): Promise<string> {
+      // The screenshot rides on one turn only - later questions are about the
+      // same screen, so re-sending it would just burn tokens.
       const imagePart = {
         inline_data: { mime_type: 'image/png', data: image.toString('base64') }
       }
 
       const contents = history.map((turn, index) => ({
         role: turn.role,
-        parts: index === 0 ? [imagePart, { text: turn.text }] : [{ text: turn.text }]
+        parts: index === imageAnchor ? [imagePart, { text: turn.text }] : [{ text: turn.text }]
       }))
 
       contents.push({
         role: 'user',
-        parts: contents.length === 0 ? [imagePart, { text: prompt }] : [{ text: prompt }]
+        parts:
+          history.length === imageAnchor ? [imagePart, { text: prompt }] : [{ text: prompt }]
       })
 
       const body = {

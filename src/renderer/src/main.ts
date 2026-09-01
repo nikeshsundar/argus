@@ -56,8 +56,51 @@ function clearThread(): void {
   activeAnswer = null
 }
 
+/** Saved conversations, fetched on demand when the history list is asked for. */
+let threadOptions: Option[] = []
+
+function showingHistory(): boolean {
+  return /^\/history\b/i.test(input.value.trim())
+}
+
+async function refreshThreads(): Promise<void> {
+  const threads = await window.argus.threads()
+  threadOptions = threads.map((thread) => ({
+    id: `thread:${thread.id}`,
+    label: thread.title,
+    hint: `${thread.questions} question${thread.questions === 1 ? '' : 's'} · ${relativeTime(thread.updatedAt)}`,
+    insert: ''
+  }))
+
+  if (threadOptions.length === 0) {
+    threadOptions = [
+      { id: 'thread:none', label: 'No saved chats yet', hint: '', insert: '' }
+    ]
+  }
+  renderOptions()
+}
+
+function relativeTime(timestamp: number): string {
+  const minutes = Math.round((Date.now() - timestamp) / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
+
 function renderOptions(): void {
+  if (!awaitingAnswer && showingHistory()) {
+    visible = threadOptions
+    paintOptions()
+    return
+  }
+
   visible = awaitingAnswer ? [] : filterOptions(input.value)
+  paintOptions()
+}
+
+function paintOptions(): void {
   if (highlighted >= visible.length) highlighted = visible.length - 1
 
   optionList.replaceChildren(
@@ -85,9 +128,22 @@ function renderOptions(): void {
 }
 
 function choose(option: Option): void {
+  if (option.id.startsWith('thread:')) {
+    void resumeThread(option.id.slice('thread:'.length))
+    return
+  }
+
   input.value = option.insert
   highlighted = -1
   syncChip()
+
+  if (option.id === 'history') {
+    setStatus('')
+    void refreshThreads()
+    input.focus()
+    return
+  }
+
   renderOptions()
 
   if (option.immediate) {
@@ -97,9 +153,49 @@ function choose(option: Option): void {
   input.focus()
 }
 
+/** Loads a saved conversation back into the bar and continues it. */
+async function resumeThread(id: string): Promise<void> {
+  if (id === 'none') return
+
+  const turns = await window.argus.openThread(id)
+  clearThread()
+
+  for (let index = 0; index < turns.length; index += 2) {
+    const question = turns[index]
+    const answer = turns[index + 1]
+    if (!question) continue
+    const node = appendExchange(question.text)
+    node.textContent = answer?.text ?? ''
+  }
+
+  input.value = ''
+  highlighted = -1
+  syncChip()
+  renderOptions()
+  setStatus('Picked up where you left off — ask anything about your current screen.')
+  input.focus()
+}
+
 function submit(text: string): void {
   const trimmed = text.trim()
   if (!trimmed || awaitingAnswer) return
+
+  // Thread management is a UI concern - it never reaches a model.
+  if (/^\/history\b/i.test(trimmed)) {
+    void refreshThreads()
+    return
+  }
+
+  if (/^\/new\b/i.test(trimmed)) {
+    void window.argus.newThread().then(() => {
+      clearThread()
+      input.value = ''
+      renderOptions()
+      setStatus('Started a new chat.')
+      input.focus()
+    })
+    return
+  }
 
   const isCommand = trimmed.startsWith('/')
   awaitingAnswer = true
@@ -191,6 +287,10 @@ bar.addEventListener('mouseup', () => {
 input.addEventListener('input', () => {
   highlighted = -1
   syncChip()
+  if (showingHistory() && threadOptions.length === 0) {
+    void refreshThreads()
+    return
+  }
   renderOptions()
 })
 

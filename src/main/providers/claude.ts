@@ -14,9 +14,16 @@ export function createClaudeProvider(options: { apiKey: string; model: string })
   return {
     name: 'claude',
 
-    async ask({ prompt, image, history, onDelta, signal }: VisionRequest): Promise<string> {
-      // The screenshot rides on the first user turn only - later questions are
-      // about the same screen, so re-sending it would just burn tokens.
+    async ask({
+      prompt,
+      image,
+      history,
+      imageAnchor,
+      onDelta,
+      signal
+    }: VisionRequest): Promise<string> {
+      // The screenshot rides on one turn only - later questions are about the
+      // same screen, so re-sending it would just burn tokens.
       const imageBlock: Anthropic.Beta.BetaImageBlockParam = {
         type: 'image',
         source: { type: 'base64', media_type: 'image/png', data: image.toString('base64') }
@@ -25,13 +32,15 @@ export function createClaudeProvider(options: { apiKey: string; model: string })
       const messages: Anthropic.Beta.BetaMessageParam[] = history.map((turn, index) => ({
         role: turn.role === 'model' ? 'assistant' : 'user',
         content:
-          index === 0 ? [imageBlock, { type: 'text', text: turn.text }] : [{ type: 'text', text: turn.text }]
+          index === imageAnchor
+            ? [imageBlock, { type: 'text', text: turn.text }]
+            : [{ type: 'text', text: turn.text }]
       }))
 
       messages.push({
         role: 'user',
         content:
-          messages.length === 0
+          history.length === imageAnchor
             ? [imageBlock, { type: 'text', text: prompt }]
             : [{ type: 'text', text: prompt }]
       })

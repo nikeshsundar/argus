@@ -12,6 +12,13 @@ export interface VisionRequest {
    * about its subscriber count?" resolve against what was already discussed.
    */
   history: Turn[]
+  /**
+   * Which message carries the screenshot, indexed into
+   * `[...history, thisPrompt]`. It is 0 for a fresh conversation, and
+   * `history.length` when resuming a saved thread - whose stored turns are
+   * text only, so the image belongs to the new question about the live screen.
+   */
+  imageAnchor: number
   /** Called with each chunk of the answer as it streams in. */
   onDelta: (text: string) => void
   signal?: AbortSignal

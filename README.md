@@ -39,7 +39,7 @@ Tools like this exist, but they're Mac-only, closed source, and $20–100/month.
 
 ## Privacy
 
-- Screenshots are **held in memory only** — never written to disk, never logged, and dropped when you dismiss the bar.
+- Screenshots are **held in memory only** — never written to disk, never logged, and dropped when you dismiss the bar. Saved chats keep their text, never the image.
 - The screen is captured **only when you press the hotkey**. Nothing runs in the background watching you.
 - You bring your own API key. There is no Argus server; your screen goes to the model provider *you* choose, and nowhere else.
 
@@ -94,7 +94,18 @@ Configure it from the bar itself — there's no settings window to hunt through:
 | `/provider claude` · `/provider gemini` | Switch provider |
 | `/model <model-id>` | Change the model |
 | `/hotkey <combo>` | Rebind, e.g. `/hotkey Control+Alt+Space` |
+| `/history` | Browse past chats and pick one up again |
+| `/new` | Start a fresh chat |
+| `/forget` | Delete every saved chat |
 | `/help` | List these |
+
+## Chat history
+
+Every conversation is saved, so you can reopen one later and carry on — pick **Past chats** from the list or type `/history`.
+
+Resuming a thread pairs its text with **whatever is on your screen now**, not the screen it started on. So you can ask about a page today, come back tomorrow on a different page, and the model still remembers the conversation while seeing the current view.
+
+Only the text is stored, in `%APPDATA%\argus\history.json`. Screenshots are never written to disk. `/forget` deletes the lot.
 
 ## About the hotkey
 
@@ -108,6 +119,7 @@ A hook can *see* a keystroke but cannot stop other apps receiving it. That's why
 - [x] In-memory screen capture
 - [x] Talk Mode with follow-up questions (Claude and Gemini)
 - [x] Command palette in the bar
+- [x] Saved chat history you can resume
 - [x] Agent Mode — autonomous mouse and keyboard control (Gemini)
 - [ ] Agent Mode via Claude computer use
 - [ ] On-screen annotations — arrows and highlights drawn over your screen

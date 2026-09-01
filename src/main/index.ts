@@ -1,7 +1,8 @@
 import { app, ipcMain } from 'electron'
 import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
-import type { SubmitResult, Turn } from '../shared/types'
+import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
+import { clearThreads, createThread, getThread, listThreads, saveThread } from './history'
 import { parseMode } from '../shared/types'
 import { disposeHotkeys, hotkeyStrategy, registerHotkey, watchEscape } from './hotkey'
 import { createTalkProvider } from './providers'
@@ -31,17 +32,30 @@ const HOTKEY_FALLBACKS = ['Super+`', 'Control+Shift+Space', 'Control+Alt+Space',
 let pendingCapture: Capture | null = null
 
 /**
- * Talk Mode turns about the screenshot currently held. Kept until the bar is
- * dismissed or reopened, so follow-up questions have context.
+ * The conversation being added to. A fresh one starts with each capture; an
+ * older one can be resumed from history, in which case the screenshot attaches
+ * to the next question rather than to turn zero.
  */
-let conversation: Turn[] = []
+let thread: Thread = createThread()
+let imageAnchor = 0
 
 /** In-flight model request, so a dismiss or a new question cancels the old one. */
 let inFlight: AbortController | null = null
 
 function clearPendingCapture(): void {
   pendingCapture = null
-  conversation = []
+}
+
+/**
+ * Files the current conversation away and starts an empty one.
+ *
+ * Called whenever the bar opens on a new capture, so what the model remembers
+ * always matches the transcript the user can see.
+ */
+function startNewThread(): void {
+  saveThread(thread)
+  thread = createThread()
+  imageAnchor = 0
 }
 
 function abortInFlight(): void {
@@ -88,6 +102,7 @@ async function openRequestBar(notice?: string): Promise<void> {
 
   try {
     pendingCapture = await captureActiveDisplay()
+    startNewThread()
     showRequestBar({ capture: pendingCapture.info, notice })
   } catch (error) {
     clearPendingCapture()
@@ -181,14 +196,22 @@ function handleSlashCommand(text: string): SubmitResult | null {
     return ok(`Hotkey is now ${accelerator}.`)
   }
 
+  if (/^\/forget$/i.test(text)) {
+    clearThreads()
+    return ok('Chat history deleted.')
+  }
+
   if (/^\/help$/i.test(text)) {
     return ok(
       [
         `/key <api-key>        set the key for ${settings.talkProvider}`,
         '/provider <name>      claude or gemini',
         '/model <model-id>     change the model',
-        '/hotkey <combo>       e.g. Control+Shift+Space',
-        'agent <task>          take action (not wired up yet)'
+        '/hotkey <combo>       e.g. Alt+`',
+        '/history              past chats',
+        '/new                  start a fresh chat',
+        '/forget               delete all saved chats',
+        'agent <task>          take control of the machine'
       ].join('\n')
     )
   }
@@ -208,13 +231,15 @@ async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResu
     const answer = await provider.ask({
       prompt,
       image: capture.model.png,
-      history: conversation,
+      history: thread.turns,
+      imageAnchor,
       signal: controller.signal,
       onDelta: (delta) => {
         if (!controller.signal.aborted) bar?.webContents.send('argus:delta', delta)
       }
     })
-    conversation.push({ role: 'user', text: prompt }, { role: 'model', text: answer })
+    thread.turns.push({ role: 'user', text: prompt }, { role: 'model', text: answer })
+    saveThread(thread)
     return { ok: true, mode: 'talk', message: answer || '(empty response)' }
   } finally {
     if (inFlight === controller) inFlight = null
@@ -293,10 +318,30 @@ function registerIpc(): void {
     stopWatchingForDismiss()
     abortInFlight()
     clearPendingCapture()
+    saveThread(thread)
     hideRequestBar()
   })
 
   ipcMain.on('argus:resize', (_event, height: number) => resizeRequestBar(height))
+
+  ipcMain.handle('argus:threads', (): ThreadSummary[] => listThreads())
+
+  ipcMain.handle('argus:open-thread', (_event, id: string): Turn[] => {
+    const saved = getThread(id)
+    if (!saved) return []
+
+    saveThread(thread) // don't lose whatever was in progress
+    thread = saved
+    // Stored turns carry no screenshot, so the live one goes on the next question.
+    imageAnchor = saved.turns.length
+    return saved.turns
+  })
+
+  ipcMain.handle('argus:new-thread', (): void => {
+    saveThread(thread)
+    thread = createThread()
+    imageAnchor = 0
+  })
 }
 
 // A second instance would fight over the global hotkey, so hand off to the first.
@@ -332,6 +377,7 @@ if (!app.requestSingleInstanceLock()) {
   // Tray app: closing the request bar must not quit the process.
   app.on('window-all-closed', () => {})
   app.on('will-quit', () => {
+    saveThread(thread)
     disposeHotkeys()
     abortInFlight()
     clearPendingCapture()

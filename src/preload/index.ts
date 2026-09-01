@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AgentStepEvent, OpenedEvent, SubmitResult } from '../shared/types'
+import type {
+  AgentStepEvent,
+  OpenedEvent,
+  SubmitResult,
+  ThreadSummary,
+  Turn
+} from '../shared/types'
 
 const api = {
   /** Sends the typed request to the main process and resolves with the result. */
@@ -10,6 +16,15 @@ const api = {
 
   /** Asks the main process to fit the window to this content height. */
   resize: (height: number): void => ipcRenderer.send('argus:resize', height),
+
+  /** Past conversations, newest first. */
+  threads: (): Promise<ThreadSummary[]> => ipcRenderer.invoke('argus:threads'),
+
+  /** Resumes a saved conversation and returns its turns for display. */
+  openThread: (id: string): Promise<Turn[]> => ipcRenderer.invoke('argus:open-thread', id),
+
+  /** Files the current conversation away and starts an empty one. */
+  newThread: (): Promise<void> => ipcRenderer.invoke('argus:new-thread'),
 
   /** Fires each time the bar is opened by the hotkey, with capture metadata. */
   onOpened: (callback: (event: OpenedEvent) => void): (() => void) => {

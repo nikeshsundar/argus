@@ -38,6 +38,19 @@ export const OPTIONS: Option[] = [
     insert: 'agent '
   },
   {
+    id: 'history',
+    label: 'Past chats',
+    hint: '/history',
+    insert: '/history'
+  },
+  {
+    id: 'new',
+    label: 'Start a new chat',
+    hint: '/new',
+    insert: '/new',
+    immediate: true
+  },
+  {
     id: 'provider',
     label: 'Switch provider',
     hint: '/provider claude · gemini',
