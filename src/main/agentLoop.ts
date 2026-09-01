@@ -1,5 +1,6 @@
 import { describeAction, type AgentAction } from '../shared/agent'
 import type { AgentStepEvent } from '../shared/types'
+import { loadAppIndex } from './appIndex'
 import { watchEscape } from './hotkey'
 import { executeAction } from './inputSim'
 import { hideOverlay, showOverlay, updateOverlay } from './overlayWindow'
@@ -35,7 +36,8 @@ export async function runAgentTask({
   onStep
 }: AgentRunOptions): Promise<AgentRunResult> {
   const provider = createAgentProvider()
-  const session = provider.startTask(task, signal)
+  const installedApps = (await loadAppIndex()).map((entry) => entry.name).slice(0, 200)
+  const session = provider.startTask(task, signal, installedApps)
 
   let stoppedByUser = false
   const unwatch = watchEscape(() => {
@@ -96,11 +98,10 @@ async function perform(
   capture: Awaited<ReturnType<typeof captureActiveDisplay>>
 ): Promise<string> {
   try {
-    await executeAction(action, {
+    return await executeAction(action, {
       width: capture.info.width,
       height: capture.info.height
     })
-    return 'ok'
   } catch (error) {
     return `failed: ${error instanceof Error ? error.message : String(error)}`
   }

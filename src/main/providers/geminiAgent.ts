@@ -12,14 +12,36 @@ const SYSTEM_PROMPT = `You are Argus in Agent Mode. You are operating a real Win
 Each turn you receive a fresh screenshot of the screen and must call exactly one function to make progress on the task.
 
 Rules:
+- To open a program, ALWAYS call launch_app. Never press the Windows key and type a name: Windows Search sends the query to the web if the app has not resolved yet, which opens a browser you did not want.
+- To open a web page, ALWAYS call open_url with the full URL. Never type a URL into a search box when you just need the page.
 - Coordinates are on a 0-1000 grid for BOTH axes, where (0,0) is the top-left of the screen and (1000,1000) is the bottom-right. Look carefully at the screenshot and aim at the centre of the thing you want to hit.
 - Take one small, verifiable step at a time. After each action you will see the result, so you do not need to guess ahead.
-- To launch a program, press the Windows key, type its name, then press Enter - this is more reliable than hunting for icons.
 - If a click did not do what you expected, look at the new screenshot and adapt instead of repeating the same click.
 - Call task_done as soon as the task is complete, with a one-sentence summary of what you did.
 - If the task is impossible or unsafe, call task_done and explain why in the summary.`
 
 const FUNCTION_DECLARATIONS = [
+  {
+    name: 'launch_app',
+    description:
+      'Open an installed program directly, without touching the Start menu. Use this for every "open <app>" request.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: { type: 'STRING', description: 'The program name, e.g. "Visual Studio Code"' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'open_url',
+    description: 'Open a web page in the default browser. Use this instead of typing into a search box.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { url: { type: 'STRING', description: 'A full URL including https://' } },
+      required: ['url']
+    }
+  },
   {
     name: 'click',
     description: 'Click at a point on screen.',
@@ -101,9 +123,15 @@ export function createGeminiAgentProvider(options: {
   return {
     name: 'gemini',
 
-    startTask(task: string, signal?: AbortSignal): AgentSession {
+    startTask(task: string, signal?: AbortSignal, installedApps: string[] = []): AgentSession {
       const contents: Content[] = []
       let pendingCall: string | null = null
+
+      // Naming apps correctly on the first try saves a round trip, and round
+      // trips are what the free tier rate-limits.
+      const appList = installedApps.length
+        ? `\n\nInstalled programs you can pass to launch_app:\n${installedApps.join(', ')}`
+        : ''
 
       return {
         async next(screenshot: Buffer, lastResult?: string): Promise<AgentAction> {
@@ -112,7 +140,7 @@ export function createGeminiAgentProvider(options: {
           }
 
           if (contents.length === 0) {
-            contents.push({ role: 'user', parts: [image, { text: `Task: ${task}` }] })
+            contents.push({ role: 'user', parts: [image, { text: `Task: ${task}${appList}` }] })
           } else {
             // Report the previous action's outcome, then show the new screen.
             contents.push({
@@ -178,6 +206,10 @@ function toAction(name: string, args: Record<string, unknown>): AgentAction {
     typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
   switch (name) {
+    case 'launch_app':
+      return { type: 'launch', name: String(args['name'] ?? '') }
+    case 'open_url':
+      return { type: 'openUrl', url: String(args['url'] ?? '') }
     case 'click':
       return {
         type: 'click',

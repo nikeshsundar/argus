@@ -6,6 +6,8 @@
  * converted to physical pixels by `toScreenPoint` at execution time.
  */
 export type AgentAction =
+  | { type: 'launch'; name: string }
+  | { type: 'openUrl'; url: string }
   | { type: 'click'; x: number; y: number; button: 'left' | 'right'; double: boolean }
   | { type: 'move'; x: number; y: number }
   | { type: 'type'; text: string }
@@ -35,6 +37,10 @@ export function toScreenPoint(
 /** One-line description of an action, shown live in the bar as the agent works. */
 export function describeAction(action: AgentAction): string {
   switch (action.type) {
+    case 'launch':
+      return `Open ${action.name}`
+    case 'openUrl':
+      return `Open ${action.url}`
     case 'click':
       return `${action.double ? 'Double-click' : action.button === 'right' ? 'Right-click' : 'Click'} at ${action.x},${action.y}`
     case 'move':

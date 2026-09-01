@@ -1,5 +1,7 @@
 import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js'
+import { shell } from 'electron'
 import { toScreenPoint, type AgentAction, type ScreenSize } from '../shared/agent'
+import { launchApp } from './appIndex'
 
 // The defaults animate the cursor and add per-keystroke delays, which makes a
 // multi-step task crawl. Keep a small delay so target apps register the input.
@@ -53,12 +55,30 @@ function resolveKey(name: string): Key | null {
  * Throws when an action names a key we can't map, so the loop can report it
  * back to the model rather than silently doing nothing.
  */
-export async function executeAction(action: AgentAction, screen: ScreenSize): Promise<void> {
+export async function executeAction(action: AgentAction, screen: ScreenSize): Promise<string> {
   switch (action.type) {
+    case 'launch': {
+      const launched = await launchApp(action.name)
+      if (!launched) {
+        throw new Error(
+          `No installed app matches "${action.name}". Try the exact name from the Start menu.`
+        )
+      }
+      // Programs take a moment to paint their first window.
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      return `launched ${launched}`
+    }
+
+    case 'openUrl': {
+      await shell.openExternal(action.url)
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      return `opened ${action.url}`
+    }
+
     case 'move': {
       const point = toScreenPoint(action.x, action.y, screen)
       await mouse.setPosition(new Point(point.x, point.y))
-      return
+      return 'ok'
     }
 
     case 'click': {
@@ -70,12 +90,12 @@ export async function executeAction(action: AgentAction, screen: ScreenSize): Pr
       } else {
         await mouse.click(button)
       }
-      return
+      return 'ok'
     }
 
     case 'type':
       await keyboard.type(action.text)
-      return
+      return 'ok'
 
     case 'keys': {
       const keys = action.keys.map((name) => {
@@ -85,7 +105,7 @@ export async function executeAction(action: AgentAction, screen: ScreenSize): Pr
       })
       await keyboard.pressKey(...keys)
       await keyboard.releaseKey(...keys)
-      return
+      return 'ok'
     }
 
     case 'scroll': {
@@ -95,16 +115,16 @@ export async function executeAction(action: AgentAction, screen: ScreenSize): Pr
       } else {
         await mouse.scrollUp(clicks * 100)
       }
-      return
+      return 'ok'
     }
 
     case 'wait':
       await new Promise((resolve) =>
         setTimeout(resolve, Math.min(10, Math.max(0, action.seconds)) * 1000)
       )
-      return
+      return 'ok'
 
     case 'done':
-      return
+      return 'ok'
   }
 }

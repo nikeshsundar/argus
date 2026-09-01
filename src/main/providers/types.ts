@@ -38,7 +38,8 @@ export interface AgentSession {
 /** Agent Mode: drive the machine, one action at a time. */
 export interface ComputerUseProvider {
   readonly name: ProviderName
-  startTask(task: string, signal?: AbortSignal): AgentSession
+  /** `installedApps` lets the model name programs it can launch directly. */
+  startTask(task: string, signal?: AbortSignal, installedApps?: string[]): AgentSession
 }
 
 /** Raised when a provider is selected but not usable yet (e.g. no API key). */
