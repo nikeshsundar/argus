@@ -4,18 +4,47 @@
 
 # Argus
 
-**A screen-aware AI assistant for Windows.**
-Press a hotkey anywhere, ask about whatever is on your screen — or tell it to take over and do the work.
+**An open-source, screen-aware AI assistant for Windows.**
+
+Press a hotkey anywhere. Ask about what you see, or hand control to an AI agent to do the work.
+Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/platform-Windows-0078d4)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4)
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
+![Built with Electron+Vite](https://img.shields.io/badge/electron-vite-9feaf9?logo=electron)
+![Supports Claude & Gemini](https://img.shields.io/badge/AI%20Models-Claude%20%26%20Gemini-brightgreen)
 
 </div>
 
 ---
 
-> **Status: early development.** Talk Mode and Agent Mode both work. Expect rough edges — see the [roadmap](#roadmap).
+> **Status: Actively developed.** Talk Mode and Agent Mode are fully functional. See the [roadmap](#roadmap) for upcoming features.
+
+## Features
+
+### 🎯 Talk Mode
+Ask questions about what's on your screen with full conversation history.
+- Follow-up context preserved across messages
+- See Claude or Gemini analyze your screen in real-time
+- Chat history is persistent and resumable
+
+### 🤖 Agent Mode  
+Tell an AI to take control and complete tasks autonomously.
+- Click, type, navigate—hands off
+- Screen-aware decision making
+- Safety limits: 14 actions max, instant <kbd>Esc</kbd> kill switch, amber frame overlay
+
+**Examples:**
+- *"agent, open notepad and write a grocery list"*
+- *"agent, open chrome and navigate to github.com"*
+- *"agent, find the price of the cheapest flight tomorrow"*
+
+### 🔒 Privacy Built-In
+- Screenshots stay in RAM only—never written to disk or logged
+- Disabled when the hotkey isn't pressed
+- Your own API key—no Argus servers, no data collection
+- BYOK (Bring Your Own Key) model
 
 ## What it does
 
@@ -33,9 +62,13 @@ Follow-ups understand what came before, so you don't have to re-explain yourself
 
 It looks at the screen, decides the next click or keystroke, does it, looks again, and repeats until the task is done.
 
-## Why
+## Why Argus?
 
-Tools like this exist, but they're Mac-only, closed source, and $20–100/month. Your screen contents are about the most personal data you have — the software that reads them should be something you can inspect, self-host, and point at whichever model you trust.
+**Open source & self-hosted.** Proprietary screen-aware assistants exist, but they're closed-source, Mac-only, or cost $20–100/month. Argus is free, for Windows, and you have the source.
+
+**Privacy first.** Your screen contents are deeply personal data. The software that reads them should be something you can inspect, audit, and self-host. No cloud. No logging. No telemetry.
+
+**Bring your own model.** Use Claude (recommended for Agent Mode), Gemini, or add your own provider. Your API key stays on your machine—no Argus intermediaries.
 
 ## Privacy
 
@@ -48,120 +81,184 @@ Tools like this exist, but they're Mac-only, closed source, and $20–100/month.
 - Windows 10/11
 - An API key from Google (Gemini) or Anthropic (Claude)
 
-## Getting started
+## Getting Started
+
+### Prerequisites
+- Windows 10 or 11
+- An API key from Google (Gemini), Anthropic (Claude), or both
+  - [Get a Claude API key](https://console.anthropic.com)
+  - [Get a Gemini API key](https://ai.google.dev)
+
+### Quick Start
 
 ```bash
-git clone https://github.com/<you>/argus.git
+git clone https://github.com/nikeshsundar/argus.git
 cd argus
 npm install
 npm run dev
 ```
 
-The app lives in your system tray — press <kbd>Alt</kbd>+<kbd>`</kbd> to summon it, or click the tray icon. Paste your API key into the bar with `/key <your-key>` and you're set; Argus recognises the key's format and selects the matching provider for you.
+The app lives in your system tray. Press <kbd>Alt</kbd>+<kbd>`</kbd> to open the bar.
 
-`npm run dev` also prints a local Vite URL. Ignore it — opening it in a browser shows the bar's markup with no access to your screen, because Argus is a desktop app, not a web page.
+**First time setup:**
+1. Paste your API key into the bar: `/key YOUR_API_KEY`
+2. Argus auto-detects the provider and selects the matching model
+3. Start asking
 
-To build a Windows installer:
+Alternatively, switch providers with `/provider claude` or `/provider gemini`.
+
+**Note:** `npm run dev` also prints a local Vite URL. Ignore it—it won't work in a browser since Argus needs desktop APIs.
+
+### Build a Windows Installer
 
 ```bash
 npm run package   # outputs release/Argus-<version>-Setup.exe
 ```
 
-## Using the bar
+## Commands & Keyboard Shortcuts
 
-| Key | Does |
+### Opening the Bar
+| Shortcut | Action |
 | --- | --- |
-| <kbd>Alt</kbd>+<kbd>`</kbd> | Open (or close) the bar |
-| <kbd>↑</kbd> <kbd>↓</kbd> | Move through the options |
-| <kbd>Enter</kbd> | Ask, or run the highlighted option |
-| <kbd>Esc</kbd> | Clear what you typed |
-| <kbd>Esc</kbd> <kbd>Esc</kbd> | Close the bar |
+| <kbd>Alt</kbd>+<kbd>`</kbd> | Open / close the bar (default, rebindable) |
 
-The bar stays put when you click into another window, so an answer is still there while you work. Drag it anywhere; it reopens where you left it.
-
-## Choosing a model
-
-| Mode | Providers |
+### In the Bar
+| Key | Action |
 | --- | --- |
-| **Talk Mode** | Claude or Gemini; OpenAI and local Ollama planned |
-| **Agent Mode** | Gemini; Claude computer use planned |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Navigate options |
+| <kbd>Enter</kbd> | Send query or run highlighted option |
+| <kbd>Esc</kbd> | Clear input |
+| <kbd>Esc</kbd> <kbd>Esc</kbd> | Close bar |
 
-Configure it from the bar itself — there's no settings window to hunt through:
+### Commands
+Type these into the bar to configure or control Argus:
 
-| Command | What it does |
+| Command | Description |
 | --- | --- |
-| `/key <api-key>` | Save a key, and switch to whichever provider it belongs to |
-| `/provider claude` · `/provider gemini` | Switch provider |
-| `/model <model-id>` | Change the model |
-| `/hotkey <combo>` | Rebind, e.g. `/hotkey Control+Alt+Space` |
-| `/history` | Browse past chats and pick one up again |
+| `/key <api-key>` | Save and activate an API key |
+| `/provider claude` | Switch to Claude |
+| `/provider gemini` | Switch to Gemini |
+| `/model <model-id>` | Change the AI model |
+| `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
+| `/history` | Browse and resume past conversations |
 | `/new` | Start a fresh chat |
-| `/forget` | Delete every saved chat |
-| `/help` | List these |
+| `/forget` | Delete all saved chats permanently |
+| `/help` | List all commands |
 
-## Chat history
+## Chat History & Persistence
 
-Every conversation is saved, so you can reopen one later and carry on — pick **Past chats** from the list or type `/history`.
+Every conversation is saved automatically, so you can resume later without losing context.
 
-Resuming a thread pairs its text with **whatever is on your screen now**, not the screen it started on. So you can ask about a page today, come back tomorrow on a different page, and the model still remembers the conversation while seeing the current view.
+- Pick up conversations with `/history` or the "Past chats" option
+- Chat text is preserved; screenshots are not (only held in RAM)
+- Switching to a new screen mid-conversation? No problem—the AI sees your current screen while remembering what you discussed
+- All chats stored locally in `%APPDATA%\argus\history.json`
+- Use `/forget` to delete all history at once
 
-Only the text is stored, in `%APPDATA%\argus\history.json`. Screenshots are never written to disk. `/forget` deletes the lot.
+This design lets you build on conversations across sessions while maintaining privacy.
 
-## About the hotkey
+## How the Hotkey Works
 
-Windows refuses to hand any <kbd>Win</kbd>+<kbd>key</kbd> combination to an ordinary application, so Argus installs a low-level keyboard hook — the same approach PowerToys uses — whenever Electron can't claim a shortcut.
+By default, Argus binds <kbd>Alt</kbd>+<kbd>`</kbd>. 
 
-A hook can *see* a keystroke but cannot stop other apps receiving it. That's why <kbd>Win</kbd>+<kbd>`</kbd> is not the default: Windows Terminal already binds it to quake mode, so it would open a terminal every time. <kbd>Alt</kbd>+<kbd>`</kbd> is free on a stock Windows install. If something on your machine claims it, rebind with `/hotkey`.
+Why not <kbd>Win</kbd>+<kbd>key</kbd>? Windows restricts Win-combinations at the OS level and doesn't hand them to apps. Argus uses a low-level keyboard hook (same as PowerToys) to capture keys when Electron can't claim them natively.
+
+A hook can *see* a keystroke but cannot *block* it from reaching other apps. That's why <kbd>Win</kbd>+<kbd>`</kbd> isn't the default: it would open Windows Terminal's quake mode every time. <kbd>Alt</kbd>+<kbd>`</kbd> is free on stock Windows.
+
+**Conflicting hotkey?** Rebind with `/hotkey Control+Alt+Space` or any combo you prefer.
 
 ## Roadmap
 
-- [x] Global hotkey (including combinations Windows won't hand over), tray app, request bar
-- [x] In-memory screen capture
-- [x] Talk Mode with follow-up questions (Claude and Gemini)
+### ✅ Completed
+- [x] Global hotkey (including Win combinations), system tray, request bar
+- [x] In-memory screen capture with zero-disk storage
+- [x] Talk Mode with follow-up context (Claude & Gemini)
 - [x] Command palette in the bar
-- [x] Saved chat history you can resume
-- [x] Agent Mode — autonomous mouse and keyboard control (Gemini)
+- [x] Persistent chat history (resumable conversations)
+- [x] Agent Mode with autonomous mouse & keyboard (Gemini)
+
+### 🚧 In Progress & Planned
 - [ ] Agent Mode via Claude computer use
-- [ ] On-screen annotations — arrows and highlights drawn over your screen
-- [ ] Talk Mode for OpenAI + Ollama, settings UI
+- [ ] On-screen annotations (arrows, highlights, boxes)
+- [ ] OpenAI and local Ollama provider support
+- [ ] Settings UI (currently all in-bar commands)
 - [ ] Encrypt stored API keys with Electron `safeStorage`
-- [ ] Voice input / dictation
-- [ ] Prebuilt installer in GitHub Releases
+- [ ] Voice input / dictation support
+- [ ] Prebuilt installers in GitHub Releases
+- [ ] Multi-monitor support optimization
+
+Contributions welcome! See [Contributing](#contributing) for details.
 
 ## Development
 
+### Setup
 ```bash
 npm run dev        # run with hot reload
 npm run typecheck  # type-check main, preload, and renderer
-npm test           # unit tests
+npm test           # run unit tests
 npm run build      # bundle to out/
 npm run icon       # regenerate resources/icon.png
 ```
 
-**Project layout**
-
+### Project Structure
 ```
-src/main/       Electron main process — hotkey, capture, agent loop, windows, tray
+src/main/       Electron main process — hotkey, screen capture, agent loop, 
+                windows management, system tray
 src/preload/    Context-isolated bridge exposed to the renderer
-src/renderer/   The request bar and the agent overlay
-src/shared/     Types and pure logic shared across processes
+src/renderer/   UI: request bar and agent overlay  
+src/shared/     Shared types and logic used across all processes
+tests/          Unit tests for core logic and integration
 ```
 
-## Safety
+### Key Technologies
+- **Electron** — Cross-platform desktop framework
+- **Vite** — Lightning-fast build tooling  
+- **TypeScript** — Type-safe codebase
+- **Google Gemini & Anthropic Claude** — AI models for Talk & Agent modes
 
-Agent Mode controls your real mouse and keyboard. Four things keep that honest:
+## Safety & Agent Mode
 
-- A pulsing amber frame covers the screen the whole time it has control — it can never operate your machine silently.
-- <kbd>Esc</kbd> stops it instantly, from anywhere, whether or not Argus has focus.
-- Every task is capped at 14 actions, so a confused model can't grind away indefinitely.
-- It works one action at a time, re-reading the screen after each, rather than firing off a blind sequence.
+Agent Mode gives an AI real control of your mouse and keyboard. Here's how we keep that safe:
 
-Don't point it at anything you can't afford to have clicked.
+| Safety Layer | How It Works |
+| --- | --- |
+| **Visual Indicator** | Pulsing amber frame covers the screen during agent execution — it never operates silently |
+| **Instant Kill** | Press <kbd>Esc</kbd> from anywhere to stop immediately, even if Argus isn't focused |
+| **Action Cap** | Maximum 14 actions per task—prevents infinite loops or runaway behavior |
+| **Single-Step Execution** | One action at a time with screen re-capture between steps; no blind sequences |
+
+**Warning:** Agent Mode controls your real mouse and keyboard. Only direct it at tasks you can afford to have clicked/typed. Always supervise autonomous mode on unfamiliar websites or critical applications.
 
 ## Contributing
 
-Issues and PRs welcome. Good first areas: additional providers, annotation rendering, and the settings UI.
+Contributions are welcome! Areas that could use help:
+
+- **New providers:** Extend `src/main/providers/` to support OpenAI, Ollama, Claude Bedrock, etc.
+- **Annotation UI:** Implement on-screen arrows, highlights, and bounding boxes
+- **Settings UI:** Build a dedicated settings window instead of bar-only commands
+- **Agent improvements:** Better task decomposition, improved reliability, multi-window support
+- **Tests:** Expand test coverage for agent logic and edge cases
+- **Documentation:** Improve getting started guides, API docs, architecture docs
+
+### Getting Started with Development
+1. Fork the repo and clone locally
+2. Run `npm install && npm run dev`
+3. Make your changes
+4. Run `npm test` to verify tests pass
+5. Submit a PR with a clear description of your changes
+
+All PRs should maintain TypeScript strict mode and pass the existing test suite.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — Feel free to use, modify, and distribute. See [LICENSE](LICENSE) for details.
+
+---
+
+<div align="center">
+
+**Made with ❤️ by [nikeshsundar](https://github.com/nikeshsundar)**
+
+[⭐ Star us on GitHub](https://github.com/nikeshsundar/argus) if you find Argus useful!
+
+</div>
