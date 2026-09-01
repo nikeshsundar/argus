@@ -2,7 +2,7 @@ import { app, ipcMain } from 'electron'
 import { inferProviderFromKey } from '../shared/keys'
 import type { SubmitResult } from '../shared/types'
 import { parseMode } from '../shared/types'
-import { registerHotkey, unregisterHotkey } from './hotkey'
+import { disposeHotkeys, hotkeyStrategy, registerHotkey } from './hotkey'
 import { createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
 import {
@@ -21,7 +21,7 @@ import { createTray, refreshTrayMenu } from './tray'
  * Tried in order when the configured hotkey can't be registered - usually
  * because another app (or Windows itself) already owns that combination.
  */
-const HOTKEY_FALLBACKS = ['Control+Shift+Space', 'Control+Alt+Space', 'Control+Shift+A', 'F9']
+const HOTKEY_FALLBACKS = ['Super+`', 'Control+Shift+Space', 'Control+Alt+Space', 'F9']
 
 /**
  * The screenshot taken when the bar was last opened. Held in memory only, and
@@ -242,6 +242,11 @@ if (!app.requestSingleInstanceLock()) {
 
     const hotkey = setupHotkey()
     refreshTrayMenu({ onOpen: () => void openRequestBar() })
+    console.log(
+      hotkey
+        ? `Argus ready - press ${hotkey} (via ${hotkeyStrategy()})`
+        : 'Argus ready - no hotkey available'
+    )
 
     // Show the bar once on first run, otherwise a tray-only app looks like it
     // never started. Also the only place the active hotkey gets announced.
@@ -257,7 +262,7 @@ if (!app.requestSingleInstanceLock()) {
   // Tray app: closing the request bar must not quit the process.
   app.on('window-all-closed', () => {})
   app.on('will-quit', () => {
-    unregisterHotkey()
+    disposeHotkeys()
     abortInFlight()
     clearPendingCapture()
   })

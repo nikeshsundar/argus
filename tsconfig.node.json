@@ -20,6 +20,8 @@
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/shared/**/*.ts",
+    // Pure palette logic, unit-tested alongside the main-process code.
+    "src/renderer/src/options.ts",
     "tests/**/*.ts"
   ]
 }

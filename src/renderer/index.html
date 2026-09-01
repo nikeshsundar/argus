@@ -18,14 +18,19 @@
           type="text"
           autocomplete="off"
           spellcheck="false"
-          placeholder="Ask about what's on your screen…"
+          placeholder="Ask about your screen, or pick an option below…"
         />
       </div>
-      <div class="status" id="status">Press the hotkey anywhere to capture your screen.</div>
+
+      <div class="status" id="status" hidden></div>
+
+      <ul class="options" id="options"></ul>
+
       <div class="hints">
-        <span><kbd>Enter</kbd> ask</span>
+        <span><kbd>↑</kbd><kbd>↓</kbd> pick</span>
+        <span><kbd>Enter</kbd> go</span>
         <span><kbd>Esc</kbd> dismiss</span>
-        <span class="hint-agent">start with <kbd>agent</kbd> to take action</span>
+        <span class="hint-agent">type <kbd>/</kbd> for commands</span>
       </div>
     </main>
     <script type="module" src="./src/main.ts"></script>

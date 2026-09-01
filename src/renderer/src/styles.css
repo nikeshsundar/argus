@@ -87,7 +87,6 @@ body {
 
 .status {
   margin-top: 14px;
-  min-height: 34px;
   color: var(--muted);
   font-size: 13px;
   line-height: 1.5;
@@ -106,6 +105,43 @@ body {
 
 .status[data-state='done'] {
   color: var(--text);
+}
+
+.options {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.options:empty {
+  display: none;
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.option[data-selected='true'] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.option-label {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.option-hint {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
 .hints {

@@ -11,6 +11,10 @@ files:
   - resources/icon.png
   - package.json
 
+# The keyboard hook is a native binary and can't be loaded from inside the asar.
+asarUnpack:
+  - '**/*.node'
+
 win:
   target: nsis
   icon: resources/icon.png

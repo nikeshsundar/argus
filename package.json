@@ -33,6 +33,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.122.0"
+    "@anthropic-ai/sdk": "^0.122.0",
+    "uiohook-napi": "^1.5.5"
   }
 }

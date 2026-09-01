@@ -20,11 +20,12 @@ export interface Settings {
 }
 
 /**
- * Ctrl+Space is deliberately avoided as a default: on Windows it toggles the
- * IME language input, so registration quietly loses to the OS on many machines.
+ * Win+` is the default: nothing in Windows claims it, and it sits under the
+ * left hand. Ctrl+Space is deliberately avoided - it toggles the IME language
+ * input, so registration quietly loses to the OS on many machines.
  */
 const DEFAULTS: Settings = {
-  hotkey: 'Control+Shift+Space',
+  hotkey: 'Super+`',
   talkProvider: 'claude',
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
@@ -40,11 +41,17 @@ function settingsPath(): string {
   return join(app.getPath('userData'), 'settings.json')
 }
 
+/** Defaults we have shipped before, so an old one can be upgraded in place. */
+const SUPERSEDED_HOTKEYS = ['Control+Space', 'Control+Shift+Space']
+
 export function loadSettings(): Settings {
   if (cache) return cache
   try {
     const raw = readFileSync(settingsPath(), 'utf8')
-    cache = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) }
+    const stored = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) }
+    // Move users off a previous default rather than stranding them on it.
+    if (SUPERSEDED_HOTKEYS.includes(stored.hotkey)) stored.hotkey = DEFAULTS.hotkey
+    cache = stored
   } catch {
     // No settings file yet (first run), or it is unreadable/corrupt - fall back
     // to defaults rather than failing to start.
