@@ -7,3 +7,6 @@ release/
 .env
 .env.local
 tsconfig.*.tsbuildinfo
+
+# Claude provider (kept locally, not tracked)
+src/main/providers/claude.ts
