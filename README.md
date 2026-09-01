@@ -19,7 +19,7 @@ Press a hotkey anywhere, ask about whatever is on your screen — or tell it to 
 
 ## What it does
 
-Hit <kbd>Ctrl</kbd>+<kbd>Space</kbd> from anywhere in Windows. Argus grabs your screen and opens a small bar, and you either ask it something or hand it the wheel.
+Hit <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> from anywhere in Windows. Argus grabs your screen and opens a small bar, and you either ask it something or hand it the wheel.
 
 **Talk Mode** — ask about what you're looking at.
 
@@ -57,7 +57,9 @@ npm install
 npm run dev
 ```
 
-The app lives in your system tray. Press <kbd>Ctrl</kbd>+<kbd>Space</kbd> to summon it.
+The app lives in your system tray — press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> to summon it, or click the tray icon. `npm run dev` also prints a local Vite URL; ignore it. Opening it in a browser shows the bar's markup with no access to your screen, because Argus is a desktop app, not a web page.
+
+If another app already owns the hotkey, Argus falls back to the next free combination and tells you which one it took.
 
 To build a Windows installer:
 
@@ -69,8 +71,18 @@ npm run package   # outputs release/Argus-<version>-Setup.exe
 
 | Mode | Providers |
 | --- | --- |
-| **Talk Mode** | Claude, OpenAI, or a local model via Ollama — anything with vision |
+| **Talk Mode** | Claude or Gemini today; OpenAI and local Ollama models planned |
 | **Agent Mode** | **Claude only** |
+
+Configure it from the bar itself — there's no settings window to hunt through:
+
+| Command | What it does |
+| --- | --- |
+| `/key <api-key>` | Save the key for the current provider |
+| `/provider claude` · `/provider gemini` | Switch provider |
+| `/model <model-id>` | Change the model |
+| `/hotkey <combo>` | Rebind, e.g. `/hotkey Control+Alt+Space` |
+| `/help` | List these |
 
 Agent Mode requires Claude because it needs a model that reliably returns precise on-screen coordinates for clicking and typing. Argus won't pretend a weaker model can do this — Agent Mode is simply unavailable unless a Claude key is configured.
 
@@ -78,9 +90,10 @@ Agent Mode requires Claude because it needs a model that reliably returns precis
 
 - [x] Global hotkey, tray app, request bar
 - [x] In-memory screen capture
-- [ ] Talk Mode (Claude)
+- [x] Talk Mode (Claude and Gemini)
 - [ ] On-screen annotations — arrows and highlights drawn over your screen
 - [ ] Talk Mode for OpenAI + Ollama, settings UI
+- [ ] Encrypt stored API keys with Electron `safeStorage`
 - [ ] Voice input / dictation
 - [ ] Agent Mode — autonomous mouse and keyboard control
 - [ ] Prebuilt installer in GitHub Releases

@@ -13,6 +13,8 @@ export interface CaptureInfo {
 export interface OpenedEvent {
   capture: CaptureInfo | null
   error?: string
+  /** Replaces the default status line - used for first-run setup hints. */
+  notice?: string
 }
 
 /** Result of submitting a request from the bar. */

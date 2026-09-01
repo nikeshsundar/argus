@@ -1,15 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { TALK_SYSTEM_PROMPT } from './prompt'
 import { ProviderUnavailableError, type VisionProvider, type VisionRequest } from './types'
-
-const SYSTEM_PROMPT = `You are Argus, an assistant that looks at the user's screen and answers questions about what is on it.
-
-You receive a screenshot of the user's active display together with their question.
-
-- Answer in 1-3 short sentences. Your answer renders in a small overlay bar, not a chat window.
-- Be concrete: name the actual button, menu, file, or error text you can see on screen.
-- If the answer is a sequence of actions, give at most three, one per line, numbered.
-- If the screenshot doesn't show what you'd need to answer, say that in one sentence.
-- Don't describe the whole screen unless you're asked to.`
 
 export function createClaudeProvider(options: { apiKey: string; model: string }): VisionProvider {
   if (!options.apiKey) {
@@ -29,7 +20,7 @@ export function createClaudeProvider(options: { apiKey: string; model: string })
           {
             model: options.model,
             max_tokens: 4096,
-            system: SYSTEM_PROMPT,
+            system: TALK_SYSTEM_PROMPT,
             // Screen questions are quick lookups - low effort keeps the bar responsive.
             output_config: { effort: 'low' },
             // A screenshot can trip a safety classifier; fall back rather than dead-end.

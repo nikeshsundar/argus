@@ -2,7 +2,7 @@ import { app, ipcMain } from 'electron'
 import type { SubmitResult } from '../shared/types'
 import { parseMode } from '../shared/types'
 import { registerHotkey, unregisterHotkey } from './hotkey'
-import { createClaudeProvider } from './providers/claude'
+import { createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
 import {
   createRequestBar,
@@ -13,8 +13,14 @@ import {
   showRequestBar
 } from './requestBar'
 import { captureActiveDisplay, type Capture } from './screenshot'
-import { loadSettings, updateSettings } from './settingsStore'
-import { createTray } from './tray'
+import { isProviderConfigured, loadSettings, updateSettings, type ProviderName } from './settingsStore'
+import { createTray, refreshTrayMenu } from './tray'
+
+/**
+ * Tried in order when the configured hotkey can't be registered - usually
+ * because another app (or Windows itself) already owns that combination.
+ */
+const HOTKEY_FALLBACKS = ['Control+Shift+Space', 'Control+Alt+Space', 'Control+Shift+A', 'F9']
 
 /**
  * The screenshot taken when the bar was last opened. Held in memory only, and
@@ -38,7 +44,7 @@ function abortInFlight(): void {
  * Hotkey handler: capture the screen *before* showing our own UI, so the bar
  * never appears in the image the model sees.
  */
-async function openRequestBar(): Promise<void> {
+async function openRequestBar(notice?: string): Promise<void> {
   if (isRequestBarVisible()) {
     hideRequestBar()
     return
@@ -48,7 +54,7 @@ async function openRequestBar(): Promise<void> {
 
   try {
     pendingCapture = await captureActiveDisplay()
-    showRequestBar({ capture: pendingCapture.info })
+    showRequestBar({ capture: pendingCapture.info, notice })
   } catch (error) {
     clearPendingCapture()
     showRequestBar({
@@ -59,42 +65,95 @@ async function openRequestBar(): Promise<void> {
 }
 
 /**
- * Slash commands keep first-run setup inside the bar itself, so there's no
- * settings window to build before the app is usable.
+ * Registers the configured hotkey, falling back through known-good
+ * combinations so the app is never left with no way to open it.
+ */
+function setupHotkey(): string | null {
+  const configured = loadSettings().hotkey
+  for (const candidate of [configured, ...HOTKEY_FALLBACKS]) {
+    if (!registerHotkey(candidate, () => void openRequestBar())) continue
+    if (candidate !== configured) updateSettings({ hotkey: candidate })
+    return candidate
+  }
+  return null
+}
+
+/**
+ * Slash commands keep setup inside the bar itself, so there's no settings
+ * window to build before the app is usable.
  */
 function handleSlashCommand(text: string): SubmitResult | null {
+  const settings = loadSettings()
+  const ok = (message: string): SubmitResult => ({ ok: true, mode: 'talk', message })
+  const fail = (message: string): SubmitResult => ({ ok: false, mode: 'talk', message })
+
   const key = /^\/key\s+(\S+)$/i.exec(text)
   if (key) {
-    updateSettings({ claudeApiKey: key[1]! })
-    return { ok: true, mode: 'talk', message: 'Claude API key saved. Ask away.' }
+    const value = key[1]!
+    switch (settings.talkProvider) {
+      case 'gemini':
+        updateSettings({ geminiApiKey: value })
+        break
+      case 'openai':
+        updateSettings({ openaiApiKey: value })
+        break
+      default:
+        updateSettings({ claudeApiKey: value })
+    }
+    return ok(`${settings.talkProvider} API key saved. Ask away.`)
+  }
+
+  const provider = /^\/provider\s+(\w+)$/i.exec(text)
+  if (provider) {
+    const name = provider[1]!.toLowerCase() as ProviderName
+    if (!['claude', 'gemini', 'openai', 'ollama'].includes(name)) {
+      return fail(`Unknown provider "${name}". Try claude or gemini.`)
+    }
+    updateSettings({ talkProvider: name })
+    return ok(
+      isProviderConfigured(loadSettings())
+        ? `Talk Mode now uses ${name}.`
+        : `Talk Mode now uses ${name}. Add a key with "/key <your-key>".`
+    )
   }
 
   const model = /^\/model\s+(\S+)$/i.exec(text)
   if (model) {
-    updateSettings({ claudeModel: model[1]! })
-    return { ok: true, mode: 'talk', message: `Model set to ${model[1]}.` }
+    const id = model[1]!
+    updateSettings(settings.talkProvider === 'gemini' ? { geminiModel: id } : { claudeModel: id })
+    return ok(`${settings.talkProvider} model set to ${id}.`)
+  }
+
+  const hotkey = /^\/hotkey\s+(\S+)$/i.exec(text)
+  if (hotkey) {
+    const accelerator = hotkey[1]!
+    if (!registerHotkey(accelerator, () => void openRequestBar())) {
+      setupHotkey()
+      return fail(`Windows wouldn't give up "${accelerator}". Still using ${loadSettings().hotkey}.`)
+    }
+    updateSettings({ hotkey: accelerator })
+    refreshTrayMenu({ onOpen: () => void openRequestBar() })
+    return ok(`Hotkey is now ${accelerator}.`)
   }
 
   if (/^\/help$/i.test(text)) {
-    return {
-      ok: true,
-      mode: 'talk',
-      message: '/key <api-key> · /model <model-id> · start a request with "agent" to take action'
-    }
+    return ok(
+      [
+        `/key <api-key>        set the key for ${settings.talkProvider}`,
+        '/provider <name>      claude or gemini',
+        '/model <model-id>     change the model',
+        '/hotkey <combo>       e.g. Control+Shift+Space',
+        'agent <task>          take action (not wired up yet)'
+      ].join('\n')
+    )
   }
 
   return null
 }
 
 async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResult> {
-  const settings = loadSettings()
+  const provider = createTalkProvider()
   const bar = getRequestBar()
-
-  const provider = createClaudeProvider({
-    // An env var is handy in development; the saved key is what ships.
-    apiKey: settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'] || '',
-    model: settings.claudeModel
-  })
 
   abortInFlight()
   const controller = new AbortController()
@@ -109,7 +168,7 @@ async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResu
         if (!controller.signal.aborted) bar?.webContents.send('argus:delta', delta)
       }
     })
-    return { ok: true, mode: 'talk', message: answer }
+    return { ok: true, mode: 'talk', message: answer || '(empty response)' }
   } finally {
     if (inFlight === controller) inFlight = null
   }
@@ -173,9 +232,17 @@ if (!app.requestSingleInstanceLock()) {
     registerIpc()
     createTray({ onOpen: () => void openRequestBar() })
 
-    const { hotkey } = loadSettings()
-    if (!registerHotkey(hotkey, () => void openRequestBar())) {
-      console.error(`Could not register hotkey "${hotkey}" - it may be taken by another app.`)
+    const hotkey = setupHotkey()
+    refreshTrayMenu({ onOpen: () => void openRequestBar() })
+
+    // Show the bar once on first run, otherwise a tray-only app looks like it
+    // never started. Also the only place the active hotkey gets announced.
+    if (!isProviderConfigured()) {
+      void openRequestBar(
+        hotkey
+          ? `Argus is running. Press ${hotkey} anywhere to open this.\nAdd a key to start: /key <your-key>   (or /provider gemini first)`
+          : 'Argus is running, but no hotkey could be registered. Open it from the tray icon, or set one with "/hotkey <combo>".'
+      )
     }
   })
 

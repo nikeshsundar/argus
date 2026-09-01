@@ -2,25 +2,32 @@ import { app } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-export type ProviderName = 'claude' | 'openai' | 'ollama'
+export type ProviderName = 'claude' | 'gemini' | 'openai' | 'ollama'
 
 export interface Settings {
   /** Electron accelerator string for the global hotkey. */
   hotkey: string
   /** Provider used for Talk Mode. Agent Mode always requires Claude. */
   talkProvider: ProviderName
-  /** Claude model id used for Talk Mode and (later) Agent Mode. */
   claudeModel: string
   claudeApiKey: string
+  geminiModel: string
+  geminiApiKey: string
   openaiApiKey: string
   ollamaHost: string
 }
 
+/**
+ * Ctrl+Space is deliberately avoided as a default: on Windows it toggles the
+ * IME language input, so registration quietly loses to the OS on many machines.
+ */
 const DEFAULTS: Settings = {
-  hotkey: 'Control+Space',
+  hotkey: 'Control+Shift+Space',
   talkProvider: 'claude',
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
+  geminiModel: 'gemini-2.5-flash',
+  geminiApiKey: '',
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434'
 }
@@ -51,4 +58,18 @@ export function updateSettings(patch: Partial<Settings>): Settings {
   mkdirSync(dirname(file), { recursive: true })
   writeFileSync(file, JSON.stringify(next, null, 2), 'utf8')
   return next
+}
+
+/** True once the active Talk Mode provider has the credentials it needs. */
+export function isProviderConfigured(settings: Settings = loadSettings()): boolean {
+  switch (settings.talkProvider) {
+    case 'claude':
+      return Boolean(settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'])
+    case 'gemini':
+      return Boolean(settings.geminiApiKey || process.env['GEMINI_API_KEY'])
+    case 'openai':
+      return Boolean(settings.openaiApiKey || process.env['OPENAI_API_KEY'])
+    case 'ollama':
+      return true
+  }
 }

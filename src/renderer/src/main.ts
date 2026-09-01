@@ -23,7 +23,7 @@ function syncChip(): void {
   chip.textContent = mode === 'agent' ? 'Agent' : 'Talk'
 }
 
-window.argus.onOpened(({ capture, error }) => {
+window.argus.onOpened(({ capture, error, notice }) => {
   awaitingAnswer = false
   streaming = false
   input.value = ''
@@ -33,6 +33,8 @@ window.argus.onOpened(({ capture, error }) => {
 
   if (error) {
     setStatus(error, 'error')
+  } else if (notice) {
+    setStatus(notice)
   } else if (capture) {
     setStatus(`Screen captured — ${capture.width}x${capture.height}. What do you want to know?`)
   }
