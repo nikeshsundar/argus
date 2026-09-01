@@ -1,0 +1,24 @@
+appId: com.argus.desktop
+productName: Argus
+copyright: Copyright © 2026 Argus contributors
+
+directories:
+  output: release
+  buildResources: resources
+
+files:
+  - out/**
+  - resources/icon.png
+  - package.json
+
+win:
+  target: nsis
+  icon: resources/icon.png
+  artifactName: Argus-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Argus

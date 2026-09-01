@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    />
+    <title>Argus</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main class="bar" id="bar">
+      <div class="row">
+        <span class="chip" id="chip" data-mode="talk">Talk</span>
+        <input
+          id="input"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Ask about what's on your screen…"
+        />
+      </div>
+      <div class="status" id="status">Press the hotkey anywhere to capture your screen.</div>
+      <div class="hints">
+        <span><kbd>Enter</kbd> ask</span>
+        <span><kbd>Esc</kbd> dismiss</span>
+        <span class="hint-agent">start with <kbd>agent</kbd> to take action</span>
+      </div>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

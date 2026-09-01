@@ -1,0 +1,35 @@
+{
+  "name": "argus",
+  "version": "0.1.0",
+  "description": "Screen-aware AI assistant for Windows. Press a hotkey, ask about anything on your screen, or let it operate your PC for you.",
+  "main": "./out/main/index.js",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "npm run typecheck && electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "package": "npm run build && electron-builder --win",
+    "icon": "node scripts/gen-icon.mjs",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "ai",
+    "assistant",
+    "computer-use",
+    "electron",
+    "screen",
+    "agent",
+    "windows"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "electron": "^44.1.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^5.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.11"
+  }
+}
