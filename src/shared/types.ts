@@ -20,6 +20,12 @@ export interface OpenedEvent {
   notice?: string
 }
 
+/** One exchange in an ongoing Talk Mode conversation. */
+export interface Turn {
+  role: 'user' | 'model'
+  text: string
+}
+
 /** Progress report sent to the overlay while Agent Mode is running. */
 export interface AgentStepEvent {
   description: string

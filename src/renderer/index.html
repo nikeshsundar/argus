@@ -20,7 +20,10 @@
           spellcheck="false"
           placeholder="Ask about your screen, or pick an option below…"
         />
+        <button id="close" class="close" type="button" title="Close (Esc twice)">×</button>
       </div>
+
+      <div class="thread" id="thread"></div>
 
       <div class="status" id="status" hidden></div>
 
@@ -29,8 +32,8 @@
       <div class="hints">
         <span><kbd>↑</kbd><kbd>↓</kbd> pick</span>
         <span><kbd>Enter</kbd> go</span>
-        <span><kbd>Esc</kbd> dismiss</span>
-        <span class="hint-agent">type <kbd>/</kbd> for commands</span>
+        <span><kbd>Esc</kbd><kbd>Esc</kbd> close</span>
+        <span class="hint-agent">type <kbd>/</kbd> for commands · drag to move</span>
       </div>
     </main>
     <script type="module" src="./src/main.ts"></script>

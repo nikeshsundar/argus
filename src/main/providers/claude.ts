@@ -14,7 +14,28 @@ export function createClaudeProvider(options: { apiKey: string; model: string })
   return {
     name: 'claude',
 
-    async ask({ prompt, image, onDelta, signal }: VisionRequest): Promise<string> {
+    async ask({ prompt, image, history, onDelta, signal }: VisionRequest): Promise<string> {
+      // The screenshot rides on the first user turn only - later questions are
+      // about the same screen, so re-sending it would just burn tokens.
+      const imageBlock: Anthropic.Beta.BetaImageBlockParam = {
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/png', data: image.toString('base64') }
+      }
+
+      const messages: Anthropic.Beta.BetaMessageParam[] = history.map((turn, index) => ({
+        role: turn.role === 'model' ? 'assistant' : 'user',
+        content:
+          index === 0 ? [imageBlock, { type: 'text', text: turn.text }] : [{ type: 'text', text: turn.text }]
+      }))
+
+      messages.push({
+        role: 'user',
+        content:
+          messages.length === 0
+            ? [imageBlock, { type: 'text', text: prompt }]
+            : [{ type: 'text', text: prompt }]
+      })
+
       try {
         const stream = client.beta.messages.stream(
           {
@@ -26,22 +47,7 @@ export function createClaudeProvider(options: { apiKey: string; model: string })
             // A screenshot can trip a safety classifier; fall back rather than dead-end.
             betas: ['server-side-fallback-2026-07-01'],
             fallbacks: 'default',
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'image',
-                    source: {
-                      type: 'base64',
-                      media_type: 'image/png',
-                      data: image.toString('base64')
-                    }
-                  },
-                  { type: 'text', text: prompt }
-                ]
-              }
-            ]
+            messages
           },
           { signal }
         )

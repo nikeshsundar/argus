@@ -25,6 +25,8 @@ body {
 }
 
 .bar {
+  /* The panel itself is the drag handle; interactive parts opt out below. */
+  -webkit-app-region: drag;
   margin: 14px;
   padding: 18px 20px 14px;
   border: 1px solid var(--border);
@@ -75,6 +77,56 @@ body {
   font-size: 19px;
   -webkit-user-select: text;
   user-select: text;
+  -webkit-app-region: no-drag;
+}
+
+.close {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.thread {
+  max-height: 40vh;
+  overflow-y: auto;
+  -webkit-app-region: no-drag;
+}
+
+.thread:empty {
+  display: none;
+}
+
+.turn {
+  margin-top: 14px;
+}
+
+.turn-q {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.turn-a {
+  margin-top: 4px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #input::placeholder {
@@ -93,6 +145,7 @@ body {
   white-space: pre-wrap;
   -webkit-user-select: text;
   user-select: text;
+  -webkit-app-region: no-drag;
 }
 
 .status[data-state='error'] {
@@ -113,6 +166,7 @@ body {
   list-style: none;
   max-height: 320px;
   overflow-y: auto;
+  -webkit-app-region: no-drag;
 }
 
 .options:empty {

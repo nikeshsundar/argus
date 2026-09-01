@@ -1,4 +1,5 @@
 import type { AgentAction } from '../../shared/agent'
+import type { Turn } from '../../shared/types'
 import type { ProviderName } from '../settingsStore'
 
 export interface VisionRequest {
@@ -6,6 +7,11 @@ export interface VisionRequest {
   prompt: string
   /** PNG of the screen, already downscaled for the model. */
   image: Buffer
+  /**
+   * Earlier turns about this same screenshot, so follow-ups like "and what
+   * about its subscriber count?" resolve against what was already discussed.
+   */
+  history: Turn[]
   /** Called with each chunk of the answer as it streams in. */
   onDelta: (text: string) => void
   signal?: AbortSignal

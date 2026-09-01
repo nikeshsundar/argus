@@ -4,7 +4,9 @@ import { filterOptions, type Option } from './options'
 const input = document.querySelector<HTMLInputElement>('#input')!
 const chip = document.querySelector<HTMLSpanElement>('#chip')!
 const status = document.querySelector<HTMLDivElement>('#status')!
+const thread = document.querySelector<HTMLDivElement>('#thread')!
 const optionList = document.querySelector<HTMLUListElement>('#options')!
+const closeButton = document.querySelector<HTMLButtonElement>('#close')!
 const bar = document.querySelector<HTMLElement>('#bar')!
 
 type StatusState = 'idle' | 'busy' | 'done' | 'error'
@@ -16,6 +18,10 @@ let streaming = false
 /** Options currently listed, and which one is highlighted (-1 = none). */
 let visible: Option[] = []
 let highlighted = -1
+/** Timestamp of the last Escape, for the double-tap-to-close gesture. */
+let lastEscape = 0
+/** The answer element currently being streamed into. */
+let activeAnswer: HTMLDivElement | null = null
 
 function setStatus(text: string, state: StatusState = 'idle'): void {
   status.textContent = text
@@ -27,6 +33,29 @@ function syncChip(): void {
   const { mode } = parseMode(input.value)
   chip.dataset['mode'] = mode
   chip.textContent = mode === 'agent' ? 'Agent' : 'Talk'
+}
+
+/** Appends a question to the transcript and returns its (empty) answer node. */
+function appendExchange(question: string): HTMLDivElement {
+  const block = document.createElement('div')
+  block.className = 'turn'
+
+  const asked = document.createElement('div')
+  asked.className = 'turn-q'
+  asked.textContent = question
+
+  const answer = document.createElement('div')
+  answer.className = 'turn-a'
+
+  block.append(asked, answer)
+  thread.append(block)
+  thread.scrollTop = thread.scrollHeight
+  return answer
+}
+
+function clearThread(): void {
+  thread.replaceChildren()
+  activeAnswer = null
 }
 
 function renderOptions(): void {
@@ -74,25 +103,42 @@ function submit(text: string): void {
   const trimmed = text.trim()
   if (!trimmed || awaitingAnswer) return
 
+  const isCommand = trimmed.startsWith('/')
   awaitingAnswer = true
   streaming = false
   input.disabled = true
   highlighted = -1
-  setStatus('Looking at your screen…', 'busy')
+
+  // Commands report through the status line; questions join the transcript.
+  activeAnswer = isCommand ? null : appendExchange(trimmed)
+  setStatus(isCommand ? 'Working…' : 'Looking at your screen…', 'busy')
   renderOptions()
 
   void window.argus
     .submit(trimmed)
-    .then((result) => setStatus(result.message, result.ok ? 'done' : 'error'))
-    .catch((error: unknown) =>
+    .then((result) => {
+      if (activeAnswer && result.ok) {
+        activeAnswer.textContent = result.message
+        setStatus('')
+      } else {
+        if (activeAnswer && !result.ok) activeAnswer.remove()
+        setStatus(result.message, result.ok ? 'done' : 'error')
+      }
+    })
+    .catch((error: unknown) => {
+      activeAnswer?.remove()
       setStatus(error instanceof Error ? error.message : 'Something went wrong.', 'error')
-    )
+    })
     .finally(() => {
       awaitingAnswer = false
       streaming = false
+      activeAnswer = null
       input.disabled = false
+      input.value = ''
+      syncChip()
       input.focus()
       renderOptions()
+      thread.scrollTop = thread.scrollHeight
     })
 }
 
@@ -102,6 +148,7 @@ window.argus.onOpened(({ capture, error, notice }) => {
   highlighted = -1
   input.value = ''
   input.disabled = false
+  clearThread()
   syncChip()
   renderOptions()
   input.focus()
@@ -121,11 +168,19 @@ window.argus.onDelta((delta) => {
   if (!awaitingAnswer) return
   if (!streaming) {
     streaming = true
-    setStatus('', 'done')
+    setStatus('')
   }
-  status.hidden = false
-  status.textContent += delta
+  if (activeAnswer) {
+    activeAnswer.textContent += delta
+    thread.scrollTop = thread.scrollHeight
+  }
 })
+
+window.argus.onAgentStep((event) => {
+  setStatus(`${event.description} (step ${event.index}/${event.max})`, 'busy')
+})
+
+closeButton.addEventListener('click', () => window.argus.hide())
 
 input.addEventListener('input', () => {
   highlighted = -1
@@ -136,7 +191,24 @@ input.addEventListener('input', () => {
 input.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
-    window.argus.hide()
+
+    // One tap clears what's typed; a second closes. That way a stray Escape
+    // never throws away an answer you were still reading.
+    if (input.value) {
+      input.value = ''
+      syncChip()
+      renderOptions()
+      lastEscape = Date.now()
+      return
+    }
+
+    const now = Date.now()
+    if (now - lastEscape < 900) {
+      window.argus.hide()
+      return
+    }
+    lastEscape = now
+    setStatus('Press Esc again to close.')
     return
   }
 

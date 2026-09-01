@@ -1,7 +1,7 @@
 import { app, ipcMain } from 'electron'
 import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
-import type { SubmitResult } from '../shared/types'
+import type { SubmitResult, Turn } from '../shared/types'
 import { parseMode } from '../shared/types'
 import { disposeHotkeys, hotkeyStrategy, registerHotkey } from './hotkey'
 import { createTalkProvider } from './providers'
@@ -30,11 +30,18 @@ const HOTKEY_FALLBACKS = ['Super+`', 'Control+Shift+Space', 'Control+Alt+Space',
  */
 let pendingCapture: Capture | null = null
 
+/**
+ * Talk Mode turns about the screenshot currently held. Kept until the bar is
+ * dismissed or reopened, so follow-up questions have context.
+ */
+let conversation: Turn[] = []
+
 /** In-flight model request, so a dismiss or a new question cancels the old one. */
 let inFlight: AbortController | null = null
 
 function clearPendingCapture(): void {
   pendingCapture = null
+  conversation = []
 }
 
 function abortInFlight(): void {
@@ -172,11 +179,13 @@ async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResu
     const answer = await provider.ask({
       prompt,
       image: capture.model.png,
+      history: conversation,
       signal: controller.signal,
       onDelta: (delta) => {
         if (!controller.signal.aborted) bar?.webContents.send('argus:delta', delta)
       }
     })
+    conversation.push({ role: 'user', text: prompt }, { role: 'model', text: answer })
     return { ok: true, mode: 'talk', message: answer || '(empty response)' }
   } finally {
     if (inFlight === controller) inFlight = null
@@ -230,8 +239,9 @@ function registerIpc(): void {
 
     if (mode === 'agent') return await runAgent(prompt)
 
+    // The capture is deliberately kept after answering: follow-up questions ask
+    // about the same screen, and re-capturing would show our own bar instead.
     const capture = pendingCapture
-    clearPendingCapture()
     if (!capture) {
       return { ok: false, mode, message: 'No screen capture available for this request.' }
     }

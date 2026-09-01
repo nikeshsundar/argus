@@ -17,7 +17,9 @@ export function createRequestBar(): BrowserWindow {
     frame: false,
     transparent: true,
     resizable: false,
-    movable: false,
+    // Draggable, so it can be parked anywhere rather than always sitting in
+    // the middle of whatever the user is reading.
+    movable: true,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -32,11 +34,14 @@ export function createRequestBar(): BrowserWindow {
   // 'screen-saver' keeps the bar above fullscreen apps and other always-on-top windows.
   win.setAlwaysOnTop(true, 'screen-saver')
 
-  // Dismiss when the user clicks away, the same way Spotlight/Raycast behave.
-  // Skipped while DevTools is open, otherwise the bar vanishes as soon as you
-  // click into DevTools during development.
-  win.on('blur', () => {
-    if (!win?.webContents.isDevToolsOpened()) hideRequestBar()
+  // Deliberately no hide-on-blur. Answers are meant to be read while working in
+  // another window, so the bar closes only on an explicit dismiss: the × button,
+  // Escape twice, or the hotkey.
+
+  win.on('moved', () => {
+    if (!win || win.isDestroyed()) return
+    const { x, y } = win.getBounds()
+    lastPosition = { x, y }
   })
 
   if (process.env['ELECTRON_RENDERER_URL']) {
@@ -48,18 +53,31 @@ export function createRequestBar(): BrowserWindow {
   return win
 }
 
+/** Where the user last dragged the bar, so it reopens where they left it. */
+let lastPosition: { x: number; y: number } | null = null
+
 /** Moves the bar onto the display the cursor is on, then shows and focuses it. */
 export function showRequestBar(payload: OpenedEvent): void {
   if (!win || win.isDestroyed()) return
 
   const cursor = screen.getCursorScreenPoint()
   const { bounds } = screen.getDisplayNearestPoint(cursor)
-  win.setBounds({
-    x: Math.round(bounds.x + (bounds.width - WIDTH) / 2),
-    y: Math.round(bounds.y + bounds.height * VERTICAL_ANCHOR),
-    width: WIDTH,
-    height: HEIGHT
-  })
+
+  const onThisDisplay =
+    lastPosition !== null &&
+    lastPosition.x >= bounds.x &&
+    lastPosition.x + WIDTH <= bounds.x + bounds.width &&
+    lastPosition.y >= bounds.y &&
+    lastPosition.y + HEIGHT <= bounds.y + bounds.height
+
+  const position = onThisDisplay
+    ? lastPosition!
+    : {
+        x: Math.round(bounds.x + (bounds.width - WIDTH) / 2),
+        y: Math.round(bounds.y + bounds.height * VERTICAL_ANCHOR)
+      }
+
+  win.setBounds({ ...position, width: WIDTH, height: HEIGHT })
 
   win.showInactive()
   win.focus()

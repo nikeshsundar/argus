@@ -20,12 +20,13 @@ export interface Settings {
 }
 
 /**
- * Win+` is the default: nothing in Windows claims it, and it sits under the
- * left hand. Ctrl+Space is deliberately avoided - it toggles the IME language
- * input, so registration quietly loses to the OS on many machines.
+ * Alt+` is the default. The obvious pick, Win+`, is already Windows Terminal's
+ * quake-mode shortcut, and a keyboard hook can see a key without being able to
+ * stop the other app receiving it - so Win+` opens a terminal too. Ctrl+Space
+ * is avoided as well: it toggles IME language input and loses to the OS.
  */
 const DEFAULTS: Settings = {
-  hotkey: 'Super+`',
+  hotkey: 'Alt+`',
   talkProvider: 'claude',
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
@@ -42,7 +43,7 @@ function settingsPath(): string {
 }
 
 /** Defaults we have shipped before, so an old one can be upgraded in place. */
-const SUPERSEDED_HOTKEYS = ['Control+Space', 'Control+Shift+Space']
+const SUPERSEDED_HOTKEYS = ['Control+Space', 'Control+Shift+Space', 'Super+`']
 
 export function loadSettings(): Settings {
   if (cache) return cache
