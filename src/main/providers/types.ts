@@ -1,3 +1,4 @@
+import type { AgentAction } from '../../shared/agent'
 import type { ProviderName } from '../settingsStore'
 
 export interface VisionRequest {
@@ -17,6 +18,21 @@ export interface VisionRequest {
 export interface VisionProvider {
   readonly name: ProviderName
   ask(request: VisionRequest): Promise<string>
+}
+
+/** One task's worth of agent conversation, held by the provider. */
+export interface AgentSession {
+  /**
+   * Decides the next action from the current screen.
+   * `lastResult` reports how the previous action went, so the model can adapt.
+   */
+  next(screenshot: Buffer, lastResult?: string): Promise<AgentAction>
+}
+
+/** Agent Mode: drive the machine, one action at a time. */
+export interface ComputerUseProvider {
+  readonly name: ProviderName
+  startTask(task: string, signal?: AbortSignal): AgentSession
 }
 
 /** Raised when a provider is selected but not usable yet (e.g. no API key). */

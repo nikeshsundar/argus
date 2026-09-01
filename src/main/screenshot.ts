@@ -22,6 +22,8 @@ export interface Capture {
    * Agent Mode and on-screen annotations both depend on this mapping.
    */
   scale: number
+  /** Top-left of the captured display in desktop coordinates (multi-monitor). */
+  origin: { x: number; y: number }
   info: CaptureInfo
 }
 
@@ -67,6 +69,7 @@ export async function captureActiveDisplay(): Promise<Capture> {
   return {
     model: { png: modelImage.toPNG(), width: modelSize.width, height: modelSize.height },
     scale: fullSize.width / modelSize.width,
+    origin: { x: display.bounds.x, y: display.bounds.y },
     info: {
       width: fullSize.width,
       height: fullSize.height,

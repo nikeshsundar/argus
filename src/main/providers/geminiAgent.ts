@@ -1,0 +1,209 @@
+import type { AgentAction } from '../../shared/agent'
+import {
+  callGemini,
+  describeGeminiFailure,
+  type GeminiPart,
+  type GeminiResponse
+} from './geminiClient'
+import { ProviderUnavailableError, type AgentSession, type ComputerUseProvider } from './types'
+
+const SYSTEM_PROMPT = `You are Argus in Agent Mode. You are operating a real Windows desktop on the user's behalf.
+
+Each turn you receive a fresh screenshot of the screen and must call exactly one function to make progress on the task.
+
+Rules:
+- Coordinates are on a 0-1000 grid for BOTH axes, where (0,0) is the top-left of the screen and (1000,1000) is the bottom-right. Look carefully at the screenshot and aim at the centre of the thing you want to hit.
+- Take one small, verifiable step at a time. After each action you will see the result, so you do not need to guess ahead.
+- To launch a program, press the Windows key, type its name, then press Enter - this is more reliable than hunting for icons.
+- If a click did not do what you expected, look at the new screenshot and adapt instead of repeating the same click.
+- Call task_done as soon as the task is complete, with a one-sentence summary of what you did.
+- If the task is impossible or unsafe, call task_done and explain why in the summary.`
+
+const FUNCTION_DECLARATIONS = [
+  {
+    name: 'click',
+    description: 'Click at a point on screen.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        x: { type: 'NUMBER', description: 'Horizontal position, 0-1000' },
+        y: { type: 'NUMBER', description: 'Vertical position, 0-1000' },
+        button: { type: 'STRING', enum: ['left', 'right'] },
+        double: { type: 'BOOLEAN', description: 'True for a double click' }
+      },
+      required: ['x', 'y']
+    }
+  },
+  {
+    name: 'type_text',
+    description: 'Type text at the current focus.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { text: { type: 'STRING' } },
+      required: ['text']
+    }
+  },
+  {
+    name: 'press_keys',
+    description:
+      'Press keys together, e.g. ["super"] to open the Start menu or ["control","a"] to select all.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { keys: { type: 'ARRAY', items: { type: 'STRING' } } },
+      required: ['keys']
+    }
+  },
+  {
+    name: 'scroll',
+    description: 'Scroll the window under the cursor.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        direction: { type: 'STRING', enum: ['up', 'down'] },
+        clicks: { type: 'NUMBER', description: 'Wheel clicks, 1-10' }
+      },
+      required: ['direction']
+    }
+  },
+  {
+    name: 'wait',
+    description: 'Wait for the screen to settle, e.g. while an app launches.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { seconds: { type: 'NUMBER' } },
+      required: ['seconds']
+    }
+  },
+  {
+    name: 'task_done',
+    description: 'Finish the task and report what happened.',
+    parameters: {
+      type: 'OBJECT',
+      properties: { summary: { type: 'STRING' } },
+      required: ['summary']
+    }
+  }
+]
+
+interface Content {
+  role: 'user' | 'model'
+  parts: unknown[]
+}
+
+export function createGeminiAgentProvider(options: {
+  apiKey: string
+  model: string
+}): ComputerUseProvider {
+  if (!options.apiKey) {
+    throw new ProviderUnavailableError('No Gemini API key set. Type "/key <your-key>" here.')
+  }
+
+  return {
+    name: 'gemini',
+
+    startTask(task: string, signal?: AbortSignal): AgentSession {
+      const contents: Content[] = []
+      let pendingCall: string | null = null
+
+      return {
+        async next(screenshot: Buffer, lastResult?: string): Promise<AgentAction> {
+          const image = {
+            inline_data: { mime_type: 'image/png', data: screenshot.toString('base64') }
+          }
+
+          if (contents.length === 0) {
+            contents.push({ role: 'user', parts: [image, { text: `Task: ${task}` }] })
+          } else {
+            // Report the previous action's outcome, then show the new screen.
+            contents.push({
+              role: 'user',
+              parts: [
+                {
+                  functionResponse: {
+                    name: pendingCall ?? 'click',
+                    response: { result: lastResult ?? 'done' }
+                  }
+                },
+                image
+              ]
+            })
+          }
+
+          const response = await callGemini({
+            apiKey: options.apiKey,
+            model: options.model,
+            method: 'generateContent',
+            signal,
+            body: {
+              systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+              contents,
+              tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
+              toolConfig: { functionCallingConfig: { mode: 'ANY' } },
+              generationConfig: { temperature: 0 }
+            }
+          })
+
+          if (!response.ok) throw new Error(await describeGeminiFailure(response, options.model))
+
+          const payload = (await response.json()) as GeminiResponse
+          if (payload.error?.message) throw new Error(`Gemini: ${payload.error.message}`)
+
+          const parts = payload.candidates?.[0]?.content?.parts ?? []
+          const call = parts.find((part: GeminiPart) => part.functionCall)?.functionCall
+
+          if (!call) {
+            const text = parts
+              .filter((part) => !part.thought && part.text)
+              .map((part) => part.text)
+              .join('')
+              .trim()
+            return { type: 'done', summary: text || 'The model stopped without choosing an action.' }
+          }
+
+          // Replay the model's parts exactly as returned. Gemini 3 rejects the
+          // next turn if the thoughtSignature that came with a functionCall
+          // isn't echoed back, so never reconstruct this from just the call.
+          contents.push({ role: 'model', parts })
+          pendingCall = call.name
+
+          return toAction(call.name, call.args)
+        }
+      }
+    }
+  }
+}
+
+function toAction(name: string, args: Record<string, unknown>): AgentAction {
+  const num = (value: unknown, fallback = 0): number =>
+    typeof value === 'number' && Number.isFinite(value) ? value : fallback
+
+  switch (name) {
+    case 'click':
+      return {
+        type: 'click',
+        x: num(args['x']),
+        y: num(args['y']),
+        button: args['button'] === 'right' ? 'right' : 'left',
+        double: args['double'] === true
+      }
+    case 'type_text':
+      return { type: 'type', text: String(args['text'] ?? '') }
+    case 'press_keys':
+      return {
+        type: 'keys',
+        keys: Array.isArray(args['keys']) ? args['keys'].map(String) : []
+      }
+    case 'scroll':
+      return {
+        type: 'scroll',
+        direction: args['direction'] === 'up' ? 'up' : 'down',
+        clicks: num(args['clicks'], 3)
+      }
+    case 'wait':
+      return { type: 'wait', seconds: num(args['seconds'], 1) }
+    case 'task_done':
+      return { type: 'done', summary: String(args['summary'] ?? 'Task finished.') }
+    default:
+      return { type: 'done', summary: `Model asked for an unknown action "${name}".` }
+  }
+}

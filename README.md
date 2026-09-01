@@ -91,6 +91,9 @@ Agent Mode requires Claude because it needs a model that reliably returns precis
 - [x] Global hotkey, tray app, request bar
 - [x] In-memory screen capture
 - [x] Talk Mode (Claude and Gemini)
+- [x] Command palette in the bar
+- [x] Agent Mode — autonomous mouse and keyboard control (Gemini)
+- [ ] Agent Mode via Claude computer use
 - [ ] On-screen annotations — arrows and highlights drawn over your screen
 - [ ] Talk Mode for OpenAI + Ollama, settings UI
 - [ ] Encrypt stored API keys with Electron `safeStorage`
@@ -119,7 +122,14 @@ src/shared/     Types shared across processes
 
 ## Safety
 
-Agent Mode controls your real mouse and keyboard. It always shows a visible on-screen indicator while active, stops immediately on <kbd>Esc</kbd>, and is capped at a maximum number of steps per task. Don't run it against anything you can't afford to have clicked.
+Agent Mode controls your real mouse and keyboard. Four things keep that honest:
+
+- A pulsing amber frame covers the screen the whole time it has control — it can never operate your machine silently.
+- <kbd>Esc</kbd> stops it instantly, from anywhere, whether or not Argus has focus.
+- Every task is capped at 14 actions, so a confused model can't grind away indefinitely.
+- It works one action at a time, re-reading the screen after each, rather than firing off a blind sequence.
+
+Don't point it at anything you can't afford to have clicked.
 
 ## Contributing
 

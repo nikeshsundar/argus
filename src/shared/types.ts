@@ -20,6 +20,13 @@ export interface OpenedEvent {
   notice?: string
 }
 
+/** Progress report sent to the overlay while Agent Mode is running. */
+export interface AgentStepEvent {
+  description: string
+  index: number
+  max: number
+}
+
 /** Result of submitting a request from the bar. */
 export interface SubmitResult {
   ok: boolean

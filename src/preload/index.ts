@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { OpenedEvent, SubmitResult } from '../shared/types'
+import type { AgentStepEvent, OpenedEvent, SubmitResult } from '../shared/types'
 
 const api = {
   /** Sends the typed request to the main process and resolves with the result. */
@@ -24,6 +24,14 @@ const api = {
     const listener = (_event: Electron.IpcRendererEvent, delta: string): void => callback(delta)
     ipcRenderer.on('argus:delta', listener)
     return () => ipcRenderer.off('argus:delta', listener)
+  },
+
+  /** Fires on every Agent Mode action - drives the bar and the overlay banner. */
+  onAgentStep: (callback: (event: AgentStepEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AgentStepEvent): void =>
+      callback(payload)
+    ipcRenderer.on('argus:agent-step', listener)
+    return () => ipcRenderer.off('argus:agent-step', listener)
   }
 }
 

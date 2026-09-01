@@ -184,6 +184,19 @@ export function unregisterHotkey(): void {
   strategy = null
 }
 
+/**
+ * Calls `handler` whenever Escape is pressed anywhere, regardless of focus.
+ * Agent Mode uses this as its panic button. Returns an unsubscribe function.
+ */
+export function watchEscape(handler: () => void): () => void {
+  const listener = (event: { keycode: number }): void => {
+    if (event.keycode === UiohookKey.Escape) handler()
+  }
+  startHook()
+  uIOhook.on('keydown', listener)
+  return () => uIOhook.off('keydown', listener)
+}
+
 /** Stops the keyboard hook. Call once on quit. */
 export function disposeHotkeys(): void {
   unregisterHotkey()

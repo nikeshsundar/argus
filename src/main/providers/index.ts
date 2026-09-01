@@ -1,7 +1,8 @@
 import { loadSettings } from '../settingsStore'
 import { createClaudeProvider } from './claude'
 import { createGeminiProvider } from './gemini'
-import { ProviderUnavailableError, type VisionProvider } from './types'
+import { createGeminiAgentProvider } from './geminiAgent'
+import { ProviderUnavailableError, type ComputerUseProvider, type VisionProvider } from './types'
 
 /** Builds the Talk Mode provider named in settings. */
 export function createTalkProvider(): VisionProvider {
@@ -26,4 +27,21 @@ export function createTalkProvider(): VisionProvider {
         `Provider "${settings.talkProvider}" isn't implemented yet. Use "/provider claude" or "/provider gemini".`
       )
   }
+}
+
+/**
+ * Builds the Agent Mode provider. Only Gemini drives the desktop today - the
+ * Claude computer-use path is next.
+ */
+export function createAgentProvider(): ComputerUseProvider {
+  const settings = loadSettings()
+  const geminiKey = settings.geminiApiKey || process.env['GEMINI_API_KEY'] || ''
+
+  if (!geminiKey) {
+    throw new ProviderUnavailableError(
+      'Agent Mode needs a Gemini key right now. Add one with "/key <your-key>".'
+    )
+  }
+
+  return createGeminiAgentProvider({ apiKey: geminiKey, model: settings.geminiModel })
 }

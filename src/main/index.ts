@@ -1,4 +1,5 @@
 import { app, ipcMain } from 'electron'
+import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
 import type { SubmitResult } from '../shared/types'
 import { parseMode } from '../shared/types'
@@ -182,6 +183,41 @@ async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResu
   }
 }
 
+/**
+ * Agent Mode: hand the machine over. The bar gets out of the way while the
+ * agent works, then comes back with what happened.
+ */
+async function runAgent(task: string): Promise<SubmitResult> {
+  const bar = getRequestBar()
+  clearPendingCapture()
+  abortInFlight()
+
+  const controller = new AbortController()
+  inFlight = controller
+  hideRequestBar()
+
+  try {
+    const result = await runAgentTask({
+      task,
+      signal: controller.signal,
+      onStep: (event) => bar?.webContents.send('argus:agent-step', event)
+    })
+    showRequestBar({ capture: null, notice: result.summary })
+    return { ok: result.ok, mode: 'agent', message: result.summary }
+  } catch (error) {
+    const message =
+      error instanceof ProviderUnavailableError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'Agent Mode failed.'
+    showRequestBar({ capture: null, error: message })
+    return { ok: false, mode: 'agent', message }
+  } finally {
+    if (inFlight === controller) inFlight = null
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle('argus:submit', async (_event, text: string): Promise<SubmitResult> => {
     const command = handleSlashCommand(text.trim())
@@ -192,13 +228,7 @@ function registerIpc(): void {
       return { ok: false, mode, message: 'Say what you want me to look at.' }
     }
 
-    if (mode === 'agent') {
-      return {
-        ok: false,
-        mode,
-        message: 'Agent Mode is not wired up yet - it lands in the next milestone.'
-      }
-    }
+    if (mode === 'agent') return await runAgent(prompt)
 
     const capture = pendingCapture
     clearPendingCapture()
