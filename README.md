@@ -26,6 +26,8 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 [Demo](#demo) · [Features](#features) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
+**[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
+
 ## Demo
 
 > [!TIP]

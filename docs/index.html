@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://nikeshsundar.github.io/argus/" />
+<meta property="og:title" content="Argus — a screen-aware AI assistant for Windows" />
+<meta property="og:description" content="Press a hotkey. Ask about anything on your screen, or hand it the keyboard. Open source, self-hosted, no telemetry." />
+<meta property="og:image" content="https://nikeshsundar.github.io/argus/icon.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Argus — a screen-aware AI assistant for Windows" />
+<meta name="twitter:description" content="Press a hotkey. Ask about anything on your screen, or hand it the keyboard. Open source, self-hosted, no telemetry." />
+<meta name="twitter:image" content="https://nikeshsundar.github.io/argus/icon.png" />
+<link rel="icon" type="image/png" href="./icon.png" />
+
+<title>Argus</title>
+<meta name="description" content="An open-source, screen-aware AI assistant for Windows. Ask about anything on screen, or hand it the keyboard." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,440;0,9..144,560;0,9..144,650;1,9..144,440&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================= TOKENS ============================= */
+:root{
+  --bg:#EEF1F7;
+  --ink:#10121B;
+  --muted:#5B6178;
+  --surface:#FFFFFF;
+  --surface-2:#E6E9F1;
+  --border:rgba(16,18,27,.11);
+  --iris:#1094B8;
+  --iris-soft:rgba(16,148,184,.12);
+  --amber:#A66313;
+  --amber-soft:rgba(166,99,19,.12);
+  --term-bg:#0A0B12;
+  --term-ink:#E7EAF3;
+  --term-muted:#7C8299;
+  --shadow:0 24px 60px rgba(16,18,27,.10);
+
+  --font-display:"Fraunces",ui-serif,Georgia,serif;
+  --font-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A0B12;
+    --ink:#EDEFF7;
+    --muted:#8A90A6;
+    --surface:#12141F;
+    --surface-2:#181B29;
+    --border:rgba(255,255,255,.09);
+    --iris:#56D3F5;
+    --iris-soft:rgba(86,211,245,.12);
+    --amber:#F5B556;
+    --amber-soft:rgba(245,181,86,.13);
+    --shadow:0 24px 60px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A0B12;
+  --ink:#EDEFF7;
+  --muted:#8A90A6;
+  --surface:#12141F;
+  --surface-2:#181B29;
+  --border:rgba(255,255,255,.09);
+  --iris:#56D3F5;
+  --iris-soft:rgba(86,211,245,.12);
+  --amber:#F5B556;
+  --amber-soft:rgba(245,181,86,.13);
+  --shadow:0 24px 60px rgba(0,0,0,.45);
+  color-scheme: dark;
+}
+
+/* ============================= RESET / BASE ============================= */
+*{ box-sizing:border-box; }
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{
+  font-family:var(--font-display);
+  font-weight:560;
+  line-height:1.08;
+  text-wrap:balance;
+  margin:0;
+  color:var(--ink);
+}
+p{ margin:0; }
+a{ color:inherit; }
+::selection{ background:var(--iris-soft); color:var(--ink); }
+:focus-visible{ outline:2px solid var(--iris); outline-offset:3px; border-radius:4px; }
+
+.wrap{ max-width:1180px; margin:0 auto; padding:0 28px; }
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.lede{ font-size:1.1rem; color:var(--muted); max-width:52ch; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}
+
+/* ============================= NAV ============================= */
+.nav{
+  position:sticky; top:0; z-index:40;
+  backdrop-filter:blur(14px) saturate(140%);
+  background:color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom:1px solid var(--border);
+}
+.nav .wrap{ display:flex; align-items:center; gap:28px; height:66px; }
+.brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:650; font-size:1.15rem; text-decoration:none; margin-right:auto; }
+.brand img{ width:26px; height:26px; border-radius:7px; display:block; }
+.navlinks{ display:flex; gap:26px; font-size:.92rem; color:var(--muted); }
+.navlinks a{ text-decoration:none; }
+.navlinks a:hover{ color:var(--ink); }
+.nav-cta{
+  font-family:var(--font-mono); font-size:.82rem; font-weight:500;
+  padding:9px 16px; border-radius:8px; border:1px solid var(--border);
+  text-decoration:none; color:var(--ink); white-space:nowrap;
+}
+.nav-cta:hover{ border-color:var(--iris); }
+@media (max-width:760px){ .navlinks{ display:none; } }
+
+/* ============================= HERO ============================= */
+.hero{ padding:76px 0 40px; overflow:hidden; }
+.hero .wrap{ display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center; }
+@media (max-width:920px){ .hero .wrap{ grid-template-columns:1fr; } }
+
+.hero h1{ font-size:clamp(2.5rem,5vw,3.6rem); margin:16px 0 20px; }
+.hero h1 em{ font-style:italic; color:var(--iris); }
+.hero-actions{ display:flex; flex-wrap:wrap; gap:14px; margin-top:30px; }
+
+.btn{
+  display:inline-flex; align-items:center; gap:9px;
+  font-family:var(--font-body); font-weight:600; font-size:.98rem;
+  padding:13px 22px; border-radius:10px; text-decoration:none;
+  border:1px solid transparent; cursor:pointer;
+}
+.btn-primary{ background:var(--ink); color:var(--bg); }
+.btn-primary:hover{ opacity:.88; }
+.btn-ghost{ border-color:var(--border); color:var(--ink); background:transparent; }
+.btn-ghost:hover{ border-color:var(--iris); }
+.hero-fine{ margin-top:18px; font-family:var(--font-mono); font-size:.78rem; color:var(--muted); }
+
+.eye-stage{ position:relative; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; }
+.eye-stage canvas{ width:100%; height:100%; display:block; }
+.eye-caption{
+  position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+  font-family:var(--font-mono); font-size:.72rem; color:var(--muted);
+  letter-spacing:.06em; white-space:nowrap;
+}
+
+/* ============================= TICKER ============================= */
+.ticker-band{ border-top:1px solid var(--border); border-bottom:1px solid var(--border); overflow:hidden; background:var(--surface-2); }
+.ticker{ display:flex; width:max-content; animation:scroll 34s linear infinite; }
+.ticker span{
+  font-family:var(--font-mono); font-size:.86rem; color:var(--muted);
+  padding:16px 40px; white-space:nowrap; border-right:1px solid var(--border);
+}
+.ticker span b{ color:var(--ink); font-weight:600; }
+@keyframes scroll{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+
+/* ============================= SECTION HEADERS ============================= */
+.section{ padding:96px 0; }
+.section-head{ max-width:640px; margin-bottom:56px; }
+.section-head h2{ font-size:clamp(1.9rem,3.4vw,2.5rem); margin-top:12px; }
+
+/* ============================= FEATURE SPREADS ============================= */
+.spread{ display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; padding:52px 0; border-top:1px solid var(--border); }
+.spread:nth-of-type(even){ direction:rtl; }
+.spread:nth-of-type(even) > *{ direction:ltr; }
+@media (max-width:860px){ .spread{ grid-template-columns:1fr; } .spread:nth-of-type(even){ direction:ltr; } }
+.spread h3{ font-size:1.7rem; margin:14px 0 14px; }
+.spread p{ color:var(--muted); max-width:46ch; }
+.spread ul{ margin:18px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px; }
+.spread li{ color:var(--muted); font-size:.94rem; padding-left:20px; position:relative; }
+.spread li::before{ content:"—"; position:absolute; left:0; color:var(--iris); }
+
+/* mock bar UI */
+.mock{ background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); padding:20px 22px; }
+.mock-row{ display:flex; align-items:center; gap:10px; }
+.mock-chip{ font-family:var(--font-mono); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; font-weight:600; padding:4px 10px; border-radius:999px; background:var(--iris-soft); color:var(--iris); }
+.mock-chip.amber{ background:var(--amber-soft); color:var(--amber); }
+.mock-input{ color:var(--muted); font-size:.95rem; }
+.mock-thread{ margin-top:16px; display:flex; flex-direction:column; gap:14px; }
+.mock-q{ font-size:.8rem; color:var(--muted); }
+.mock-a{ font-size:.88rem; color:var(--ink); line-height:1.55; }
+.mock-hr{ height:1px; background:var(--border); margin:16px 0; }
+.mock-steps{ display:flex; flex-direction:column; gap:10px; font-family:var(--font-mono); font-size:.82rem; }
+.mock-step{ display:flex; gap:10px; color:var(--muted); align-items:baseline; }
+.mock-step b{ color:var(--ink); font-weight:600; }
+.mock-frame{ border:2px solid var(--amber); border-radius:14px; padding:16px; position:relative; }
+.mock-frame::after{ content:"agent active"; position:absolute; top:-11px; left:14px; background:var(--surface); padding:0 8px; font-family:var(--font-mono); font-size:.65rem; color:var(--amber); letter-spacing:.06em; text-transform:uppercase; }
+
+/* diagram plate */
+.plate{ background:#fff; border-radius:14px; padding:28px; box-shadow:var(--shadow); overflow-x:auto; }
+.plate-cap{ font-family:var(--font-mono); font-size:.78rem; color:var(--muted); text-align:center; margin-top:16px; }
+
+/* ============================= INSTALL ============================= */
+.install-grid{ display:grid; grid-template-columns:.62fr .38fr; gap:48px; }
+@media (max-width:920px){ .install-grid{ grid-template-columns:1fr; } }
+.steps{ display:flex; flex-direction:column; gap:0; }
+.step{ display:grid; grid-template-columns:34px 1fr; gap:18px; padding:26px 0; border-top:1px solid var(--border); }
+.step:first-child{ border-top:none; }
+.step-num{ font-family:var(--font-display); font-size:1.3rem; color:var(--iris); }
+.step h4{ font-family:var(--font-body); font-weight:700; font-size:1.02rem; margin:0 0 6px; }
+.step p{ color:var(--muted); font-size:.92rem; margin-bottom:12px; max-width:52ch; }
+.step p a{ color:var(--iris); text-decoration:underline; text-underline-offset:2px; }
+
+.term{
+  background:var(--term-bg); border-radius:10px; overflow:hidden;
+  font-family:var(--font-mono); font-size:.86rem; color:var(--term-ink);
+}
+.term-bar{ display:flex; align-items:center; gap:8px; padding:10px 14px; background:rgba(255,255,255,.04); }
+.term-dot{ width:10px; height:10px; border-radius:50%; background:rgba(255,255,255,.18); }
+.term-title{ margin-left:6px; font-size:.72rem; color:var(--term-muted); }
+.term-body{ padding:4px 0 10px; }
+.term-line{ display:flex; align-items:center; justify-content:space-between; gap:14px; padding:6px 16px; }
+.term-cmd{ white-space:pre; overflow-x:auto; }
+.term-cmd .prompt{ color:#5FE38A; }
+.term-cmd .rem{ color:var(--term-muted); }
+.copy-btn{
+  flex:none; font-family:var(--font-mono); font-size:.7rem; letter-spacing:.03em;
+  color:var(--term-muted); background:transparent; border:1px solid rgba(255,255,255,.14);
+  border-radius:6px; padding:4px 9px; cursor:pointer;
+}
+.copy-btn:hover{ color:var(--term-ink); border-color:rgba(255,255,255,.3); }
+.copy-btn[data-copied="true"]{ color:#5FE38A; border-color:#5FE38A; }
+
+.rail-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; }
+.rail-card + .rail-card{ margin-top:16px; }
+.rail-card h5{ font-family:var(--font-body); font-size:.82rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:0 0 10px; }
+.rail-card p, .rail-card li{ font-size:.9rem; color:var(--ink); }
+.rail-card ul{ margin:0; padding-left:18px; }
+.rail-card li{ margin-bottom:6px; }
+.rail-card a{ color:var(--iris); text-decoration:underline; text-underline-offset:2px; }
+
+/* ============================= SAFETY ============================= */
+.safety{ background:var(--surface-2); }
+.safety-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-top:44px; }
+@media (max-width:820px){ .safety-grid{ grid-template-columns:repeat(2,1fr); } }
+.safety-cell{ background:var(--surface); padding:26px 22px; }
+.safety-cell .k{ font-family:var(--font-mono); font-size:.7rem; letter-spacing:.06em; text-transform:uppercase; color:var(--amber); }
+.safety-cell p{ margin-top:10px; font-size:.9rem; color:var(--muted); }
+
+/* ============================= FOOTER ============================= */
+footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
+.foot-row{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:28px; align-items:flex-start; }
+.foot-brand{ font-family:var(--font-display); font-size:1.3rem; font-weight:600; }
+.foot-links{ display:flex; gap:28px; flex-wrap:wrap; font-size:.9rem; color:var(--muted); }
+.foot-links a{ text-decoration:none; }
+.foot-links a:hover{ color:var(--ink); }
+.foot-bottom{ margin-top:44px; padding-top:24px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-family:var(--font-mono); font-size:.78rem; color:var(--muted); }
+</style>
+
+<style>
+/* Reset the artifact host normally supplies. */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><img id="navicon" alt="" /> Argus</a>
+    <div class="navlinks">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="#safety">Safety</a>
+    </div>
+    <a class="nav-cta" href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">★ GitHub</a>
+  </div>
+</nav>
+
+<main id="top">
+
+  <!-- ============================= HERO ============================= -->
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <p class="eyebrow">Open source · Windows · Self-hosted</p>
+        <h1>It only opens its eye<br>when <em>you</em> ask.</h1>
+        <p class="lede">Argus is a screen-aware AI assistant that lives in your tray. Press a hotkey, ask it anything about what's on screen, or hand it the keyboard and let it finish the task for you.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#install">Get Argus — it's free</a>
+          <a class="btn btn-ghost" href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">View source on GitHub</a>
+        </div>
+        <p class="hero-fine">MIT licensed · zero telemetry · bring your own API key · nothing captured until you press the key</p>
+      </div>
+      <div class="eye-stage">
+        <canvas id="eye" width="640" height="640" aria-hidden="true"></canvas>
+        <p class="eye-caption">watching only while you hold its gaze</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticker-band">
+    <div class="ticker" id="ticker">
+    </div>
+  </div>
+
+  <!-- ============================= FEATURES ============================= -->
+  <section class="section" id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">What it does</p>
+        <h2>Two modes. One hotkey.</h2>
+      </div>
+
+      <div class="spread">
+        <div>
+          <p class="eyebrow">Talk Mode</p>
+          <h3>Ask about anything you're looking at — then keep asking.</h3>
+          <p>Argus captures the screen once, sends it with your question, and keeps the thread going. Follow-ups resolve against what was already discussed, so you never have to re-explain yourself.</p>
+          <ul>
+            <li>Understands screenshots, not just text — errors, dashboards, videos, code</li>
+            <li>Every conversation is saved as a resumable thread</li>
+            <li>Works with a free Gemini API key</li>
+          </ul>
+        </div>
+        <div class="mock">
+          <div class="mock-row">
+            <span class="mock-chip">Talk</span>
+            <span class="mock-input">who is this creator?</span>
+          </div>
+          <div class="mock-hr"></div>
+          <div class="mock-thread">
+            <div>
+              <div class="mock-q">who is this creator?</div>
+              <div class="mock-a">This is a YouTube channel known for short, 3D-animated explainers on how everyday things work.</div>
+            </div>
+            <div>
+              <div class="mock-q">how many subscribers?</div>
+              <div class="mock-a">Just over 2.1M, based on the counter visible in the corner of the page.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spread">
+        <div>
+          <p class="eyebrow">Agent Mode</p>
+          <h3>Say <code>agent</code>, describe the task, watch it get done.</h3>
+          <p>Argus looks at the screen, decides one action, performs it, then looks again — the same loop a person uses, not a blind script. A pulsing frame stays on screen the entire time, so it never operates silently.</p>
+          <ul>
+            <li>Launches real apps directly — no typing into Windows Search, no stray browser tabs</li>
+            <li>One action at a time, re-checked against the screen after every step</li>
+            <li><kbd>Esc</kbd> stops it instantly, from anywhere, no matter what has focus</li>
+          </ul>
+        </div>
+        <div class="mock mock-frame">
+          <div class="mock-row">
+            <span class="mock-chip amber">Agent</span>
+            <span class="mock-input">open vs code and open github</span>
+          </div>
+          <div class="mock-hr"></div>
+          <div class="mock-steps">
+            <div class="mock-step"><b>1</b> launch_app("Visual Studio Code")</div>
+            <div class="mock-step"><b>2</b> open_url("https://github.com")</div>
+            <div class="mock-step"><b>3</b> <span style="color:var(--iris)">done — opened VS Code and GitHub</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spread">
+        <div>
+          <p class="eyebrow">Privacy, by construction</p>
+          <h3>Your screen is the most personal data you have.</h3>
+          <p>Argus was built around one rule: nothing is captured until the hotkey is pressed, and nothing captured ever touches disk. Only text — never an image — is saved to your chat history.</p>
+          <ul>
+            <li>Screenshots live in RAM only, discarded once a request finishes</li>
+            <li>No Argus servers. Your screen goes to the model provider <em>you</em> choose, and nowhere else</li>
+            <li>Fully self-hostable — read every line, or fork it</li>
+          </ul>
+        </div>
+        <div class="mock">
+          <div class="mock-row">
+            <span class="mock-chip">RAM only</span>
+            <span class="mock-input" style="font-family:var(--font-mono); font-size:.85rem;">0 bytes written to disk</span>
+          </div>
+          <div class="mock-hr"></div>
+          <div class="mock-steps">
+            <div class="mock-step">hotkey pressed <b>→</b> screen captured in memory</div>
+            <div class="mock-step">question answered <b>→</b> image discarded</div>
+            <div class="mock-step">chat saved <b>→</b> text only, ever</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= HOW IT WORKS ============================= -->
+  <section class="section" id="how" style="padding-top:0;">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Under the hood</p>
+        <h2>The loop, exactly as it runs.</h2>
+      </div>
+      <div class="plate">
+<pre class="mermaid">
+flowchart LR
+    A["Press Alt + `"] --> B["Screenshot captured<br/>(RAM only, never saved)"]
+    B --> C{What did you ask?}
+    C -->|"a question"| D["Talk Mode<br/>vision model"]
+    C -->|"'agent ...'"| E["Agent Mode<br/>model + tools"]
+    D --> F["Answer streams<br/>into the bar"]
+    E --> G["One action:<br/>launch app · click · type · scroll"]
+    G --> H["Action runs<br/>on your real PC"]
+    H --> I{Task done?}
+    I -->|no| B
+    I -->|yes| J["Summary shown,<br/>overlay disappears"]
+</pre>
+      </div>
+      <p class="plate-cap">Every Agent Mode step re-captures the screen before deciding the next move — never a blind sequence.</p>
+    </div>
+  </section>
+
+  <!-- ============================= INSTALL ============================= -->
+  <section class="section" id="install">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Get it running</p>
+        <h2>Five minutes, start to first answer.</h2>
+      </div>
+
+      <div class="install-grid">
+        <div class="steps">
+
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <h4>Clone the repository</h4>
+              <p>Open a terminal anywhere and run:</p>
+              <div class="term">
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">cmd</span></div>
+                <div class="term-body">
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> git clone https://github.com/nikeshsundar/argus.git</span><button class="copy-btn" data-copy="git clone https://github.com/nikeshsundar/argus.git">copy</button></div>
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> cd argus</span><button class="copy-btn" data-copy="cd argus">copy</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <h4>Install dependencies</h4>
+              <p>Needs <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> installed.</p>
+              <div class="term">
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">cmd</span></div>
+                <div class="term-body">
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm install</span><button class="copy-btn" data-copy="npm install">copy</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">3</div>
+            <div>
+              <h4>Run it</h4>
+              <p>Argus starts in your system tray — no window opens yet, that's expected.</p>
+              <div class="term">
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">cmd</span></div>
+                <div class="term-body">
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm run dev</span><button class="copy-btn" data-copy="npm run dev">copy</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">4</div>
+            <div>
+              <h4>Add a free API key</h4>
+              <p>Grab one from <a href="https://ai.google.dev" target="_blank" rel="noopener">Google AI Studio</a> — no card required. Press <kbd>Alt</kbd>+<kbd>`</kbd>, then type directly into the bar:</p>
+              <div class="term">
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">argus</span></div>
+                <div class="term-body">
+                  <div class="term-line"><span class="term-cmd"><span class="rem">/key</span> YOUR_GEMINI_KEY</span><button class="copy-btn" data-copy="/key YOUR_GEMINI_KEY">copy</button></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">5</div>
+            <div>
+              <h4>Ask it something</h4>
+              <p>Press <kbd>Alt</kbd>+<kbd>`</kbd> from anywhere in Windows. Type a question, or start with <code>agent</code> to hand over the keyboard.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <div>
+          <div class="rail-card">
+            <h5>Requirements</h5>
+            <ul>
+              <li>Windows 10 or 11</li>
+              <li>Node.js (for running from source)</li>
+              <li>A free Gemini API key</li>
+            </ul>
+          </div>
+          <div class="rail-card">
+            <h5>Prefer an installer?</h5>
+            <p>Build a one-click <code>.exe</code> yourself:</p>
+            <div class="term" style="margin-top:12px;">
+              <div class="term-body">
+                <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm run package</span><button class="copy-btn" data-copy="npm run package">copy</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="rail-card">
+            <h5>Configured entirely in the bar</h5>
+            <ul>
+              <li><code>/provider</code> — switch model</li>
+              <li><code>/hotkey</code> — rebind the shortcut</li>
+              <li><code>/history</code> — resume a past chat</li>
+              <li><code>/help</code> — list everything</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================= SAFETY ============================= -->
+  <section class="section safety" id="safety">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Agent Mode controls a real mouse and keyboard</p>
+        <h2>Four things keep that honest.</h2>
+      </div>
+      <div class="safety-grid">
+        <div class="safety-cell">
+          <div class="k">Visible always</div>
+          <p>A pulsing amber frame covers the screen the entire time it has control. It can never operate silently.</p>
+        </div>
+        <div class="safety-cell">
+          <div class="k">Instant stop</div>
+          <p><kbd>Esc</kbd> kills it immediately, from anywhere, whether or not Argus has focus.</p>
+        </div>
+        <div class="safety-cell">
+          <div class="k">Hard ceiling</div>
+          <p>Every task is capped at 14 actions, so a confused model can't grind on indefinitely.</p>
+        </div>
+        <div class="safety-cell">
+          <div class="k">One step at a time</div>
+          <p>It re-reads the screen after every action rather than firing a blind sequence.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <div>
+        <div class="foot-brand">Argus</div>
+        <p class="lede" style="margin-top:8px; font-size:.92rem;">Named for Argus Panoptes, the hundred-eyed giant of Greek myth — always watching, never asleep. This one only opens its eye when you ask.</p>
+      </div>
+      <div class="foot-links">
+        <a href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/nikeshsundar/argus/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://github.com/nikeshsundar/argus/issues" target="_blank" rel="noopener">Report an issue</a>
+        <a href="#install">Install</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 nikeshsundar</span>
+      <span>Windows 10/11 · MIT licensed · no telemetry</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- theme-aware token reader ---------- */
+  function tokens(){
+    var cs = getComputedStyle(document.documentElement);
+    return {
+      bg: cs.getPropertyValue('--bg').trim(),
+      iris: cs.getPropertyValue('--iris').trim(),
+      ink: cs.getPropertyValue('--ink').trim(),
+      muted: cs.getPropertyValue('--muted').trim()
+    };
+  }
+
+  /* ---------- generative eye ---------- */
+  var canvas = document.getElementById('eye');
+  var ctx = canvas.getContext('2d');
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var pointer = { x: 0.5, y: 0.42 };
+  var blink = 0; // 0 = open, 1 = fully closed
+  var openAmount = reduced ? 1 : 0;
+  var nextBlinkAt = performance.now() + 2600;
+
+  function resize(){
+    var rect = canvas.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  window.addEventListener('pointermove', function(e){
+    pointer.x = e.clientX / window.innerWidth;
+    pointer.y = e.clientY / window.innerHeight;
+  });
+
+  function draw(now){
+    var rect = canvas.getBoundingClientRect();
+    var w = rect.width, h = rect.height;
+    var t = tokens();
+    ctx.clearRect(0, 0, w, h);
+
+    var cx = w / 2, cy = h / 2;
+    var eyeW = w * 0.86, eyeH = h * 0.5;
+
+    if (!reduced){
+      openAmount += (1 - openAmount) * 0.06;
+      if (now > nextBlinkAt){
+        blink = 1;
+        nextBlinkAt = now + 3400 + Math.random() * 3200;
+      }
+      blink += (0 - blink) * 0.22;
+      if (blink < 0.02) blink = 0;
+    }
+    var lid = openAmount * (1 - blink);
+
+    // sclera (the eye white / socket)
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, eyeW / 2, (eyeH / 2) * lid, 0, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = t.bg;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(cx - eyeW/2, cy - eyeH/2, eyeW, eyeH);
+    ctx.globalAlpha = 1;
+
+    // iris follows the pointer, gently, within the socket
+    var dx = (pointer.x - 0.5) * eyeW * 0.16;
+    var dy = (pointer.y - 0.5) * eyeH * 0.4;
+    var ix = cx + dx, iy = cy + dy;
+    var irisR = Math.min(w, h) * 0.165;
+
+    var grad = ctx.createRadialGradient(ix - irisR*0.3, iy - irisR*0.3, irisR*0.1, ix, iy, irisR);
+    grad.addColorStop(0, t.iris);
+    grad.addColorStop(1, mixHex(t.iris, t.ink, 0.55));
+    ctx.beginPath();
+    ctx.ellipse(ix, iy, irisR, irisR * lid, 0, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // pupil
+    ctx.beginPath();
+    ctx.ellipse(ix, iy, irisR * 0.42, irisR * 0.42 * lid, 0, 0, Math.PI * 2);
+    ctx.fillStyle = t.ink;
+    ctx.fill();
+
+    // specular highlight
+    ctx.beginPath();
+    ctx.ellipse(ix - irisR*0.32, iy - irisR*0.34, irisR*0.14, irisR*0.14*lid, 0, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fill();
+
+    ctx.restore();
+
+    // lids as arcs sweeping over the socket
+    ctx.strokeStyle = t.muted;
+    ctx.lineWidth = Math.min(w,h) * 0.012;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, eyeW/2, (eyeH/2) * lid, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    if (!reduced) requestAnimationFrame(draw);
+  }
+
+  function mixHex(a, b, amount){
+    function toRgb(hex){
+      hex = hex.replace('#','');
+      if (hex.length === 3) hex = hex.split('').map(function(c){return c+c;}).join('');
+      var num = parseInt(hex, 16);
+      return [(num>>16)&255, (num>>8)&255, num&255];
+    }
+    try {
+      var ca = toRgb(a), cb = toRgb(b);
+      var r = Math.round(ca[0] + (cb[0]-ca[0]) * amount);
+      var g = Math.round(ca[1] + (cb[1]-ca[1]) * amount);
+      var bl = Math.round(ca[2] + (cb[2]-ca[2]) * amount);
+      return 'rgb(' + r + ',' + g + ',' + bl + ')';
+    } catch(e){ return a; }
+  }
+
+  resize();
+  requestAnimationFrame(draw);
+  if (reduced) draw(performance.now());
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(){
+    if (reduced) draw(performance.now());
+  });
+
+  /* ---------- copy buttons ---------- */
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.getAttribute('data-copy');
+      function marked(){
+        btn.dataset.copied = 'true';
+        var original = btn.textContent;
+        btn.textContent = 'copied';
+        setTimeout(function(){ btn.textContent = original; btn.dataset.copied = 'false'; }, 1400);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(marked).catch(function(){ fallbackCopy(text, marked); });
+      } else {
+        fallbackCopy(text, marked);
+      }
+    });
+  });
+  function fallbackCopy(text, done){
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(); } catch(e){}
+    document.body.removeChild(ta);
+  }
+
+  /* ---------- ticker content ---------- */
+  var examples = [
+    '"what does this error mean?"',
+    '"agent, open vs code and open github"',
+    '"summarise this page"',
+    '"agent, open notepad and write a grocery list"',
+    '"how many subscribers does this channel have?"',
+    '"agent, find the price of the cheapest flight tomorrow"'
+  ];
+  var ticker = document.getElementById('ticker');
+  var doubled = examples.concat(examples);
+  doubled.forEach(function(ex){
+    var span = document.createElement('span');
+    span.innerHTML = ex.replace(/"([^"]+)"/, '<b>"$1"</b>');
+    ticker.appendChild(span);
+  });
+
+  /* ---------- icon ---------- */
+  document.getElementById('navicon').src = "data:image/png;base64,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";
+})();
+</script>
+
+
+<script type="module">
+  // The artifact host renders mermaid natively; a plain page has to load it.
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'
+  // The diagram sits on a fixed white plate in both themes, so the light
+  // mermaid theme is the legible pairing either way.
+  mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' })
+  // Called directly rather than via startOnLoad: this module is deferred, so
+  // the load event it hooks may already have fired by the time it evaluates.
+  try {
+    await mermaid.run({ querySelector: '.mermaid' })
+  } catch (error) {
+    console.error('mermaid failed to render', error)
+  }
+</script>
+</body>
+</html>
