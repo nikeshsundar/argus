@@ -31,5 +31,8 @@
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
     "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0"
   }
 }

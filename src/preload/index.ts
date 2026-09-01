@@ -8,12 +8,22 @@ const api = {
   /** Dismisses the bar. */
   hide: (): void => ipcRenderer.send('argus:hide'),
 
+  /** Asks the main process to fit the window to this content height. */
+  resize: (height: number): void => ipcRenderer.send('argus:resize', height),
+
   /** Fires each time the bar is opened by the hotkey, with capture metadata. */
   onOpened: (callback: (event: OpenedEvent) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: OpenedEvent): void =>
       callback(payload)
     ipcRenderer.on('argus:opened', listener)
     return () => ipcRenderer.off('argus:opened', listener)
+  },
+
+  /** Fires for each chunk of a streaming answer. */
+  onDelta: (callback: (text: string) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, delta: string): void => callback(delta)
+    ipcRenderer.on('argus:delta', listener)
+    return () => ipcRenderer.off('argus:delta', listener)
   }
 }
 

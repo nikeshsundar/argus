@@ -9,6 +9,8 @@ export interface Settings {
   hotkey: string
   /** Provider used for Talk Mode. Agent Mode always requires Claude. */
   talkProvider: ProviderName
+  /** Claude model id used for Talk Mode and (later) Agent Mode. */
+  claudeModel: string
   claudeApiKey: string
   openaiApiKey: string
   ollamaHost: string
@@ -17,6 +19,7 @@ export interface Settings {
 const DEFAULTS: Settings = {
   hotkey: 'Control+Space',
   talkProvider: 'claude',
+  claudeModel: 'claude-opus-5',
   claudeApiKey: '',
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434'

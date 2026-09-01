@@ -66,6 +66,22 @@ export function showRequestBar(payload: OpenedEvent): void {
   win.webContents.send('argus:opened', payload)
 }
 
+/**
+ * Grows or shrinks the bar to fit its content, so a one-line answer doesn't sit
+ * in a tall empty panel and a longer one isn't clipped.
+ */
+export function resizeRequestBar(contentHeight: number): void {
+  if (!win || win.isDestroyed()) return
+
+  const { bounds } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  const maxHeight = Math.round(bounds.height * 0.7)
+  const height = Math.min(Math.max(Math.round(contentHeight), HEIGHT), maxHeight)
+
+  const current = win.getBounds()
+  if (current.height === height) return
+  win.setBounds({ ...current, height })
+}
+
 export function hideRequestBar(): void {
   if (!win || win.isDestroyed() || !win.isVisible()) return
   win.hide()

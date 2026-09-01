@@ -81,12 +81,19 @@ body {
   color: var(--muted);
 }
 
+#input:disabled {
+  color: var(--muted);
+}
+
 .status {
   margin-top: 14px;
   min-height: 34px;
   color: var(--muted);
   font-size: 13px;
-  line-height: 1.4;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .status[data-state='error'] {
