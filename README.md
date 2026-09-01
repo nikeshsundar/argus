@@ -13,7 +13,6 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078d4)
 ![Status](https://img.shields.io/badge/status-early%20development-orange)
 ![Built with Electron+Vite](https://img.shields.io/badge/electron-vite-9feaf9?logo=electron)
-![Supports Claude & Gemini](https://img.shields.io/badge/AI%20Models-Claude%20%26%20Gemini-brightgreen)
 
 </div>
 
@@ -85,8 +84,7 @@ It looks at the screen, decides the next click or keystroke, does it, looks agai
 
 ### Prerequisites
 - Windows 10 or 11
-- An API key from Google (Gemini), Anthropic (Claude), or both
-  - [Get a Claude API key](https://console.anthropic.com)
+- An API key from Google Gemini
   - [Get a Gemini API key](https://ai.google.dev)
 
 ### Quick Start
@@ -101,11 +99,9 @@ npm run dev
 The app lives in your system tray. Press <kbd>Alt</kbd>+<kbd>`</kbd> to open the bar.
 
 **First time setup:**
-1. Paste your API key into the bar: `/key YOUR_API_KEY`
-2. Argus auto-detects the provider and selects the matching model
+1. Paste your Gemini API key into the bar: `/key YOUR_API_KEY`
+2. Argus activates and selects the matching model
 3. Start asking
-
-Alternatively, switch providers with `/provider claude` or `/provider gemini`.
 
 **Note:** `npm run dev` also prints a local Vite URL. Ignore it—it won't work in a browser since Argus needs desktop APIs.
 
@@ -135,9 +131,7 @@ Type these into the bar to configure or control Argus:
 
 | Command | Description |
 | --- | --- |
-| `/key <api-key>` | Save and activate an API key |
-| `/provider claude` | Switch to Claude |
-| `/provider gemini` | Switch to Gemini |
+| `/key <api-key>` | Save and activate your Gemini API key |
 | `/model <model-id>` | Change the AI model |
 | `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
 | `/history` | Browse and resume past conversations |
@@ -214,7 +208,7 @@ tests/          Unit tests for core logic and integration
 - **Electron** — Cross-platform desktop framework
 - **Vite** — Lightning-fast build tooling  
 - **TypeScript** — Type-safe codebase
-- **Google Gemini & Anthropic Claude** — AI models for Talk & Agent modes
+- **Google Gemini** — AI model powering Talk & Agent modes
 
 ## Safety & Agent Mode
 
