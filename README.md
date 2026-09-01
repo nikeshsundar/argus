@@ -80,16 +80,16 @@ It looks at the screen, decides the next click or keystroke, does it, looks agai
 
 ```mermaid
 flowchart LR
-    A["Press Alt + `"] --> B["Screenshot captured\n(RAM only, never saved)"]
+    A["Press Alt + `"] --> B["Screenshot captured<br/>(RAM only, never saved)"]
     B --> C{What did you ask?}
-    C -->|"a question"| D["Talk Mode\nGemini vision"]
-    C -->|"'agent ...'"| E["Agent Mode\nGemini + tools"]
-    D --> F["Answer streams\ninto the bar"]
-    E --> G["One action:\nlaunch app · click · type · scroll"]
-    G --> H["Action runs\non your real PC"]
+    C -->|"a question"| D["Talk Mode<br/>Gemini vision"]
+    C -->|"'agent ...'"| E["Agent Mode<br/>Gemini + tools"]
+    D --> F["Answer streams<br/>into the bar"]
+    E --> G["One action:<br/>launch app · click · type · scroll"]
+    G --> H["Action runs<br/>on your real PC"]
     H --> I{Task done?}
     I -->|no| B
-    I -->|yes| J["Summary shown,\noverlay disappears"]
+    I -->|yes| J["Summary shown,<br/>overlay disappears"]
 ```
 
 Every Agent Mode step re-captures the screen before deciding the next move — it never fires off a blind sequence of actions.
