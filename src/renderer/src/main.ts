@@ -18,8 +18,6 @@ let streaming = false
 /** Options currently listed, and which one is highlighted (-1 = none). */
 let visible: Option[] = []
 let highlighted = -1
-/** Timestamp of the last Escape, for the double-tap-to-close gesture. */
-let lastEscape = 0
 /** The answer element currently being streamed into. */
 let activeAnswer: HTMLDivElement | null = null
 
@@ -199,24 +197,7 @@ input.addEventListener('input', () => {
 input.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
-
-    // One tap clears what's typed; a second closes. That way a stray Escape
-    // never throws away an answer you were still reading.
-    if (input.value) {
-      input.value = ''
-      syncChip()
-      renderOptions()
-      lastEscape = Date.now()
-      return
-    }
-
-    const now = Date.now()
-    if (now - lastEscape < 900) {
-      window.argus.hide()
-      return
-    }
-    lastEscape = now
-    setStatus('Press Esc again to close.')
+    window.argus.hide()
     return
   }
 

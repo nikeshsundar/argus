@@ -11,15 +11,30 @@ export interface Option {
 
 export const OPTIONS: Option[] = [
   {
-    id: 'talk',
-    label: 'Ask about this screen',
-    hint: 'Just type your question',
-    insert: ''
+    id: 'screen',
+    label: "What's on my screen?",
+    hint: 'Talk',
+    insert: "What's on my screen right now?",
+    immediate: true
+  },
+  {
+    id: 'explain',
+    label: 'Explain this error',
+    hint: 'Talk',
+    insert: 'Explain the error shown on my screen and how to fix it.',
+    immediate: true
+  },
+  {
+    id: 'summarize',
+    label: 'Summarise this page',
+    hint: 'Talk',
+    insert: 'Summarise what is on my screen in a few short lines.',
+    immediate: true
   },
   {
     id: 'agent',
     label: 'Agent — take control of my PC',
-    hint: 'agent <task>',
+    hint: 'then describe the task',
     insert: 'agent '
   },
   {
@@ -43,7 +58,7 @@ export const OPTIONS: Option[] = [
   {
     id: 'hotkey',
     label: 'Rebind hotkey',
-    hint: '/hotkey Super+`',
+    hint: '/hotkey Alt+`',
     insert: '/hotkey '
   },
   {

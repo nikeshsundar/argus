@@ -57,23 +57,14 @@ function abortInFlight(): void {
  * after clicking into another window there was no way to dismiss it.
  */
 let stopEscapeWatch: (() => void) | null = null
-let lastEscape = 0
 
 function watchForDismiss(): void {
   stopEscapeWatch?.()
-  lastEscape = 0
   stopEscapeWatch = watchEscape(() => {
     if (!isRequestBarVisible()) return
-
-    const now = Date.now()
-    if (now - lastEscape < 900) {
-      lastEscape = 0
-      abortInFlight()
-      clearPendingCapture()
-      hideRequestBar()
-      return
-    }
-    lastEscape = now
+    abortInFlight()
+    clearPendingCapture()
+    hideRequestBar()
   })
 }
 
