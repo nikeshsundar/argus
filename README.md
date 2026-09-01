@@ -25,7 +25,7 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 ### 🎯 Talk Mode
 Ask questions about what's on your screen with full conversation history.
 - Follow-up context preserved across messages
-- See Claude or Gemini analyze your screen in real-time
+- See Gemini analyze your screen in real-time
 - Chat history is persistent and resumable
 
 ### 🤖 Agent Mode  
@@ -67,7 +67,7 @@ It looks at the screen, decides the next click or keystroke, does it, looks agai
 
 **Privacy first.** Your screen contents are deeply personal data. The software that reads them should be something you can inspect, audit, and self-host. No cloud. No logging. No telemetry.
 
-**Bring your own model.** Use Claude (recommended for Agent Mode), Gemini, or add your own provider. Your API key stays on your machine—no Argus intermediaries.
+**Bring your own model.** Use Gemini or add your own provider. Your API key stays on your machine—no Argus intermediaries.
 
 ## Privacy
 
@@ -166,13 +166,13 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 ### ✅ Completed
 - [x] Global hotkey (including Win combinations), system tray, request bar
 - [x] In-memory screen capture with zero-disk storage
-- [x] Talk Mode with follow-up context (Claude & Gemini)
+- [x] Talk Mode with follow-up context (Gemini)
 - [x] Command palette in the bar
 - [x] Persistent chat history (resumable conversations)
 - [x] Agent Mode with autonomous mouse & keyboard (Gemini)
 
 ### 🚧 In Progress & Planned
-- [ ] Agent Mode via Claude computer use
+- [ ] Support for additional providers
 - [ ] On-screen annotations (arrows, highlights, boxes)
 - [ ] OpenAI and local Ollama provider support
 - [ ] Settings UI (currently all in-bar commands)
@@ -227,7 +227,7 @@ Agent Mode gives an AI real control of your mouse and keyboard. Here's how we ke
 
 Contributions are welcome! Areas that could use help:
 
-- **New providers:** Extend `src/main/providers/` to support OpenAI, Ollama, Claude Bedrock, etc.
+- **New providers:** Extend `src/main/providers/` to support OpenAI, Ollama, or other models
 - **Annotation UI:** Implement on-screen arrows, highlights, and bounding boxes
 - **Settings UI:** Build a dedicated settings window instead of bar-only commands
 - **Agent improvements:** Better task decomposition, improved reliability, multi-window support
