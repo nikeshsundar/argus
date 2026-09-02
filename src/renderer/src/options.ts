@@ -47,6 +47,13 @@ export const OPTIONS: Option[] = [
     insert: '/key '
   },
   {
+    id: 'keys',
+    label: 'API keys in rotation',
+    hint: '/keys',
+    insert: '/keys',
+    immediate: true
+  },
+  {
     id: 'hotkey',
     label: 'Rebind hotkey',
     hint: '/hotkey Alt+`',

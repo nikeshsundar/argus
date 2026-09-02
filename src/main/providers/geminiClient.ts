@@ -1,3 +1,5 @@
+import { hasReadyKey, poolSize, restAfterRefusal, secondsUntilReady, takeKey } from '../geminiKeys'
+
 export const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
 export interface GeminiPart {
@@ -43,29 +45,54 @@ export async function callGemini(options: {
   const query = options.method === 'streamGenerateContent' ? '?alt=sse' : ''
   const url = `${GEMINI_ENDPOINT}/${options.model}:${options.method}${query}`
 
-  const post = (body: unknown): Promise<Response> =>
+  const post = (body: unknown, key: string): Promise<Response> =>
     fetch(url, {
       method: 'POST',
       signal: options.signal,
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': options.apiKey },
+      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify(body)
     })
 
-  if (!options.thinking) return await post(options.body)
+  const body = options.thinking ? withThinking(options.body, options.thinking) : options.body
 
-  const response = await post(withThinking(options.body, options.thinking))
-  if (response.status !== 400) return response
+  // One attempt per key. A refused key is rested and the next one picked up,
+  // so a quota that runs out mid-task does not end the task.
+  for (let attempt = 0; attempt < Math.max(1, poolSize()); attempt++) {
+    const key = takeKey() ?? options.apiKey
+    const response = await post(body, key)
 
-  // thinkingConfig is not understood by every model. It is a speed hint, so a
-  // model that rejects it should still run the task - just slower.
-  let detail = ''
-  try {
-    detail = ((await response.clone().json()) as GeminiResponse).error?.message ?? ''
-  } catch {
-    // Unreadable body; fall through and return the original failure.
+    if (response.status === 429) {
+      const detail = await peek(response)
+      restAfterRefusal(key, detail)
+      if (hasReadyKey()) continue
+      return response
+    }
+
+    // thinkingConfig is not understood by every model. It is a speed hint, so
+    // a model that rejects it should still run the task - just slower.
+    if (response.status === 400 && options.thinking) {
+      const detail = await peek(response)
+      if (/thinking/i.test(detail)) return await post(options.body, key)
+    }
+
+    return response
   }
 
-  return /thinking/i.test(detail) ? await post(options.body) : response
+  return await post(body, options.apiKey)
+}
+
+/** Reads an error body without consuming the response the caller may still need. */
+async function peek(response: Response): Promise<string> {
+  try {
+    return JSON.stringify((await response.clone().json()) as GeminiResponse)
+  } catch {
+    return ''
+  }
+}
+
+/** Seconds until any key is usable again - for the message shown on failure. */
+export function retryAdviceSeconds(): number {
+  return secondsUntilReady()
 }
 
 /**
@@ -104,7 +131,9 @@ export async function describeGeminiFailure(response: Response, model: string): 
     return `Gemini has no model "${model}" available to this key. Switch with "/model <model-id>".`
   }
   if (response.status === 429) {
-    return 'Gemini rate limit hit (free tier is limited) - try again in a moment.'
+    const wait = retryAdviceSeconds()
+    const when = wait > 90 ? `about ${Math.round(wait / 60)} min` : `${wait || 30}s`
+    return `Every Gemini key is over quota (the free tier allows 20 requests a day per model). Try again in ${when}, or add another key with "/key <your-key>".`
   }
   if (response.status === 503) {
     return `Gemini says "${model}" is overloaded right now. Try again, or switch with "/model <model-id>".`

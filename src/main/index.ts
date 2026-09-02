@@ -1,6 +1,7 @@
 import { app, ipcMain } from 'electron'
 import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
+import { configuredKeys, poolStatus } from './geminiKeys'
 import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
 import { clearThreads, createThread, getThread, listThreads, saveThread } from './history'
 import { parseMode, type Mode } from '../shared/types'
@@ -145,9 +146,23 @@ function handleSlashCommand(text: string): SubmitResult | null {
   /** Files a key under the provider its own format identifies. */
   const saveKey = (value: string, target: ProviderName): void => {
     switch (target) {
-      case 'gemini':
-        updateSettings({ geminiApiKey: value, talkProvider: 'gemini' })
+      case 'gemini': {
+        // Gemini keys stack rather than replace: an exhausted daily quota is
+        // survivable with a spare, and losing the old key to add one is not
+        // what "add another key" should mean.
+        const settings = loadSettings()
+        if (!settings.geminiApiKey) {
+          updateSettings({ geminiApiKey: value, talkProvider: 'gemini' })
+        } else if (settings.geminiApiKey !== value && !settings.geminiApiKeys.includes(value)) {
+          updateSettings({
+            geminiApiKeys: [...settings.geminiApiKeys, value],
+            talkProvider: 'gemini'
+          })
+        } else {
+          updateSettings({ talkProvider: 'gemini' })
+        }
         break
+      }
       case 'openai':
         updateSettings({ openaiApiKey: value, talkProvider: 'openai' })
         break
@@ -163,11 +178,38 @@ function handleSlashCommand(text: string): SubmitResult | null {
     // doesn't quietly store it in the wrong slot.
     const target = inferProviderFromKey(value) ?? settings.talkProvider
     saveKey(value, target)
+    if (target === 'gemini') {
+      const count = configuredKeys().length
+      return ok(
+        count > 1
+          ? `Key saved — ${count} Gemini keys in rotation. If one runs out of quota the next takes over.`
+          : 'Gemini API key saved. Ask away.'
+      )
+    }
     return ok(
       target === settings.talkProvider
         ? `${target} API key saved. Ask away.`
         : `Recognised a ${target} key — saved it and switched Talk Mode to ${target}.`
     )
+  }
+
+  if (/^\/keys$/i.test(text)) {
+    const keys = configuredKeys()
+    if (keys.length === 0) return fail('No Gemini keys yet. Add one with "/key <your-key>".')
+    return ok(
+      [
+        `${poolStatus()} — tried in this order:`,
+        ...keys.map((key, index) => `  ${index + 1}. ${key.slice(0, 8)}…${key.slice(-4)}`),
+        '',
+        'Quota is per Google Cloud project, so extra keys only add headroom',
+        'if they come from different projects. "/keys clear" empties the list.'
+      ].join('\n')
+    )
+  }
+
+  if (/^\/keys\s+clear$/i.test(text)) {
+    updateSettings({ geminiApiKey: '', geminiApiKeys: [] })
+    return ok('All Gemini keys removed. Add one with "/key <your-key>".')
   }
 
   const provider = /^\/provider\s+(\w+)$/i.exec(text)
@@ -242,7 +284,8 @@ function handleSlashCommand(text: string): SubmitResult | null {
   if (/^\/help$/i.test(text)) {
     return ok(
       [
-        `/key <api-key>        set the key for ${settings.talkProvider}`,
+        `/key <api-key>        add a key for ${settings.talkProvider}`,
+        '/keys                 list keys and rotation status',
         '/provider <name>      claude or gemini',
         '/model <model-id>     Talk Mode model',
         '/model agent <id>     Agent + Teach model (fast one)',

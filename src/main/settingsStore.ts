@@ -26,6 +26,13 @@ export interface Settings {
    */
   agentModel: string
   geminiApiKey: string
+  /**
+   * Extra Gemini keys, tried in order when the one before is over quota. The
+   * free tier is capped per project per day, so a second key in a *different*
+   * project is what actually buys headroom - another key in the same project
+   * shares the same exhausted allowance.
+   */
+  geminiApiKeys: string[]
   openaiApiKey: string
   ollamaHost: string
   /** How visibly Agent Mode moves the pointer and types. */
@@ -46,6 +53,7 @@ const DEFAULTS: Settings = {
   geminiModel: 'gemini-3.6-flash',
   agentModel: 'gemini-3.5-flash-lite',
   geminiApiKey: '',
+  geminiApiKeys: [],
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434',
   cursorPace: 'natural'
@@ -67,6 +75,7 @@ export function loadSettings(): Settings {
     const stored = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) }
     // Move users off a previous default rather than stranding them on it.
     if (SUPERSEDED_HOTKEYS.includes(stored.hotkey)) stored.hotkey = DEFAULTS.hotkey
+    if (!Array.isArray(stored.geminiApiKeys)) stored.geminiApiKeys = []
     cache = healModelNames(stored)
   } catch {
     // No settings file yet (first run), or it is unreadable/corrupt - fall back

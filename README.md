@@ -204,7 +204,9 @@ Type these into the bar to configure or control Argus:
 
 | Command | Description |
 | --- | --- |
-| `/key <api-key>` | Save and activate your Gemini API key |
+| `/key <api-key>` | Add a Gemini API key (keys stack; they don't replace each other) |
+| `/keys` | List the keys in rotation and which are ready |
+| `/keys clear` | Remove every stored key |
 | `/model <model-id>` | Change the Talk Mode model |
 | `/model agent <id>` | Change the Agent + Teach model (a fast one; see below) |
 | `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
@@ -226,6 +228,17 @@ Measured against the live API on one agent turn:
 | `gemini-3.5-flash-lite` *(default for Agent/Teach)* | ~1,500 ms | within 2px |
 
 That is the difference between a three-minute task and a twenty-second one, with no measurable loss in where it clicks.
+
+### Several keys, with failover
+
+`/key` adds rather than replaces. When a key is refused for quota, Argus rests it and the next one picks up the same request — so a limit reached halfway through an agent task doesn't end the task, which is the part that actually hurts.
+
+A key refused for a *daily* cap is rested for 15 minutes rather than the ~20 seconds the server suggests: that hint is the per-minute window talking, and honouring it would spend the key again immediately.
+
+`/keys` shows the pool and what's ready.
+
+> [!NOTE]
+> Extra keys only add headroom if they come from **different Google Cloud projects**. Quota is per project, so a second key in the same project shares the same exhausted allowance — verified the hard way. If you want real headroom, enabling billing removes the daily cap entirely, and `gemini-3.5-flash-lite` costs cents.
 
 > [!IMPORTANT]
 > **Free-tier quota is per model, per project, per day** — and it is small. `gemini-3.6-flash` allows **20 requests/day**, which one agent task can exhaust on its own. Since the limit is per *model*, Agent and Teach drawing on a different one gives them their own allowance. A second API key in the same Google Cloud project shares the same quota, so making a new key does not reset it.
