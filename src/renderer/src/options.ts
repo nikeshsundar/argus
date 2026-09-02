@@ -1,4 +1,9 @@
-/** One row in the command palette shown under the input. */
+/**
+ * One row in the command palette.
+ *
+ * The palette is only reachable by typing "/" - the bar itself stays a bare
+ * input, so nothing floats over the screen the user is asking about.
+ */
 export interface Option {
   id: string
   label: string
@@ -10,33 +15,6 @@ export interface Option {
 }
 
 export const OPTIONS: Option[] = [
-  {
-    id: 'screen',
-    label: "What's on my screen?",
-    hint: 'Talk',
-    insert: "What's on my screen right now?",
-    immediate: true
-  },
-  {
-    id: 'explain',
-    label: 'Explain this error',
-    hint: 'Talk',
-    insert: 'Explain the error shown on my screen and how to fix it.',
-    immediate: true
-  },
-  {
-    id: 'summarize',
-    label: 'Summarise this page',
-    hint: 'Talk',
-    insert: 'Summarise what is on my screen in a few short lines.',
-    immediate: true
-  },
-  {
-    id: 'agent',
-    label: 'Agent — take control of my PC',
-    hint: 'then describe the task',
-    insert: 'agent '
-  },
   {
     id: 'history',
     label: 'Past chats',
@@ -92,25 +70,16 @@ export const OPTIONS: Option[] = [
 /**
  * Which options to show for the current input.
  *
- * Empty input lists everything, "/" filters the command rows, and anything else
- * is treated as a question - the list gets out of the way.
+ * Nothing, unless the input starts with "/". An empty bar is the default state:
+ * the user came here to ask about what is behind the window, so the window
+ * covers as little of it as possible.
  */
 export function filterOptions(value: string): Option[] {
   const text = value.trim().toLowerCase()
-  if (!text) return OPTIONS
+  if (!text.startsWith('/')) return []
 
-  if (text.startsWith('/')) {
-    const term = text.slice(1)
-    return OPTIONS.filter(
-      (option) =>
-        option.insert.startsWith('/') &&
-        (option.id.startsWith(term) || option.label.toLowerCase().includes(term))
-    )
-  }
-
-  if (text.startsWith('agent')) {
-    return OPTIONS.filter((option) => option.id === 'agent')
-  }
-
-  return []
+  const term = text.slice(1)
+  return OPTIONS.filter(
+    (option) => option.id.startsWith(term) || option.label.toLowerCase().includes(term)
+  )
 }

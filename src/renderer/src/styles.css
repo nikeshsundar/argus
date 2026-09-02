@@ -60,15 +60,29 @@ body {
   opacity: 0.9;
 }
 
+/* A button, not a label: this is how the user switches between asking and acting. */
 .chip {
   flex: none;
   padding: 4px 10px;
+  border: 1px solid transparent;
   border-radius: 999px;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  transition: color 120ms ease, background 120ms ease;
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.chip:hover,
+.chip:focus-visible {
+  border-color: currentColor;
+  outline: none;
+}
+
+.chip:active {
+  transform: scale(0.96);
 }
 
 .chip[data-mode='talk'] {

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AgentCursorEvent,
   AgentStepEvent,
+  Mode,
   OpenedEvent,
   SubmitResult,
   ThreadSummary,
@@ -9,8 +10,13 @@ import type {
 } from '../shared/types'
 
 const api = {
-  /** Sends the typed request to the main process and resolves with the result. */
-  submit: (text: string): Promise<SubmitResult> => ipcRenderer.invoke('argus:submit', text),
+  /**
+   * Sends the typed request to the main process and resolves with the result.
+   * `mode` is set only when the user picked one with the chip, which then wins
+   * over whatever the wording would have implied.
+   */
+  submit: (text: string, mode?: Mode): Promise<SubmitResult> =>
+    ipcRenderer.invoke('argus:submit', text, mode),
 
   /** Dismisses the bar. */
   hide: (): void => ipcRenderer.send('argus:hide'),

@@ -13,13 +13,22 @@
     <main class="bar" id="bar">
       <div class="row">
         <span class="grip" title="Drag to move"></span>
-        <span class="chip" id="chip" data-mode="talk">Talk</span>
+        <button
+          class="chip"
+          id="chip"
+          type="button"
+          data-mode="talk"
+          title="Switch between asking and acting"
+          aria-label="Switch mode"
+        >
+          Talk
+        </button>
         <input
           id="input"
           type="text"
           autocomplete="off"
           spellcheck="false"
-          placeholder="Ask about your screen, or pick an option below…"
+          placeholder="What do you want to know?"
         />
         <button id="close" class="close" type="button" title="Close (Esc twice)">×</button>
       </div>

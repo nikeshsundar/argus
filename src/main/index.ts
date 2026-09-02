@@ -3,7 +3,7 @@ import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
 import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
 import { clearThreads, createThread, getThread, listThreads, saveThread } from './history'
-import { parseMode } from '../shared/types'
+import { parseMode, type Mode } from '../shared/types'
 import { disposeHotkeys, hotkeyStrategy, registerHotkey, watchEscape } from './hotkey'
 import { createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
@@ -309,11 +309,14 @@ async function runAgent(task: string): Promise<SubmitResult> {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('argus:submit', async (_event, text: string): Promise<SubmitResult> => {
+  ipcMain.handle('argus:submit', async (_event, text: string, forced?: Mode) => {
     const command = handleSlashCommand(text.trim())
     if (command) return command
 
-    const { mode, prompt } = parseMode(text)
+    // A mode chosen with the chip beats what the wording looks like.
+    const inferred = parseMode(text)
+    const mode = forced ?? inferred.mode
+    const prompt = forced ? text.trim() : inferred.prompt
     if (!prompt) {
       return { ok: false, mode, message: 'Say what you want me to look at.' }
     }

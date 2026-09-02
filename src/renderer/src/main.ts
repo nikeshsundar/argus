@@ -1,8 +1,8 @@
-import { parseMode } from '../../shared/types'
+import { parseMode, type Mode } from '../../shared/types'
 import { filterOptions, type Option } from './options'
 
 const input = document.querySelector<HTMLInputElement>('#input')!
-const chip = document.querySelector<HTMLSpanElement>('#chip')!
+const chip = document.querySelector<HTMLButtonElement>('#chip')!
 const status = document.querySelector<HTMLDivElement>('#status')!
 const thread = document.querySelector<HTMLDivElement>('#thread')!
 const optionList = document.querySelector<HTMLUListElement>('#options')!
@@ -20,6 +20,11 @@ let visible: Option[] = []
 let highlighted = -1
 /** The answer element currently being streamed into. */
 let activeAnswer: HTMLDivElement | null = null
+/**
+ * Set only when the chip was clicked. Null means follow the wording, which is
+ * what most requests want; an explicit choice outranks the guess.
+ */
+let manualMode: Mode | null = null
 
 function setStatus(text: string, state: StatusState = 'idle'): void {
   status.textContent = text
@@ -28,10 +33,18 @@ function setStatus(text: string, state: StatusState = 'idle'): void {
   queueMicrotask(syncHeight)
 }
 
+/** What this request will do if sent right now. */
+function currentMode(): Mode {
+  return manualMode ?? parseMode(input.value).mode
+}
+
 function syncChip(): void {
-  const { mode } = parseMode(input.value)
+  const mode = currentMode()
   chip.dataset['mode'] = mode
   chip.textContent = mode === 'agent' ? 'Agent' : 'Talk'
+  // The prompt is the clearest signal of what pressing Enter will do.
+  input.placeholder =
+    mode === 'agent' ? 'What do you want me to do?' : 'What do you want to know?'
 }
 
 /** Appends a question to the transcript and returns its (empty) answer node. */
@@ -210,8 +223,10 @@ function submit(text: string): void {
   setStatus(isCommand ? 'Working…' : 'Looking at your screen…', 'busy')
   renderOptions()
 
+  const forced = manualMode ?? undefined
+
   void window.argus
-    .submit(trimmed)
+    .submit(trimmed, forced)
     .then((result) => {
       if (activeAnswer && result.ok) {
         activeAnswer.textContent = result.message
@@ -231,6 +246,7 @@ function submit(text: string): void {
       activeAnswer = null
       input.disabled = false
       input.value = ''
+      manualMode = null
       syncChip()
       input.focus()
       renderOptions()
@@ -244,6 +260,7 @@ window.argus.onOpened(({ capture, error, notice }) => {
   highlighted = -1
   input.value = ''
   input.disabled = false
+  manualMode = null
   clearThread()
   syncChip()
   renderOptions()
@@ -294,6 +311,16 @@ input.addEventListener('input', () => {
     return
   }
   renderOptions()
+})
+
+/**
+ * The chip is the switch between asking and acting. Clicking it pins the mode
+ * for this one request; it goes back to following the wording afterwards.
+ */
+chip.addEventListener('click', () => {
+  manualMode = currentMode() === 'agent' ? 'talk' : 'agent'
+  syncChip()
+  input.focus()
 })
 
 input.addEventListener('keydown', (event) => {
