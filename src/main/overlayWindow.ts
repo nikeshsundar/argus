@@ -1,8 +1,16 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
-import type { AgentStepEvent } from '../shared/types'
+import type { AgentCursorEvent, AgentStepEvent } from '../shared/types'
 
 let win: BrowserWindow | null = null
+
+/**
+ * Where the overlay currently sits, and at what DPI. Pointer coordinates arrive
+ * from nut-js in physical pixels spanning the whole desktop; the overlay's own
+ * CSS pixels are display-relative, so both offset and scale have to come off.
+ */
+let origin = { x: 0, y: 0 }
+let scaleFactor = 1
 
 /**
  * A transparent, click-through frame drawn over the active display while the
@@ -42,13 +50,30 @@ function ensureOverlay(): BrowserWindow {
 
 export function showOverlay(): void {
   const overlay = ensureOverlay()
-  const { bounds } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  overlay.setBounds(bounds)
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  origin = { x: display.bounds.x, y: display.bounds.y }
+  scaleFactor = display.scaleFactor
+  overlay.setBounds(display.bounds)
   overlay.showInactive()
 }
 
 export function updateOverlay(event: AgentStepEvent): void {
   if (win && !win.isDestroyed()) win.webContents.send('argus:agent-step', event)
+}
+
+/**
+ * Streams the pointer to the overlay so it can draw a halo around it.
+ *
+ * Skipped while the overlay is hidden - which is exactly when a screenshot is
+ * being taken, keeping our own decoration out of what the model reads.
+ */
+export function reportCursor(x: number, y: number, phase: AgentCursorEvent['phase']): void {
+  if (!win || win.isDestroyed() || !win.isVisible()) return
+  win.webContents.send('argus:agent-cursor', {
+    x: x / scaleFactor - origin.x,
+    y: y / scaleFactor - origin.y,
+    phase
+  } satisfies AgentCursorEvent)
 }
 
 export function hideOverlay(): void {

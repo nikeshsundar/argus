@@ -50,6 +50,16 @@ export interface AgentStepEvent {
   max: number
 }
 
+/**
+ * The agent's pointer, in CSS pixels relative to the overlay's display.
+ * `click` additionally asks the overlay to fire a one-shot ring.
+ */
+export interface AgentCursorEvent {
+  x: number
+  y: number
+  phase: 'move' | 'click'
+}
+
 /** Result of submitting a request from the bar. */
 export interface SubmitResult {
   ok: boolean

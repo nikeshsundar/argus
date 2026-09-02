@@ -40,8 +40,14 @@ export async function runAgentTask({
   const session = provider.startTask(task, signal, installedApps)
 
   let stoppedByUser = false
+  // A glide can be a second long at demo pace, so Escape has to reach into the
+  // action that is already running - not just be noticed before the next one.
+  const control = new AbortController()
+  const abort = (): void => control.abort()
+  signal.addEventListener('abort', abort, { once: true })
   const unwatch = watchEscape(() => {
     stoppedByUser = true
+    control.abort()
   })
 
   showOverlay()
@@ -78,7 +84,7 @@ export async function runAgentTask({
         return { ok: false, summary: `Stopped after ${step - 1} steps.` }
       }
 
-      lastResult = await perform(action, capture)
+      lastResult = await perform(action, capture, control.signal)
       await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
     }
 
@@ -88,6 +94,7 @@ export async function runAgentTask({
     }
   } finally {
     unwatch()
+    signal.removeEventListener('abort', abort)
     hideOverlay()
   }
 }
@@ -95,13 +102,18 @@ export async function runAgentTask({
 /** Runs one action, converting a failure into feedback the model can use. */
 async function perform(
   action: AgentAction,
-  capture: Awaited<ReturnType<typeof captureActiveDisplay>>
+  capture: Awaited<ReturnType<typeof captureActiveDisplay>>,
+  signal: AbortSignal
 ): Promise<string> {
   try {
-    return await executeAction(action, {
-      width: capture.info.width,
-      height: capture.info.height
-    })
+    return await executeAction(
+      action,
+      {
+        width: capture.info.width,
+        height: capture.info.height
+      },
+      signal
+    )
   } catch (error) {
     return `failed: ${error instanceof Error ? error.message : String(error)}`
   }

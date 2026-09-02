@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
+import type { CursorPace } from '../shared/cursorPath'
 import type { ProviderName } from '../shared/types'
 
 export type { ProviderName }
@@ -17,6 +18,8 @@ export interface Settings {
   geminiApiKey: string
   openaiApiKey: string
   ollamaHost: string
+  /** How visibly Agent Mode moves the pointer and types. */
+  cursorPace: CursorPace
 }
 
 /**
@@ -33,7 +36,8 @@ const DEFAULTS: Settings = {
   geminiModel: 'gemini-3.6-flash',
   geminiApiKey: '',
   openaiApiKey: '',
-  ollamaHost: 'http://127.0.0.1:11434'
+  ollamaHost: 'http://127.0.0.1:11434',
+  cursorPace: 'natural'
 }
 
 let cache: Settings | null = null

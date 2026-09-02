@@ -196,6 +196,20 @@ function handleSlashCommand(text: string): SubmitResult | null {
     return ok(`Hotkey is now ${accelerator}.`)
   }
 
+  const cursor = /^\/cursor\s+(\w+)$/i.exec(text)
+  if (cursor) {
+    const pace = cursor[1]!.toLowerCase()
+    if (pace !== 'instant' && pace !== 'natural' && pace !== 'demo') {
+      return fail(`Unknown pace "${pace}". Try instant, natural or demo.`)
+    }
+    updateSettings({ cursorPace: pace })
+    return ok(
+      pace === 'instant'
+        ? 'Pointer will jump straight to each target.'
+        : `Pointer now moves at ${pace} pace, so you can watch it work.`
+    )
+  }
+
   if (/^\/forget$/i.test(text)) {
     clearThreads()
     return ok('Chat history deleted.')
@@ -208,6 +222,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
         '/provider <name>      claude or gemini',
         '/model <model-id>     change the model',
         '/hotkey <combo>       e.g. Alt+`',
+        '/cursor <pace>        instant, natural or demo',
         '/history              past chats',
         '/new                  start a fresh chat',
         '/forget               delete all saved chats',

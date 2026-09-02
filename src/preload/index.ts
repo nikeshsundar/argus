@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
+  AgentCursorEvent,
   AgentStepEvent,
   OpenedEvent,
   SubmitResult,
@@ -47,6 +48,14 @@ const api = {
       callback(payload)
     ipcRenderer.on('argus:agent-step', listener)
     return () => ipcRenderer.off('argus:agent-step', listener)
+  },
+
+  /** Fires on every frame of an agent pointer glide - drives the overlay halo. */
+  onAgentCursor: (callback: (event: AgentCursorEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AgentCursorEvent): void =>
+      callback(payload)
+    ipcRenderer.on('argus:agent-cursor', listener)
+    return () => ipcRenderer.off('argus:agent-cursor', listener)
   }
 }
 

@@ -1,12 +1,13 @@
-import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js'
+import { Button, Key, keyboard, mouse } from '@nut-tree-fork/nut-js'
 import { shell } from 'electron'
 import { toScreenPoint, type AgentAction, type ScreenSize } from '../shared/agent'
 import { launchApp } from './appIndex'
+import { PACES } from '../shared/cursorPath'
+import { glideTo, markClick } from './cursor'
+import { loadSettings } from './settingsStore'
 
-// The defaults animate the cursor and add per-keystroke delays, which makes a
-// multi-step task crawl. Keep a small delay so target apps register the input.
-mouse.config.mouseSpeed = 3000
-keyboard.config.autoDelayMs = 8
+// nut-js' own mouseSpeed is not used: `glideTo` tweens the pointer itself so
+// the overlay can be told where it is on every frame.
 
 /** Accelerator-style key names the model may use, mapped onto nut-js keys. */
 const KEY_MAP: Record<string, Key> = {
@@ -55,7 +56,13 @@ function resolveKey(name: string): Key | null {
  * Throws when an action names a key we can't map, so the loop can report it
  * back to the model rather than silently doing nothing.
  */
-export async function executeAction(action: AgentAction, screen: ScreenSize): Promise<string> {
+export async function executeAction(
+  action: AgentAction,
+  screen: ScreenSize,
+  signal?: AbortSignal
+): Promise<string> {
+  const pace = loadSettings().cursorPace
+
   switch (action.type) {
     case 'launch': {
       const launched = await launchApp(action.name)
@@ -76,14 +83,16 @@ export async function executeAction(action: AgentAction, screen: ScreenSize): Pr
     }
 
     case 'move': {
-      const point = toScreenPoint(action.x, action.y, screen)
-      await mouse.setPosition(new Point(point.x, point.y))
+      await glideTo(toScreenPoint(action.x, action.y, screen), pace, signal)
       return 'ok'
     }
 
     case 'click': {
-      const point = toScreenPoint(action.x, action.y, screen)
-      await mouse.setPosition(new Point(point.x, point.y))
+      await glideTo(toScreenPoint(action.x, action.y, screen), pace, signal)
+      // A stop mid-glide must not land a click somewhere the model never chose.
+      if (signal?.aborted) return 'cancelled'
+
+      await markClick()
       const button = action.button === 'right' ? Button.RIGHT : Button.LEFT
       if (action.double) {
         await mouse.doubleClick(button)
@@ -94,6 +103,8 @@ export async function executeAction(action: AgentAction, screen: ScreenSize): Pr
     }
 
     case 'type':
+      // Typing is worth watching, so it runs at the same pace as the pointer.
+      keyboard.config.autoDelayMs = PACES[pace].typeDelayMs
       await keyboard.type(action.text)
       return 'ok'
 

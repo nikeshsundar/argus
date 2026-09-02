@@ -75,6 +75,12 @@ export const OPTIONS: Option[] = [
     insert: '/hotkey '
   },
   {
+    id: 'cursor',
+    label: 'Pointer speed',
+    hint: '/cursor natural · demo · instant',
+    insert: '/cursor '
+  },
+  {
     id: 'help',
     label: 'Show all commands',
     hint: '/help',
