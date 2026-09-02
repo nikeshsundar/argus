@@ -11,6 +11,15 @@ export type AgentAction =
   | { type: 'click'; x: number; y: number; button: 'left' | 'right'; double: boolean }
   | { type: 'move'; x: number; y: number }
   | { type: 'type'; text: string }
+  /**
+   * Click a field, type into it, optionally submit - in one turn.
+   *
+   * The same work as click + type_text + press_keys, which is three model round
+   * trips for the single commonest thing anyone does: put text in a box. On a
+   * free tier capped at 20 requests a day, collapsing that to one is the
+   * difference between finishing a task and running out halfway.
+   */
+  | { type: 'typeInto'; x: number; y: number; text: string; submit: boolean }
   | { type: 'keys'; keys: string[] }
   | { type: 'scroll'; direction: 'up' | 'down'; clicks: number }
   | { type: 'wait'; seconds: number }
@@ -47,6 +56,10 @@ export function describeAction(action: AgentAction): string {
       return `Move to ${action.x},${action.y}`
     case 'type':
       return `Type "${action.text.length > 40 ? `${action.text.slice(0, 40)}…` : action.text}"`
+    case 'typeInto': {
+      const shown = action.text.length > 30 ? `${action.text.slice(0, 30)}…` : action.text
+      return `Type "${shown}" at ${action.x},${action.y}${action.submit ? ' and press Enter' : ''}`
+    }
     case 'keys':
       return `Press ${action.keys.join('+')}`
     case 'scroll':

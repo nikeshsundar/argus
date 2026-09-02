@@ -39,3 +39,29 @@ describe('describeAction', () => {
     expect(describeAction({ type: 'keys', keys: ['control', 'a'] })).toBe('Press control+a')
   })
 })
+
+describe('typeInto', () => {
+  it('reads as one step covering click, type and submit', () => {
+    expect(
+      describeAction({ type: 'typeInto', x: 500, y: 90, text: 'github.com', submit: true })
+    ).toBe('Type "github.com" at 500,90 and press Enter')
+  })
+
+  it('says so when it will not submit', () => {
+    expect(
+      describeAction({ type: 'typeInto', x: 500, y: 90, text: 'draft', submit: false })
+    ).toBe('Type "draft" at 500,90')
+  })
+
+  it('truncates a long value rather than filling the overlay banner', () => {
+    const described = describeAction({
+      type: 'typeInto',
+      x: 1,
+      y: 2,
+      text: 'x'.repeat(200),
+      submit: false
+    })
+    expect(described.length).toBeLessThan(60)
+    expect(described).toContain('…')
+  })
+})

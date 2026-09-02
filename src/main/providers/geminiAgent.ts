@@ -14,7 +14,8 @@ Each turn you receive a fresh screenshot of the screen and must call exactly one
 
 Rules:
 - To open a program, ALWAYS call launch_app. Never hunt for its icon on the taskbar or Start menu, and never press the Windows key and type a name: Windows Search sends the query to the web if the app has not resolved yet, which opens a browser you did not want.
-- To reach a web page, call launch_app for the browser, then click its address bar and type the URL. The user is watching the pointer, so doing it on screen is the point. Fall back to open_url only if the address bar is genuinely not visible in the screenshot.
+- To reach a web page, call launch_app for the browser, then use type_into on its address bar with submit=true. The user is watching the pointer, so doing it on screen is the point. Fall back to open_url only if the address bar is genuinely not visible in the screenshot.
+- ALWAYS prefer type_into over a separate click, type_text and press_keys. Every function call is a slow round trip and the user is on a small daily quota, so three steps that could have been one is a real cost. Use type_text alone only when the field is already focused.
 - The user can see every move you make. When a click and a keyboard shortcut would both work, click the thing: a visible pointer moving to a target is easier to follow, and easier to stop, than a shortcut that fires invisibly.
 - Coordinates are on a 0-1000 grid for BOTH axes, where (0,0) is the top-left of the screen and (1000,1000) is the bottom-right. Look carefully at the screenshot and aim at the centre of the thing you want to hit.
 - Take one small, verifiable step at a time. After each action you will see the result, so you do not need to guess ahead.
@@ -56,6 +57,21 @@ const FUNCTION_DECLARATIONS = [
         double: { type: 'BOOLEAN', description: 'True for a double click' }
       },
       required: ['x', 'y']
+    }
+  },
+  {
+    name: 'type_into',
+    description:
+      'Click a field, type into it, and optionally press Enter - all in one step. Use this for any text box: address bars, search boxes, form fields.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        x: { type: 'NUMBER', description: 'Horizontal position of the field, 0-1000.' },
+        y: { type: 'NUMBER', description: 'Vertical position of the field, 0-1000.' },
+        text: { type: 'STRING', description: 'Text to type.' },
+        submit: { type: 'BOOLEAN', description: 'Press Enter afterwards.' }
+      },
+      required: ['x', 'y', 'text']
     }
   },
   {
@@ -224,6 +240,14 @@ function toAction(name: string, args: Record<string, unknown>): AgentAction {
         y: num(args['y']),
         button: args['button'] === 'right' ? 'right' : 'left',
         double: args['double'] === true
+      }
+    case 'type_into':
+      return {
+        type: 'typeInto',
+        x: num(args['x']),
+        y: num(args['y']),
+        text: String(args['text'] ?? ''),
+        submit: args['submit'] !== false
       }
     case 'type_text':
       return { type: 'type', text: String(args['text'] ?? '') }

@@ -108,6 +108,24 @@ export async function executeAction(
       await keyboard.type(action.text)
       return 'ok'
 
+    case 'typeInto': {
+      await glideTo(toScreenPoint(action.x, action.y, screen), pace, signal)
+      if (signal?.aborted) return 'cancelled'
+
+      await markClick()
+      await mouse.click(Button.LEFT)
+      // Focus does not always land on the same tick as the click.
+      await new Promise((resolve) => setTimeout(resolve, 120))
+
+      keyboard.config.autoDelayMs = PACES[pace].typeDelayMs
+      await keyboard.type(action.text)
+      if (action.submit) {
+        await keyboard.pressKey(Key.Enter)
+        await keyboard.releaseKey(Key.Enter)
+      }
+      return 'ok'
+    }
+
     case 'keys': {
       const keys = action.keys.map((name) => {
         const key = resolveKey(name)

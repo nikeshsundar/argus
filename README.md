@@ -240,6 +240,8 @@ A key refused for a *daily* cap is rested for 15 minutes rather than the ~20 sec
 > [!NOTE]
 > Extra keys only add headroom if they come from **different Google Cloud projects**. Quota is per project, so a second key in the same project shares the same exhausted allowance — verified the hard way. If you want real headroom, enabling billing removes the daily cap entirely, and `gemini-3.5-flash-lite` costs cents.
 
+Argus also tries to spend fewer requests per task. Putting text in a box — an address bar, a search field, a form — used to be three round trips (click, type, press Enter) and is now one, since on a 20-a-day budget the number of steps matters more than the speed of each.
+
 > [!IMPORTANT]
 > **Free-tier quota is per model, per project, per day** — and it is small. `gemini-3.6-flash` allows **20 requests/day**, which one agent task can exhaust on its own. Since the limit is per *model*, Agent and Teach drawing on a different one gives them their own allowance. A second API key in the same Google Cloud project shares the same quota, so making a new key does not reset it.
 
