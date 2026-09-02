@@ -93,3 +93,13 @@ export function describePool(states: KeyState[], now: number): string {
   if (states.length === 1) return ready ? '1 key, ready' : '1 key, resting'
   return `${ready} of ${states.length} keys ready`
 }
+
+/**
+ * Short, non-secret handle for a key, used to persist its cooldown.
+ *
+ * The last 8 characters are enough to tell a handful of keys apart, and keep
+ * the settings file from carrying each secret twice.
+ */
+export function keyFingerprint(key: string): string {
+  return key.trim().slice(-8)
+}

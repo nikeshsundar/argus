@@ -33,6 +33,16 @@ export interface Settings {
    * shares the same exhausted allowance.
    */
   geminiApiKeys: string[]
+  /**
+   * When each key's quota is expected back, keyed by the last 8 characters of
+   * the key rather than the key itself - the secret is already in this file
+   * once and does not need to be in it twice.
+   *
+   * Persisted because a daily cap outlives the session that discovered it.
+   * Without this, every restart spends a request re-learning that yesterday's
+   * exhausted key is still exhausted, and does it before reaching the good one.
+   */
+  geminiKeyCooldowns: Record<string, number>
   openaiApiKey: string
   ollamaHost: string
   /** How visibly Agent Mode moves the pointer and types. */
@@ -54,6 +64,7 @@ const DEFAULTS: Settings = {
   agentModel: 'gemini-3.5-flash-lite',
   geminiApiKey: '',
   geminiApiKeys: [],
+  geminiKeyCooldowns: {},
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434',
   cursorPace: 'natural'
@@ -76,6 +87,9 @@ export function loadSettings(): Settings {
     // Move users off a previous default rather than stranding them on it.
     if (SUPERSEDED_HOTKEYS.includes(stored.hotkey)) stored.hotkey = DEFAULTS.hotkey
     if (!Array.isArray(stored.geminiApiKeys)) stored.geminiApiKeys = []
+    if (!stored.geminiKeyCooldowns || typeof stored.geminiKeyCooldowns !== 'object') {
+      stored.geminiKeyCooldowns = {}
+    }
     cache = healModelNames(stored)
   } catch {
     // No settings file yet (first run), or it is unreadable/corrupt - fall back

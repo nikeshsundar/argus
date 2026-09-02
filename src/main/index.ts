@@ -1,7 +1,7 @@
 import { app, ipcMain } from 'electron'
 import { runAgentTask } from './agentLoop'
 import { inferProviderFromKey } from '../shared/keys'
-import { configuredKeys, poolStatus } from './geminiKeys'
+import { configuredKeys, forgetCooldowns, poolRows, poolStatus } from './geminiKeys'
 import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
 import { clearThreads, createThread, getThread, listThreads, saveThread } from './history'
 import { parseMode, type Mode } from '../shared/types'
@@ -147,20 +147,19 @@ function handleSlashCommand(text: string): SubmitResult | null {
   const saveKey = (value: string, target: ProviderName): void => {
     switch (target) {
       case 'gemini': {
-        // Gemini keys stack rather than replace: an exhausted daily quota is
-        // survivable with a spare, and losing the old key to add one is not
-        // what "add another key" should mean.
+        // A new key goes to the FRONT of the queue. People add one because the
+        // last one ran out, so putting it behind the exhausted key means every
+        // request is spent rediscovering that - and the new key never gets a
+        // turn until the old one has failed again.
         const settings = loadSettings()
-        if (!settings.geminiApiKey) {
-          updateSettings({ geminiApiKey: value, talkProvider: 'gemini' })
-        } else if (settings.geminiApiKey !== value && !settings.geminiApiKeys.includes(value)) {
-          updateSettings({
-            geminiApiKeys: [...settings.geminiApiKeys, value],
-            talkProvider: 'gemini'
-          })
-        } else {
-          updateSettings({ talkProvider: 'gemini' })
-        }
+        const rest = [settings.geminiApiKey, ...settings.geminiApiKeys].filter(
+          (key) => key && key !== value
+        )
+        updateSettings({
+          geminiApiKey: value,
+          geminiApiKeys: rest,
+          talkProvider: 'gemini'
+        })
         break
       }
       case 'openai':
@@ -193,16 +192,55 @@ function handleSlashCommand(text: string): SubmitResult | null {
     )
   }
 
+  // Bulk load: "/keys k1 k2 k3", or the same separated by commas or newlines.
+  const bulk = /^\/keys\s+(.+)$/is.exec(text)
+  if (bulk && !/^clear$/i.test(bulk[1]!.trim()) && !/^reset$/i.test(bulk[1]!.trim())) {
+    const parsed = bulk[1]!
+      .split(/[\s,;]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+    const good = parsed.filter((key) => inferProviderFromKey(key) === 'gemini')
+    if (good.length === 0) {
+      return fail(`None of those look like Gemini keys (they start with "AIza" or "AQ.").`)
+    }
+    const unique = [...new Set(good)]
+    updateSettings({
+      geminiApiKey: unique[0]!,
+      geminiApiKeys: unique.slice(1),
+      geminiKeyCooldowns: {},
+      talkProvider: 'gemini'
+    })
+    forgetCooldowns()
+    const skipped = parsed.length - good.length
+    return ok(
+      `Loaded ${unique.length} Gemini key${unique.length === 1 ? '' : 's'}.` +
+        (skipped ? ` Ignored ${skipped} that didn't look like keys.` : '') +
+        ' They are tried in the order given, and one over quota hands off to the next.'
+    )
+  }
+
+  if (/^\/keys\s+reset$/i.test(text)) {
+    forgetCooldowns()
+    return ok('Cooldowns cleared — every key will be tried again.')
+  }
+
   if (/^\/keys$/i.test(text)) {
     const keys = configuredKeys()
     if (keys.length === 0) return fail('No Gemini keys yet. Add one with "/key <your-key>".')
     return ok(
       [
         `${poolStatus()} — tried in this order:`,
-        ...keys.map((key, index) => `  ${index + 1}. ${key.slice(0, 8)}…${key.slice(-4)}`),
+        ...poolRows().map(
+          (row, index) =>
+            `  ${index + 1}. ${row.key.slice(0, 8)}…${row.key.slice(-4)}  — ${row.status}`
+        ),
         '',
         'Quota is per Google Cloud project, so extra keys only add headroom',
-        'if they come from different projects. "/keys clear" empties the list.'
+        'if they come from different projects.',
+        '',
+        '/keys <k1> <k2> ...   load several at once',
+        '/keys reset           clear cooldowns and retry every key',
+        '/keys clear           remove them all'
       ].join('\n')
     )
   }
@@ -286,6 +324,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
       [
         `/key <api-key>        add a key for ${settings.talkProvider}`,
         '/keys                 list keys and rotation status',
+        '/keys <k1> <k2> ...   load several keys at once',
         '/provider <name>      claude or gemini',
         '/model <model-id>     Talk Mode model',
         '/model agent <id>     Agent + Teach model (fast one)',

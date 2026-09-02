@@ -4,6 +4,7 @@ import {
   createKeyStates,
   DAILY_COOLDOWN_MS,
   INVALID_COOLDOWN_MS,
+  keyFingerprint,
   describePool,
   MIN_COOLDOWN_MS,
   parseRetryDelay,
@@ -130,5 +131,37 @@ describe('rejected credentials', () => {
     expect(pickKey(states, NOW)?.key).toBe('good')
     // And it stays skipped for the whole session, not just a moment.
     expect(pickKey(states, NOW + 60 * 60 * 1000)?.key).toBe('good')
+  })
+})
+
+describe('keyFingerprint', () => {
+  it('is short and stable, so a cooldown can be stored without the secret', () => {
+    expect(keyFingerprint('AQ.Ab8RN6LWQOpQPO_EIAFdOwcqu')).toBe('EIAFdOwcqu'.slice(-8))
+    expect(keyFingerprint('  AIzaSyEXAMPLE0000000000abcd1234  ')).toBe('abcd1234')
+  })
+
+  it('tells realistic keys apart', () => {
+    const a = 'AIzaSyEXAMPLE00000000000000000000000AAAA'
+    const b = 'AIzaSyEXAMPLE00000000000000000000000BBBB'
+    expect(keyFingerprint(a)).not.toBe(keyFingerprint(b))
+  })
+})
+
+describe('ordering when a key is added', () => {
+  it('a newly added key is tried before the exhausted one it replaces', () => {
+    // The reported bug: /key appended, so the dead key kept its place at the
+    // front and every request was spent rediscovering that it was dead.
+    const added = 'fresh'
+    const existing = ['spent', 'older']
+    const reordered = [added, ...existing.filter((key) => key !== added)]
+    const states = createKeyStates(reordered)
+    expect(pickKey(states, NOW)?.key).toBe('fresh')
+  })
+
+  it('a restored cooldown keeps a spent key out of the way after a restart', () => {
+    const states = createKeyStates(['spent', 'fresh'])
+    // Simulating what syncStates does with a persisted cooldown.
+    states[0]!.cooldownUntil = NOW + DAILY_COOLDOWN_MS
+    expect(pickKey(states, NOW)?.key).toBe('fresh')
   })
 })

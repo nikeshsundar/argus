@@ -205,7 +205,9 @@ Type these into the bar to configure or control Argus:
 | Command | Description |
 | --- | --- |
 | `/key <api-key>` | Add a Gemini API key (keys stack; they don't replace each other) |
-| `/keys` | List the keys in rotation and which are ready |
+| `/keys` | List the keys in rotation, and whether each is ready or resting |
+| `/keys <k1> <k2> …` | Load several keys at once, in the order given |
+| `/keys reset` | Clear cooldowns and try every key again |
 | `/keys clear` | Remove every stored key |
 | `/model <model-id>` | Change the Talk Mode model |
 | `/model agent <id>` | Change the Agent + Teach model (a fast one; see below) |
@@ -233,7 +235,9 @@ That is the difference between a three-minute task and a twenty-second one, with
 
 `/key` adds rather than replaces. When a key is refused for quota, Argus rests it and the next one picks up the same request — so a limit reached halfway through an agent task doesn't end the task, which is the part that actually hurts.
 
-A key refused for a *daily* cap is rested for 15 minutes rather than the ~20 seconds the server suggests: that hint is the per-minute window talking, and honouring it would spend the key again immediately.
+A newly added key goes to the **front** of the queue — you add one because the last ran out, so trying the spent one first would waste a request every time before reaching it. Cooldowns are also remembered across restarts, since a daily cap outlives the session that discovered it.
+
+A key refused for a *daily* cap is rested for 15 minutes rather than the ~20 seconds the server suggests: that hint is the per-minute window talking, and honouring it would spend the key again immediately. A key rejected outright (`401`) is set aside for the session — no amount of waiting fixes a wrong credential — and `/keys` shows it as *rejected* so you know which to replace.
 
 `/keys` shows the pool and what's ready.
 

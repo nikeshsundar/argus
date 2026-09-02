@@ -1,15 +1,16 @@
 import {
   cooldownFor,
-  DAILY_COOLDOWN_MS,
   createKeyStates,
+  DAILY_COOLDOWN_MS,
   describePool,
+  keyFingerprint,
   parseRetryDelay,
   pickKey,
   restKey,
   soonestAvailable,
   type KeyState
 } from '../shared/keyPool'
-import { loadSettings } from './settingsStore'
+import { loadSettings, updateSettings } from './settingsStore'
 
 /**
  * The live rotation state.
@@ -35,7 +36,16 @@ function syncStates(): KeyState[] {
     // Carry over cooldowns for keys that survived the edit; a key that was
     // just refused should not become usable merely because another was added.
     const previous = new Map(states.map((state) => [state.key, state]))
-    states = createKeyStates(keys).map((state) => previous.get(state.key) ?? state)
+    const stored = loadSettings().geminiKeyCooldowns
+    states = createKeyStates(keys).map((state) => {
+      const live = previous.get(state.key)
+      if (live) return live
+      // A daily cap outlives the session that found it, so a restart must not
+      // hand back a key that is still exhausted - it would be spent relearning
+      // that, and spent before reaching a key that actually works.
+      const until = stored[keyFingerprint(state.key)] ?? 0
+      return until > Date.now() ? { ...state, cooldownUntil: until, reason: 'quota' } : state
+    })
     signature = next
   }
   return states
@@ -62,6 +72,25 @@ export function restAfterRefusal(
   const state = syncStates().find((candidate) => candidate.key === key)
   if (!state) return
   restKey(state, cooldownFor(detail, parseRetryDelay(detail), status), now, detail.slice(0, 120))
+  persistCooldowns(now)
+}
+
+/** Writes cooldowns to disk, dropping ones that have already elapsed. */
+function persistCooldowns(now: number): void {
+  const cooldowns: Record<string, number> = {}
+  for (const state of states) {
+    if (state.cooldownUntil > now) cooldowns[keyFingerprint(state.key)] = state.cooldownUntil
+  }
+  updateSettings({ geminiKeyCooldowns: cooldowns })
+}
+
+/** Clears every cooldown - for when the user knows a quota has reset. */
+export function forgetCooldowns(): void {
+  for (const state of syncStates()) {
+    state.cooldownUntil = 0
+    delete state.reason
+  }
+  updateSettings({ geminiKeyCooldowns: {} })
 }
 
 /** Keys the server has rejected outright, for telling the user which to replace. */
@@ -82,6 +111,17 @@ export function poolSize(): number {
 
 export function poolStatus(now: number = Date.now()): string {
   return describePool(syncStates(), now)
+}
+
+/** Per-key state for the "/keys" listing. */
+export function poolRows(now: number = Date.now()): { key: string; status: string }[] {
+  return syncStates().map((state) => {
+    if (state.cooldownUntil <= now) return { key: state.key, status: 'ready' }
+    const seconds = Math.ceil((state.cooldownUntil - now) / 1000)
+    if (seconds > 12 * 60 * 60) return { key: state.key, status: 'rejected — replace it' }
+    const wait = seconds > 90 ? `${Math.round(seconds / 60)} min` : `${seconds}s`
+    return { key: state.key, status: `resting, back in ~${wait}` }
+  })
 }
 
 /** How long until the pool can be used again, in seconds. */
