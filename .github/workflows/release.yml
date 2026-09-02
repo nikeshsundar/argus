@@ -1,0 +1,62 @@
+name: Release
+
+# Tag a version and the installer builds itself:
+#   git tag v0.1.0 && git push origin v0.1.0
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # The native modules ship prebuilt N-API binaries; nothing is compiled
+      # here, so no Visual Studio toolchain is needed on the runner.
+      - run: npm ci
+
+      - run: npm test
+
+      - run: npm run package
+
+      - name: Publish the installer
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/Argus-*-Setup.exe
+          generate_release_notes: true
+          # A build from a tag is the download people land on, so say the two
+          # things every first-time Windows installer has to say.
+          body: |
+            ## Install
+
+            Download `Argus-<version>-Setup.exe` below and run it.
+
+            Windows will show a **"Windows protected your PC"** screen, because
+            the installer is not code-signed — a signing certificate costs a few
+            hundred dollars a year and this is a free project. Click
+            **More info → Run anyway**. The full source for this build is the
+            tag it was built from, and the workflow that produced it is in
+            `.github/workflows/release.yml`.
+
+            ## First run
+
+            Argus lives in the system tray. Press <kbd>Alt</kbd>+<kbd>` </kbd>
+            to open the bar, then set a free
+            [Gemini API key](https://aistudio.google.com/apikey):
+
+            ```
+            /key YOUR_KEY_HERE
+            ```
+
+            Your key stays on your machine. There is no Argus server.

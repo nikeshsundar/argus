@@ -2,6 +2,12 @@ appId: com.argus.desktop
 productName: Argus
 copyright: Copyright © 2026 Argus contributors
 
+# uiohook-napi and nut-js ship prebuilt N-API binaries, which are ABI-stable
+# across Node and Electron versions - that is the whole point of N-API. Letting
+# electron-builder rebuild them from source only adds a Visual Studio
+# requirement that nobody packaging this app should need.
+npmRebuild: false
+
 directories:
   output: release
   buildResources: resources

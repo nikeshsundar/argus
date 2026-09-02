@@ -24,7 +24,7 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ### Contents
 
-[Demo](#demo) · [Features](#features) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
 **[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
 
@@ -143,6 +143,23 @@ Every Agent Mode step re-captures the screen before deciding the next move — i
 - A free [Google Gemini API key](https://ai.google.dev)
 
 ## Getting Started
+
+### Download (no build required)
+
+**[⬇ Download the latest installer](https://github.com/nikeshsundar/argus/releases/latest)** — run it, and Argus lives in your system tray.
+
+On first launch press <kbd>Alt</kbd>+<kbd>`</kbd> and set a free [Gemini API key](https://aistudio.google.com/apikey):
+
+```
+/key YOUR_KEY_HERE
+```
+
+> [!NOTE]
+> Windows will show **"Windows protected your PC"**. The installer isn't code-signed — a certificate costs a few hundred dollars a year, which a free project doesn't have. Click **More info → Run anyway**. Every release is built by [GitHub Actions](.github/workflows/release.yml) from the tag it's named after, so you can check the source the binary came from.
+
+### Build it yourself
+
+Prefer to compile it, or want to change something? Everything below builds the same installer.
 
 ### Prerequisites
 - Windows 10 or 11
