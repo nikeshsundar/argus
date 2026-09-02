@@ -44,7 +44,7 @@ export function createAgentProvider(): ComputerUseProvider {
     )
   }
 
-  return createGeminiAgentProvider({ apiKey: geminiKey, model: settings.geminiModel })
+  return createGeminiAgentProvider({ apiKey: geminiKey, model: settings.agentModel })
 }
 
 /**
@@ -62,5 +62,5 @@ export function createTeachProvider(): ReturnType<typeof createGeminiTeachProvid
     )
   }
 
-  return createGeminiTeachProvider({ apiKey: geminiKey, model: settings.geminiModel })
+  return createGeminiTeachProvider({ apiKey: geminiKey, model: settings.agentModel })
 }

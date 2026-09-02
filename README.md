@@ -205,13 +205,30 @@ Type these into the bar to configure or control Argus:
 | Command | Description |
 | --- | --- |
 | `/key <api-key>` | Save and activate your Gemini API key |
-| `/model <model-id>` | Change the AI model |
+| `/model <model-id>` | Change the Talk Mode model |
+| `/model agent <id>` | Change the Agent + Teach model (a fast one; see below) |
 | `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
 | `/cursor <pace>` | Pointer speed: `natural` (default), `demo` (slow, for recording), `instant` |
 | `/history` | Browse and resume past conversations |
 | `/new` | Start a fresh chat |
 | `/forget` | Delete all saved chats permanently |
 | `/help` | List all commands |
+
+### Two models, on purpose
+
+Talk Mode asks one question and the answer is the product, so it runs a stronger model. Agent and Teach fire a dozen quick *"which control next"* calls per task, where a slow model is felt a dozen times over.
+
+Measured against the live API on one agent turn:
+
+| Model | Time per turn | Targeting accuracy |
+| --- | --- | --- |
+| `gemini-3.6-flash` | ~11,000 ms | — |
+| `gemini-3.5-flash-lite` *(default for Agent/Teach)* | ~1,500 ms | within 2px |
+
+That is the difference between a three-minute task and a twenty-second one, with no measurable loss in where it clicks.
+
+> [!IMPORTANT]
+> **Free-tier quota is per model, per project, per day** — and it is small. `gemini-3.6-flash` allows **20 requests/day**, which one agent task can exhaust on its own. Since the limit is per *model*, Agent and Teach drawing on a different one gives them their own allowance. A second API key in the same Google Cloud project shares the same quota, so making a new key does not reset it.
 
 ## Chat History & Persistence
 

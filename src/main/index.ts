@@ -184,6 +184,16 @@ function handleSlashCommand(text: string): SubmitResult | null {
     )
   }
 
+  // Agent and Teach share one model, separate from Talk's - they are tuned for
+  // speed over depth, and the wrong one there costs seconds on every step.
+  const agentModel = /^\/model\s+agent\s+(\S+)$/i.exec(text)
+  if (agentModel) {
+    const id = agentModel[1]!
+    if (inferProviderFromKey(id)) return fail("That's an API key, not a model. Use \"/key\".")
+    updateSettings({ agentModel: id })
+    return ok(`Agent and Teach Mode now use ${id}.`)
+  }
+
   const model = /^\/model\s+(\S+)$/i.exec(text)
   if (model) {
     const id = model[1]!
@@ -234,7 +244,8 @@ function handleSlashCommand(text: string): SubmitResult | null {
       [
         `/key <api-key>        set the key for ${settings.talkProvider}`,
         '/provider <name>      claude or gemini',
-        '/model <model-id>     change the model',
+        '/model <model-id>     Talk Mode model',
+        '/model agent <id>     Agent + Teach model (fast one)',
         '/hotkey <combo>       e.g. Alt+`',
         '/cursor <pace>        instant, natural or demo',
         '/history              past chats',

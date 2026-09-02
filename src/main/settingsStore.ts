@@ -16,6 +16,15 @@ export interface Settings {
   claudeModel: string
   claudeApiKey: string
   geminiModel: string
+  /**
+   * Model for Agent and Teach steps, which is a different job from Talk: a
+   * dozen quick "which control next" calls rather than one answer worth
+   * waiting for. Measured against the live API, gemini-3.6-flash spent ~11s
+   * per turn deliberating while this one answers in ~1.5s and still lands
+   * within 2px of a target. Free-tier quota is per model, so it also gets its
+   * own daily allowance.
+   */
+  agentModel: string
   geminiApiKey: string
   openaiApiKey: string
   ollamaHost: string
@@ -35,6 +44,7 @@ const DEFAULTS: Settings = {
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
   geminiModel: 'gemini-3.6-flash',
+  agentModel: 'gemini-3.5-flash-lite',
   geminiApiKey: '',
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434',
@@ -76,6 +86,7 @@ export function loadSettings(): Settings {
  */
 function healModelNames(settings: Settings): Settings {
   if (inferProviderFromKey(settings.geminiModel)) settings.geminiModel = DEFAULTS.geminiModel
+  if (inferProviderFromKey(settings.agentModel)) settings.agentModel = DEFAULTS.agentModel
   if (inferProviderFromKey(settings.claudeModel)) settings.claudeModel = DEFAULTS.claudeModel
   return settings
 }
