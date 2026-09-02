@@ -256,3 +256,66 @@ kbd {
   font-family: inherit;
   font-size: 10px;
 }
+
+/* ---- Voice -------------------------------------------------------------- */
+
+.mic {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+.mic:hover,
+.mic:focus-visible {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.16);
+  outline: none;
+}
+
+/*
+ * Recording has to be unmistakable. The bar is on top of whatever the user was
+ * doing, so a subtle state change is not enough for something holding a live
+ * microphone.
+ */
+.mic[data-state='recording'] {
+  color: #ff5f57;
+  border-color: rgba(255, 95, 87, 0.5);
+  background: rgba(255, 95, 87, 0.12);
+}
+
+.mic[data-state='thinking'] {
+  color: var(--talk);
+  border-color: rgba(86, 211, 245, 0.4);
+}
+
+/* Scales with the loudness the mic is actually hearing, so a dead or muted
+   input is visible before the user has finished talking into it. */
+.mic-level {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 95, 87, 0.55);
+  opacity: 0;
+  transform: scale(0.7);
+  transition: transform 90ms linear, opacity 160ms ease;
+  pointer-events: none;
+}
+
+.mic[data-state='recording'] .mic-level {
+  opacity: 1;
+}
+
+.bar[data-listening='true'] {
+  border-color: rgba(255, 95, 87, 0.45);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 95, 87, 0.25) inset;
+}

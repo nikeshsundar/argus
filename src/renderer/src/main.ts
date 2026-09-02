@@ -1,4 +1,6 @@
+import { MIN_UTTERANCE_MS } from '../../shared/audio'
 import { isBareApiKey } from '../../shared/commands'
+import { startRecording, type Recorder } from './voice'
 import { parseTeachRequest } from '../../shared/teach'
 import { parseMode, type Mode } from '../../shared/types'
 import { filterOptions, type Option } from './options'
@@ -9,6 +11,8 @@ const status = document.querySelector<HTMLDivElement>('#status')!
 const thread = document.querySelector<HTMLDivElement>('#thread')!
 const optionList = document.querySelector<HTMLUListElement>('#options')!
 const closeButton = document.querySelector<HTMLButtonElement>('#close')!
+const mic = document.querySelector<HTMLButtonElement>('#mic')!
+const micLevel = document.querySelector<HTMLSpanElement>('#mic-level')!
 const bar = document.querySelector<HTMLElement>('#bar')!
 
 type StatusState = 'idle' | 'busy' | 'done' | 'error'
@@ -27,6 +31,9 @@ let activeAnswer: HTMLDivElement | null = null
  * what most requests want; an explicit choice outranks the guess.
  */
 let manualMode: Mode | null = null
+/** Live microphone, while the button is held. */
+let recorder: Recorder | null = null
+let recordingStartedAt = 0
 
 function setStatus(text: string, state: StatusState = 'idle'): void {
   status.textContent = text
@@ -332,6 +339,94 @@ input.addEventListener('input', () => {
  * The chip is the switch between asking and acting. Clicking it pins the mode
  * for this one request; it goes back to following the wording afterwards.
  */
+/**
+ * Hold to speak.
+ *
+ * Hold rather than toggle so the microphone is provably live only while a
+ * finger is down - there is no state in which Argus is listening and the user
+ * has forgotten. Releasing outside the button still stops it, because a
+ * pointerup that never arrives would leave the mic open.
+ */
+async function beginListening(): Promise<void> {
+  if (recorder || awaitingAnswer) return
+
+  try {
+    recordingStartedAt = Date.now()
+    recorder = await startRecording({
+      onLevel: (level) => {
+        micLevel.style.transform = `scale(${0.7 + level * 0.55})`
+      }
+    })
+    mic.dataset['state'] = 'recording'
+    bar.dataset['listening'] = 'true'
+    setStatus('Listening — release to send', 'busy')
+  } catch {
+    recorder = null
+    setStatus('No microphone available, or access was refused.', 'error')
+  }
+}
+
+async function endListening(): Promise<void> {
+  const active = recorder
+  if (!active) return
+  recorder = null
+
+  const heldFor = Date.now() - recordingStartedAt
+  mic.dataset['state'] = ''
+  bar.dataset['listening'] = 'false'
+  micLevel.style.transform = 'scale(0.7)'
+
+  const wav = await active.stop()
+
+  // A tap is a mis-press, not an utterance. Transcribing it would spend a
+  // request to be told there was no speech.
+  if (!wav || heldFor < MIN_UTTERANCE_MS) {
+    setStatus('Hold the mic while you speak.')
+    return
+  }
+
+  mic.dataset['state'] = 'thinking'
+  setStatus('Transcribing…', 'busy')
+
+  try {
+    const text = await window.argus.transcribe(wav.buffer as ArrayBuffer)
+    mic.dataset['state'] = ''
+    if (!text) {
+      setStatus("Didn't catch that — try again.")
+      return
+    }
+
+    input.value = text
+    manualMode = manualMode ?? parseMode(text).mode
+    syncChip()
+    renderOptions()
+    input.focus()
+
+    // Talk Mode sends straight away; the worst case is a wasted question. Agent
+    // and Teach wait for Enter, because there the text becomes mouse movement
+    // and speech misheard by one word is not a wasted turn.
+    if (currentMode() === 'talk') {
+      setStatus('')
+      submit(text)
+    } else {
+      setStatus('Check it, then press Enter to run it.')
+    }
+  } catch (error) {
+    mic.dataset['state'] = ''
+    setStatus(error instanceof Error ? error.message : 'Could not transcribe that.', 'error')
+  }
+}
+
+mic.addEventListener('pointerdown', (event) => {
+  event.preventDefault()
+  void beginListening()
+})
+
+// Listening for the release on the window, not the button: letting go after
+// dragging off the mic would otherwise never stop the recording.
+window.addEventListener('pointerup', () => void endListening())
+window.addEventListener('pointercancel', () => void endListening())
+
 chip.addEventListener('click', () => {
   manualMode = currentMode() === 'agent' ? 'talk' : 'agent'
   syncChip()

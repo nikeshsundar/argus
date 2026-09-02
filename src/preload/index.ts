@@ -20,6 +20,9 @@ const api = {
   submit: (text: string, mode?: Mode): Promise<SubmitResult> =>
     ipcRenderer.invoke('argus:submit', text, mode),
 
+  /** Sends recorded speech for transcription and resolves with the text. */
+  transcribe: (wav: ArrayBuffer): Promise<string> => ipcRenderer.invoke('argus:transcribe', wav),
+
   /** Dismisses the bar. */
   hide: (): void => ipcRenderer.send('argus:hide'),
 

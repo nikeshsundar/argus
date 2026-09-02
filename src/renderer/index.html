@@ -30,6 +30,28 @@
           spellcheck="false"
           placeholder="What do you want to know?"
         />
+        <button
+          id="mic"
+          class="mic"
+          type="button"
+          title="Hold to speak"
+          aria-label="Hold to speak"
+        >
+          <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+            <path
+              d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"
+              fill="currentColor"
+            />
+            <path
+              d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.9"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="mic-level" id="mic-level"></span>
+        </button>
         <button id="close" class="close" type="button" title="Close (Esc twice)">×</button>
       </div>
 

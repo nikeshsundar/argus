@@ -1,4 +1,4 @@
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, session } from 'electron'
 import { runAgentTask } from './agentLoop'
 import { parseKeyCommand } from '../shared/commands'
 import { inferProviderFromKey } from '../shared/keys'
@@ -8,6 +8,7 @@ import { clearThreads, createThread, getThread, listThreads, saveThread } from '
 import { parseMode, type Mode } from '../shared/types'
 import { parseTeachRequest } from '../shared/teach'
 import { runTeachLesson } from './teachLoop'
+import { transcribe } from './transcribe'
 import { disposeHotkeys, hotkeyStrategy, registerHotkey, watchEscape } from './hotkey'
 import { createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
@@ -480,7 +481,22 @@ async function runAgent(task: string): Promise<SubmitResult> {
   }
 }
 
+/**
+ * Electron refuses getUserMedia unless the session allows it, and refuses it
+ * silently - the renderer sees the same failure as a machine with no
+ * microphone. Only the microphone is granted, and only to our own pages.
+ */
+function allowMicrophone(): void {
+  session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(permission === 'media')
+  })
+}
+
 function registerIpc(): void {
+  ipcMain.handle('argus:transcribe', async (_event, wav: ArrayBuffer): Promise<string> => {
+    return await transcribe(Buffer.from(wav))
+  })
+
   ipcMain.handle('argus:submit', async (_event, text: string, forced?: Mode) => {
     const command = handleSlashCommand(text.trim())
     if (command) return command
@@ -563,6 +579,7 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     createRequestBar()
+    allowMicrophone()
     registerIpc()
     createTray({ onOpen: () => void openRequestBar() })
 

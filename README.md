@@ -57,6 +57,16 @@ Hand over the wheel and it does the task itself.
 - *"open chrome and go to github.com"*
 - *"agent find the cheapest flight tomorrow"* — the `agent` prefix still forces it
 
+### 🎤 Voice
+Hold the mic and say it. Long instructions are miserable to type and effortless to speak, which is exactly what Agent Mode asks for.
+
+> *(spoken)* "um, open youtube and uh search for mister beast" → **"Open YouTube and search for MrBeast"**
+
+- Fillers, false starts and misheard brand names are cleaned up as part of transcribing — you get what you meant, not a literal transcript
+- **Hold to talk, never a wake word.** The mic is live only while your finger is down; nothing listens in the background
+- Talk Mode sends straight away. Agent and Teach put the text in the box and wait for <kbd>Enter</kbd> — speech misheard by one word shouldn't move your mouse
+- Argus never speaks back. Dictation, not a conversation
+
 ### 🎓 Teach Mode
 The one that doesn't exist anywhere else. Ask to be *taught* and it refuses to do it for you.
 
@@ -300,6 +310,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Visible pointer travel — eased glide, halo, click ring, three speeds
 - [x] Intent routing — instructions reach the agent without a trigger word
 - [x] Teach Mode — ghost cursor, captioned steps, waits for the learner
+- [x] Voice input — hold to talk, filler-cleaned transcription
 
 ### 🚧 In Progress & Planned
 - [ ] Support for additional providers
@@ -308,7 +319,6 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [ ] OpenAI and local Ollama provider support
 - [ ] Settings UI (currently all in-bar commands)
 - [ ] Encrypt stored API keys with Electron `safeStorage`
-- [ ] Voice input / dictation support
 - [ ] Prebuilt installers in GitHub Releases
 - [ ] Multi-monitor support optimization
 
