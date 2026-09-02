@@ -4,7 +4,7 @@
 
 <img src="resources/icon.png" width="72" alt="Argus icon" />
 
-[![Typing SVG](https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=56D3F5&center=true&vCenter=true&width=640&lines=Press+a+hotkey.+Ask+about+your+screen.;Or+say+%22agent%22+and+hand+it+the+wheel.;Open+source.+Self-hosted.+Yours.)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.demolab.com/?font=Fira+Code&weight=500&size=20&duration=2800&pause=900&color=56D3F5&center=true&vCenter=true&width=640&lines=Press+a+hotkey.+Ask+about+your+screen.;Hand+it+the+wheel+-+or+ask+it+to+teach+you.;Open+source.+Self-hosted.+Yours.)](https://git.io/typing-svg)
 
 **An open-source, screen-aware AI assistant for Windows.**
 Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
@@ -20,11 +20,11 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ---
 
-> **Status: Actively developed.** Talk Mode and Agent Mode are fully functional. See the [roadmap](#roadmap) for upcoming features.
+> **Status: Actively developed.** Talk, Agent and Teach Mode are all working. See the [roadmap](#roadmap) for what is next.
 
 ### Contents
 
-[Demo](#demo) · [Features](#features) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+[Demo](#demo) · [Features](#features) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
 **[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
 
@@ -45,16 +45,31 @@ Ask questions about what's on your screen with full conversation history.
 - See Gemini analyze your screen in real-time
 - Chat history is persistent and resumable
 
-### 🤖 Agent Mode  
-Tell an AI to take control and complete tasks autonomously.
-- Click, type, navigate—hands off
-- Screen-aware decision making
-- Safety limits: 14 actions max, instant <kbd>Esc</kbd> kill switch, amber frame overlay
+### 🤖 Agent Mode
+Hand over the wheel and it does the task itself.
+- Clicks, types and navigates on your real desktop
+- **The pointer travels** — an eased glide with a halo and a click ring, so you can follow every move instead of watching things happen
+- No trigger word needed: *"open instagram"* is understood as an instruction
+- Safety limits: 14 actions max, <kbd>Esc</kbd> stops it mid-movement, amber frame while it has control
 
 **Examples:**
-- *"agent, open notepad and write a grocery list"*
-- *"agent, open chrome and navigate to github.com"*
-- *"agent, find the price of the cheapest flight tomorrow"*
+- *"open notepad and write a grocery list"*
+- *"open chrome and go to github.com"*
+- *"agent find the cheapest flight tomorrow"* — the `agent` prefix still forces it
+
+### 🎓 Teach Mode
+The one that doesn't exist anywhere else. Ask to be *taught* and it refuses to do it for you.
+
+A **blue ghost cursor** appears over the real control, captioned with what the step does and why — then it waits. You click. It looks at the new screen and points at the next thing.
+
+> *"teach me how to create a new repo in github"*
+
+- **Never touches your mouse.** The overlay is click-through; your click reaches the real UI and Argus only watches
+- **Knows when you clicked the wrong thing** — your click is reported with its distance from the target, so it re-points instead of pressing on
+- <kbd>Space</kbd> advances any step, so a missed target can't trap you; <kbd>Esc</kbd> quits
+- In Talk Mode the same phrase gives numbered written steps instead
+
+No more pausing a YouTube tutorial every four seconds to switch tabs.
 
 ### 🔒 Privacy Built-In
 - Screenshots stay in RAM only—never written to disk or logged
@@ -72,11 +87,17 @@ Hit <kbd>Alt</kbd>+<kbd>`</kbd> from anywhere in Windows. Argus grabs your scree
 
 Follow-ups understand what came before, so you don't have to re-explain yourself.
 
-**Agent Mode** — start your request with `agent` and it operates the computer itself.
+**Agent Mode** — say what you want done and it operates the computer itself.
 
-> *"agent, open notepad and type hello"* · *"agent, open chrome and go to github"*
+> *"open notepad and type hello"* · *"open chrome and go to github"*
 
-It looks at the screen, decides the next click or keystroke, does it, looks again, and repeats until the task is done.
+It looks at the screen, decides the next click or keystroke, does it, looks again, and repeats until the task is done. The pointer glides visibly to each target, so you can see what it is about to do while it is still doing it.
+
+**Teach Mode** — say *"teach me…"* and it does the opposite: it points, and you do it.
+
+> *"teach me how to create a new repo in github"*
+
+A blue ghost cursor lands on the button you need, with a caption explaining what it does. Then it waits for you. Agent Mode leaves you no wiser; this one means you can do it again tomorrow without Argus.
 
 ## How it works
 
@@ -85,16 +106,22 @@ flowchart LR
     A["Press Alt + `"] --> B["Screenshot captured<br/>(RAM only, never saved)"]
     B --> C{What did you ask?}
     C -->|"a question"| D["Talk Mode<br/>Gemini vision"]
-    C -->|"'agent ...'"| E["Agent Mode<br/>Gemini + tools"]
+    C -->|"an instruction"| E["Agent Mode<br/>Gemini + tools"]
+    C -->|"'teach me ...'"| T["Teach Mode<br/>Gemini + pointing"]
     D --> F["Answer streams<br/>into the bar"]
     E --> G["One action:<br/>launch app · click · type · scroll"]
-    G --> H["Action runs<br/>on your real PC"]
+    G --> H["Pointer glides,<br/>action runs on your real PC"]
     H --> I{Task done?}
     I -->|no| B
     I -->|yes| J["Summary shown,<br/>overlay disappears"]
+    T --> U["Ghost cursor + caption<br/>drawn over the control"]
+    U --> V["It waits —<br/>you click"]
+    V --> W{Goal reached?}
+    W -->|no| B
+    W -->|yes| J
 ```
 
-Every Agent Mode step re-captures the screen before deciding the next move — it never fires off a blind sequence of actions.
+Every Agent Mode step re-captures the screen before deciding the next move — it never fires off a blind sequence of actions. Teach Mode does the same, except the thing it waits for is you.
 
 ## Why Argus?
 
@@ -154,12 +181,23 @@ npm run package   # outputs release/Argus-<version>-Setup.exe
 | <kbd>Alt</kbd>+<kbd>`</kbd> | Open / close the bar (default, rebindable) |
 
 ### In the Bar
+The bar is just an input. Nothing floats over your screen until you ask it to.
+
 | Key | Action |
 | --- | --- |
-| <kbd>↑</kbd> / <kbd>↓</kbd> | Navigate options |
-| <kbd>Enter</kbd> | Send query or run highlighted option |
-| <kbd>Esc</kbd> | Clear input |
-| <kbd>Esc</kbd> <kbd>Esc</kbd> | Close bar |
+| <kbd>/</kbd> | Open the command palette |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Navigate the palette |
+| <kbd>Enter</kbd> | Send, or run the highlighted command |
+| <kbd>Esc</kbd> | Close the bar |
+| *click the chip* | Switch between **Talk** and **Agent** |
+
+The chip on the left shows what pressing <kbd>Enter</kbd> will do, and updates as you type — it turns blue and reads **Teach** the moment it sees *"teach me…"*.
+
+### While Agent or Teach Mode is running
+| Key | Action |
+| --- | --- |
+| <kbd>Esc</kbd> | Stop immediately — interrupts a pointer glide mid-movement |
+| <kbd>Space</kbd> | *(Teach Mode)* mark the step done and move on |
 
 ### Commands
 Type these into the bar to configure or control Argus:
@@ -169,6 +207,7 @@ Type these into the bar to configure or control Argus:
 | `/key <api-key>` | Save and activate your Gemini API key |
 | `/model <model-id>` | Change the AI model |
 | `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
+| `/cursor <pace>` | Pointer speed: `natural` (default), `demo` (slow, for recording), `instant` |
 | `/history` | Browse and resume past conversations |
 | `/new` | Start a fresh chat |
 | `/forget` | Delete all saved chats permanently |
@@ -205,10 +244,14 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Command palette in the bar
 - [x] Persistent chat history (resumable conversations)
 - [x] Agent Mode with autonomous mouse & keyboard (Gemini)
+- [x] Visible pointer travel — eased glide, halo, click ring, three speeds
+- [x] Intent routing — instructions reach the agent without a trigger word
+- [x] Teach Mode — ghost cursor, captioned steps, waits for the learner
 
 ### 🚧 In Progress & Planned
 - [ ] Support for additional providers
 - [ ] On-screen annotations (arrows, highlights, boxes)
+- [ ] Replayable lessons — save a Teach Mode walkthrough and share it
 - [ ] OpenAI and local Ollama provider support
 - [ ] Settings UI (currently all in-bar commands)
 - [ ] Encrypt stored API keys with Electron `safeStorage`
@@ -231,11 +274,12 @@ npm run icon       # regenerate resources/icon.png
 
 ### Project Structure
 ```
-src/main/       Electron main process — hotkey, screen capture, agent loop, 
-                windows management, system tray
+src/main/       Electron main process — hotkey, screen capture, agent loop,
+                teach loop, pointer glide, windows, system tray
 src/preload/    Context-isolated bridge exposed to the renderer
-src/renderer/   UI: request bar and agent overlay  
-src/shared/     Shared types and logic used across all processes
+src/renderer/   UI: request bar, agent overlay, ghost cursor
+src/shared/     Shared logic used across processes — intent routing, teach
+                parsing, pointer easing (all unit tested)
 tests/          Unit tests for core logic and integration
 ```
 
@@ -243,7 +287,8 @@ tests/          Unit tests for core logic and integration
 - **Electron** — Cross-platform desktop framework
 - **Vite** — Lightning-fast build tooling  
 - **TypeScript** — Type-safe codebase
-- **Google Gemini** — AI model powering Talk & Agent modes
+- **Google Gemini** — vision and tool-calling behind all three modes
+- **nut.js / uiohook** — pointer control, and watching the learner's clicks without intercepting them
 
 ## Safety & Agent Mode
 
@@ -255,8 +300,13 @@ Agent Mode gives an AI real control of your mouse and keyboard. Here's how we ke
 | **Instant Kill** | Press <kbd>Esc</kbd> from anywhere to stop immediately, even if Argus isn't focused |
 | **Action Cap** | Maximum 14 actions per task—prevents infinite loops or runaway behavior |
 | **Single-Step Execution** | One action at a time with screen re-capture between steps; no blind sequences |
+| **Visible Travel** | The pointer glides to its target rather than teleporting, so you can see where a click is going before it lands |
 
 **Warning:** Agent Mode controls your real mouse and keyboard. Only direct it at tasks you can afford to have clicked/typed. Always supervise autonomous mode on unfamiliar websites or critical applications.
+
+### Teach Mode is different
+
+Teach Mode never touches your mouse or keyboard. The ghost cursor is a drawing on a click-through overlay; every real click is yours. If you are wary of handing over control, this is the mode to start with — the worst it can do is point at the wrong button.
 
 ## Contributing
 
