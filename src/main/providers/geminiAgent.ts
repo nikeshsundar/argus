@@ -2,6 +2,7 @@ import type { AgentAction } from '../../shared/agent'
 import {
   callGemini,
   describeGeminiFailure,
+  dropStaleImages,
   type GeminiPart,
   type GeminiResponse
 } from './geminiClient'
@@ -158,11 +159,16 @@ export function createGeminiAgentProvider(options: {
             })
           }
 
+          // Only the newest screen matters for the next decision, and resending
+          // the older ones grew every request and burned the rate limit.
+          dropStaleImages(contents)
+
           const response = await callGemini({
             apiKey: options.apiKey,
             model: options.model,
             method: 'generateContent',
             signal,
+            thinking: 'low',
             body: {
               systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
               contents,
