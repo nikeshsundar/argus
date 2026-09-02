@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
-import type { AgentCursorEvent, AgentStepEvent } from '../shared/types'
+import type { TeachStep } from '../shared/teach'
+import type { AgentCursorEvent, AgentStepEvent, OverlayKind, TeachStepEvent } from '../shared/types'
 
 let win: BrowserWindow | null = null
 
@@ -48,13 +49,35 @@ function ensureOverlay(): BrowserWindow {
   return win
 }
 
-export function showOverlay(): void {
+/**
+ * `kind` decides how alarming the frame looks. Agent Mode is amber and says the
+ * machine is being driven; Teach Mode is blue and says nothing will move on its
+ * own - the difference matters, because only one of them takes the mouse.
+ */
+export function showOverlay(kind: OverlayKind = 'agent'): void {
   const overlay = ensureOverlay()
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   origin = { x: display.bounds.x, y: display.bounds.y }
   scaleFactor = display.scaleFactor
   overlay.setBounds(display.bounds)
+  overlay.webContents.send('argus:overlay-kind', kind)
   overlay.showInactive()
+}
+
+/** Places the ghost cursor and its caption. `target` is in physical pixels. */
+export function updateTeachStep(step: TeachStep, target: { x: number; y: number }): void {
+  if (!win || win.isDestroyed()) return
+  win.webContents.send('argus:teach-step', {
+    step,
+    x: target.x / scaleFactor - origin.x,
+    y: target.y / scaleFactor - origin.y
+  } satisfies TeachStepEvent)
+}
+
+/** Takes the ghost cursor off screen - before a capture, and when the lesson ends. */
+export function clearTeachStep(): void {
+  if (!win || win.isDestroyed()) return
+  win.webContents.send('argus:teach-step', null)
 }
 
 export function updateOverlay(event: AgentStepEvent): void {

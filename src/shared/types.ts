@@ -60,6 +60,19 @@ export interface AgentCursorEvent {
   phase: 'move' | 'click'
 }
 
+/** Which face the overlay wears: driving the machine, or pointing at it. */
+export type OverlayKind = 'agent' | 'teach'
+
+/**
+ * Where to draw the ghost cursor, in CSS pixels relative to the overlay's
+ * display. Null takes it off screen.
+ */
+export interface TeachStepEvent {
+  step: import('./teach').TeachStep
+  x: number
+  y: number
+}
+
 /** Result of submitting a request from the bar. */
 export interface SubmitResult {
   ok: boolean

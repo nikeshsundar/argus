@@ -95,6 +95,12 @@ body {
   background: rgba(245, 181, 86, 0.14);
 }
 
+/* Blue, matching the ghost cursor a lesson draws on screen. */
+.chip[data-mode='teach'] {
+  color: #6aaeff;
+  background: rgba(86, 160, 245, 0.14);
+}
+
 #input {
   flex: 1;
   min-width: 0;

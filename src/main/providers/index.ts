@@ -2,6 +2,7 @@ import { loadSettings } from '../settingsStore'
 import { createClaudeProvider } from './claude'
 import { createGeminiProvider } from './gemini'
 import { createGeminiAgentProvider } from './geminiAgent'
+import { createGeminiTeachProvider } from './geminiTeach'
 import { ProviderUnavailableError, type ComputerUseProvider, type VisionProvider } from './types'
 
 /** Builds the Talk Mode provider named in settings. */
@@ -44,4 +45,22 @@ export function createAgentProvider(): ComputerUseProvider {
   }
 
   return createGeminiAgentProvider({ apiKey: geminiKey, model: settings.geminiModel })
+}
+
+/**
+ * Builds the Teach Mode provider. Shares Gemini's vision with Agent Mode, but
+ * nothing else: it points rather than clicks, so it gets its own prompt and its
+ * own tools.
+ */
+export function createTeachProvider(): ReturnType<typeof createGeminiTeachProvider> {
+  const settings = loadSettings()
+  const geminiKey = settings.geminiApiKey || process.env['GEMINI_API_KEY'] || ''
+
+  if (!geminiKey) {
+    throw new ProviderUnavailableError(
+      'Teach Mode needs a Gemini key right now. Add one with "/key <your-key>".'
+    )
+  }
+
+  return createGeminiTeachProvider({ apiKey: geminiKey, model: settings.geminiModel })
 }

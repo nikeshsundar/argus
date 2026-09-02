@@ -3,8 +3,10 @@ import type {
   AgentCursorEvent,
   AgentStepEvent,
   Mode,
+  OverlayKind,
   OpenedEvent,
   SubmitResult,
+  TeachStepEvent,
   ThreadSummary,
   Turn
 } from '../shared/types'
@@ -62,6 +64,21 @@ const api = {
       callback(payload)
     ipcRenderer.on('argus:agent-cursor', listener)
     return () => ipcRenderer.off('argus:agent-cursor', listener)
+  },
+
+  /** Fires when the overlay switches between driving and teaching. */
+  onOverlayKind: (callback: (kind: OverlayKind) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, kind: OverlayKind): void => callback(kind)
+    ipcRenderer.on('argus:overlay-kind', listener)
+    return () => ipcRenderer.off('argus:overlay-kind', listener)
+  },
+
+  /** Fires with each Teach Mode step, or null to clear the ghost cursor. */
+  onTeachStep: (callback: (event: TeachStepEvent | null) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: TeachStepEvent | null): void =>
+      callback(payload)
+    ipcRenderer.on('argus:teach-step', listener)
+    return () => ipcRenderer.off('argus:teach-step', listener)
   }
 }
 

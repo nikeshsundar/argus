@@ -175,6 +175,128 @@
           scale: 3.4;
         }
       }
+
+      /* ---- Teach Mode ---------------------------------------------------- */
+
+      /*
+       * Blue, not amber. Amber means the machine is driving itself; here it
+       * only points, and the learner keeps the mouse. Same frame, different
+       * promise - so it must not look the same.
+       */
+      body[data-kind='teach'] .frame {
+        border-color: rgba(86, 160, 245, 0.9);
+        box-shadow: inset 0 0 40px rgba(86, 160, 245, 0.16);
+        animation: none;
+      }
+
+      body[data-kind='teach'] .dot {
+        background: #56a0f5;
+      }
+
+      /* The agent's own pointer decoration has no business in a lesson. */
+      body[data-kind='teach'] .pointer,
+      body[data-kind='teach'] .ripple {
+        display: none;
+      }
+
+      .ghost {
+        position: fixed;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        will-change: transform;
+        transition: transform 420ms cubic-bezier(0.22, 0.68, 0.24, 1);
+      }
+
+      .ghost[hidden] {
+        display: none;
+      }
+
+      /* Expanding ring, so the eye finds the pointer before reading anything. */
+      .ghost-ping {
+        position: absolute;
+        left: -26px;
+        top: -26px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 2px solid rgba(86, 160, 245, 0.8);
+        animation: ghost-ping 1.8s ease-out infinite;
+      }
+
+      @keyframes ghost-ping {
+        0% {
+          opacity: 0.85;
+          scale: 0.45;
+        }
+        70%,
+        100% {
+          opacity: 0;
+          scale: 1.6;
+        }
+      }
+
+      .ghost-arrow {
+        position: absolute;
+        left: -3px;
+        top: -3px;
+        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+      }
+
+      .caption {
+        position: absolute;
+        left: 26px;
+        top: 30px;
+        width: max-content;
+        max-width: 340px;
+        padding: 12px 14px;
+        border: 1px solid rgba(86, 160, 245, 0.45);
+        border-radius: 12px;
+        background: rgba(13, 20, 32, 0.96);
+        color: #eef3fb;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+      }
+
+      /* Near an edge the caption would run off screen, so it swaps sides. */
+      .ghost[data-flip-x='true'] .caption {
+        left: auto;
+        right: 26px;
+      }
+
+      .ghost[data-flip-y='true'] .caption {
+        top: auto;
+        bottom: 30px;
+      }
+
+      .caption-step {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: #56a0f5;
+      }
+
+      .caption-title {
+        margin-top: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.35;
+      }
+
+      .caption-detail {
+        margin-top: 6px;
+        font-size: 12.5px;
+        line-height: 1.5;
+        color: #b9c4d6;
+      }
+
+      .caption-hint {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        font-size: 11.5px;
+        color: #7e8ba3;
+      }
     </style>
   </head>
   <body>
@@ -190,6 +312,24 @@
       <div class="trail t2"></div>
       <div class="trail t1"></div>
       <div class="halo"></div>
+    </div>
+    <div class="ghost" id="ghost" hidden>
+      <div class="ghost-ping"></div>
+      <svg class="ghost-arrow" width="26" height="30" viewBox="0 0 26 30" aria-hidden="true">
+        <path
+          d="M2 1.5 L2 24 L8.2 18.4 L12.4 27.6 L16.6 25.6 L12.5 16.7 L21 16.2 Z"
+          fill="#56a0f5"
+          stroke="#eef3fb"
+          stroke-width="1.6"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <div class="caption">
+        <div class="caption-step" id="caption-step"></div>
+        <div class="caption-title" id="caption-title"></div>
+        <div class="caption-detail" id="caption-detail"></div>
+        <div class="caption-hint" id="caption-hint"></div>
+      </div>
     </div>
     <script type="module" src="./src/overlay.ts"></script>
   </body>

@@ -4,6 +4,8 @@ import { inferProviderFromKey } from '../shared/keys'
 import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
 import { clearThreads, createThread, getThread, listThreads, saveThread } from './history'
 import { parseMode, type Mode } from '../shared/types'
+import { parseTeachRequest } from '../shared/teach'
+import { runTeachLesson } from './teachLoop'
 import { disposeHotkeys, hotkeyStrategy, registerHotkey, watchEscape } from './hotkey'
 import { createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
@@ -246,6 +248,16 @@ function handleSlashCommand(text: string): SubmitResult | null {
   return null
 }
 
+/** Turns a "teach me" request into a prompt that produces followable steps. */
+function asLessonPrompt(topic: string): string {
+  return [
+    `Walk me through how to ${topic}, using what is on my screen right now.`,
+    'Number each step. Name the exact button, menu or field I should use and where it is,',
+    'and say in one line what each step does, so I could do it again without you.',
+    'If I need to get somewhere else first, start there.'
+  ].join(' ')
+}
+
 async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResult> {
   const provider = createTalkProvider()
   const bar = getRequestBar()
@@ -277,6 +289,46 @@ async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResu
  * Agent Mode: hand the machine over. The bar gets out of the way while the
  * agent works, then comes back with what happened.
  */
+/**
+ * Runs a guided lesson: the bar gets out of the way, the ghost cursor points at
+ * the real UI, and the learner does the clicking.
+ */
+async function runTeach(topic: string): Promise<SubmitResult> {
+  const bar = getRequestBar()
+  clearPendingCapture()
+  abortInFlight()
+
+  const controller = new AbortController()
+  inFlight = controller
+  hideRequestBar()
+
+  try {
+    const result = await runTeachLesson({
+      topic,
+      signal: controller.signal,
+      onStep: (step) =>
+        bar?.webContents.send('argus:agent-step', {
+          description: `${step.index}. ${step.title}`,
+          index: step.index,
+          max: step.index
+        })
+    })
+    showRequestBar({ capture: null, notice: result.summary })
+    return { ok: result.ok, mode: 'agent', message: result.summary }
+  } catch (error) {
+    const message =
+      error instanceof ProviderUnavailableError
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : 'The lesson could not start.'
+    showRequestBar({ capture: null, notice: message })
+    return { ok: false, mode: 'agent', message }
+  } finally {
+    if (inFlight === controller) inFlight = null
+  }
+}
+
 async function runAgent(task: string): Promise<SubmitResult> {
   const bar = getRequestBar()
   clearPendingCapture()
@@ -321,6 +373,15 @@ function registerIpc(): void {
       return { ok: false, mode, message: 'Say what you want me to look at.' }
     }
 
+    // "teach me ..." is a modifier, not a mode: the chip still decides whether
+    // that means written steps or a walkthrough pointed out on the real screen.
+    const lesson = parseTeachRequest(prompt)
+    if (lesson.teach && mode === 'agent') return await runTeach(lesson.topic)
+
+    // In Talk Mode the same request becomes written steps. Spelling out the
+    // shape here beats hoping "teach me" alone produces something followable.
+    const asked = lesson.teach ? asLessonPrompt(lesson.topic) : prompt
+
     if (mode === 'agent') return await runAgent(prompt)
 
     // The capture is deliberately kept after answering: follow-up questions ask
@@ -331,7 +392,7 @@ function registerIpc(): void {
     }
 
     try {
-      return await runTalkMode(prompt, capture)
+      return await runTalkMode(asked, capture)
     } catch (error) {
       if (error instanceof ProviderUnavailableError) {
         return { ok: false, mode, message: error.message }

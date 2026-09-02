@@ -1,3 +1,4 @@
+import { parseTeachRequest } from '../../shared/teach'
 import { parseMode, type Mode } from '../../shared/types'
 import { filterOptions, type Option } from './options'
 
@@ -40,11 +41,20 @@ function currentMode(): Mode {
 
 function syncChip(): void {
   const mode = currentMode()
-  chip.dataset['mode'] = mode
-  chip.textContent = mode === 'agent' ? 'Agent' : 'Talk'
-  // The prompt is the clearest signal of what pressing Enter will do.
-  input.placeholder =
-    mode === 'agent' ? 'What do you want me to do?' : 'What do you want to know?'
+  const { teach } = parseTeachRequest(parseMode(input.value).prompt)
+
+  // Teaching is a modifier rather than a third mode, but it changes the outcome
+  // enough that the chip has to say so before Enter is pressed.
+  chip.dataset['mode'] = teach ? 'teach' : mode
+  chip.textContent = teach ? 'Teach' : mode === 'agent' ? 'Agent' : 'Talk'
+
+  input.placeholder = teach
+    ? mode === 'agent'
+      ? "I'll point at each step — you do it"
+      : "I'll write out the steps"
+    : mode === 'agent'
+      ? 'What do you want me to do?'
+      : 'What do you want to know?'
 }
 
 /** Appends a question to the transcript and returns its (empty) answer node. */

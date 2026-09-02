@@ -149,6 +149,16 @@ function startHook(): void {
 }
 
 /**
+ * Starts the shared low-level input hook, if it is not already running.
+ *
+ * Exported because Teach Mode watches the same hook for the learner's clicks -
+ * uiohook allows only one hook per process, so it has to be this one.
+ */
+export function startInputHook(): void {
+  startHook()
+}
+
+/**
  * Registers the global hotkey, replacing any previously registered one.
  * Returns false only when the accelerator can't be handled either way.
  */
