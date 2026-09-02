@@ -14,6 +14,37 @@ export interface Recorder {
   cancel(): void
 }
 
+/**
+ * A failure the user can act on.
+ *
+ * The first version reported every failure as "no microphone available", which
+ * sent someone hunting for a hardware fault when the real cause was a Content
+ * Security Policy rejecting the worklet. An error that names the wrong cause is
+ * worse than one that says nothing.
+ */
+export class MicrophoneError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'MicrophoneError'
+  }
+}
+
+/** Maps a DOMException from getUserMedia onto something worth reading. */
+function describeMicFailure(error: unknown): string {
+  const name = error instanceof Error ? error.name : ''
+  switch (name) {
+    case 'NotAllowedError':
+      return 'Microphone access was refused. Allow it in Windows Settings → Privacy → Microphone.'
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'No microphone found. Plug one in, or pick one in Windows sound settings.'
+    case 'NotReadableError':
+      return 'The microphone is in use by another app.'
+    default:
+      return `Could not start recording: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
 export interface RecorderOptions {
   /** Called with 0-1 loudness so the UI can show the mic is actually hearing. */
   onLevel?: (level: number) => void
@@ -64,14 +95,19 @@ registerProcessor('argus-capture', Capture)
 `
 
 export async function startRecording(options: RecorderOptions = {}): Promise<Recorder> {
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      channelCount: 1,
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true
-    }
-  })
+  let stream: MediaStream
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        channelCount: 1,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    })
+  } catch (error) {
+    throw new MicrophoneError(describeMicFailure(error))
+  }
 
   // Asking for the target rate up front lets Chromium resample with a proper
   // filter, which is better than the box average `downsample` falls back to.
@@ -80,6 +116,12 @@ export async function startRecording(options: RecorderOptions = {}): Promise<Rec
 
   try {
     await context.audioWorklet.addModule(moduleUrl)
+  } catch (error) {
+    for (const track of stream.getTracks()) track.stop()
+    void context.close()
+    throw new MicrophoneError(
+      `The audio recorder could not start: ${error instanceof Error ? error.message : String(error)}`
+    )
   } finally {
     URL.revokeObjectURL(moduleUrl)
   }

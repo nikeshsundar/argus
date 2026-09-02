@@ -490,6 +490,13 @@ function allowMicrophone(): void {
   session.defaultSession.setPermissionRequestHandler((_contents, permission, callback) => {
     callback(permission === 'media')
   })
+
+  // Consulted synchronously, and separately from the request handler above.
+  // Left unset it denies, and getUserMedia then fails before the request
+  // handler is ever reached - looking exactly like a machine with no mic.
+  session.defaultSession.setPermissionCheckHandler((_contents, permission) => {
+    return permission === 'media'
+  })
 }
 
 function registerIpc(): void {

@@ -2,9 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      blob: is for the AudioWorklet module, which is built from an inline string.
+      A real file cannot be used: under file:// in the packaged build the path
+      does not resolve the way it does against the dev server.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' blob:; media-src 'self' blob:"
     />
     <title>Argus</title>
     <link rel="stylesheet" href="./src/styles.css" />

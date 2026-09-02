@@ -387,10 +387,10 @@ async function beginListening(): Promise<void> {
     mic.dataset['state'] = 'recording'
     bar.dataset['listening'] = 'true'
     setStatus('Listening — release to send', 'busy')
-  } catch {
+  } catch (error) {
     if (token !== listenToken) return
     mic.dataset['state'] = ''
-    setStatus('No microphone available, or access was refused.', 'error')
+    setStatus(error instanceof Error ? error.message : 'Could not start recording.', 'error')
   }
 }
 
