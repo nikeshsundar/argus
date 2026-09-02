@@ -140,12 +140,8 @@ function handleSlashCommand(text: string): SubmitResult | null {
   const ok = (message: string): SubmitResult => ({ ok: true, mode: 'talk', message })
   const fail = (message: string): SubmitResult => ({ ok: false, mode: 'talk', message })
 
-  const key = /^\/key\s+(\S+)$/i.exec(text)
-  if (key) {
-    const value = key[1]!
-    // Route by key format so pasting a Gemini key while Claude is selected
-    // doesn't quietly store it in the wrong slot.
-    const target = inferProviderFromKey(value) ?? settings.talkProvider
+  /** Files a key under the provider its own format identifies. */
+  const saveKey = (value: string, target: ProviderName): void => {
     switch (target) {
       case 'gemini':
         updateSettings({ geminiApiKey: value, talkProvider: 'gemini' })
@@ -156,6 +152,15 @@ function handleSlashCommand(text: string): SubmitResult | null {
       default:
         updateSettings({ claudeApiKey: value, talkProvider: 'claude' })
     }
+  }
+
+  const key = /^\/key\s+(\S+)$/i.exec(text)
+  if (key) {
+    const value = key[1]!
+    // Route by key format so pasting a Gemini key while Claude is selected
+    // doesn't quietly store it in the wrong slot.
+    const target = inferProviderFromKey(value) ?? settings.talkProvider
+    saveKey(value, target)
     return ok(
       target === settings.talkProvider
         ? `${target} API key saved. Ask away.`
@@ -180,6 +185,13 @@ function handleSlashCommand(text: string): SubmitResult | null {
   const model = /^\/model\s+(\S+)$/i.exec(text)
   if (model) {
     const id = model[1]!
+    // An API key stored as a model name is only discovered later, as a 400 from
+    // the provider that names neither command. Catch it here instead.
+    const looksLikeKey = inferProviderFromKey(id)
+    if (looksLikeKey) {
+      saveKey(id, looksLikeKey)
+      return ok(`That's a ${looksLikeKey} API key, not a model — saved it as your key instead.`)
+    }
     updateSettings(settings.talkProvider === 'gemini' ? { geminiModel: id } : { claudeModel: id })
     return ok(`${settings.talkProvider} model set to ${id}.`)
   }
