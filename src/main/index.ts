@@ -1,5 +1,6 @@
 import { app, ipcMain } from 'electron'
 import { runAgentTask } from './agentLoop'
+import { parseKeyCommand } from '../shared/commands'
 import { inferProviderFromKey } from '../shared/keys'
 import { configuredKeys, forgetCooldowns, poolRows, poolStatus } from './geminiKeys'
 import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
@@ -170,9 +171,13 @@ function handleSlashCommand(text: string): SubmitResult | null {
     }
   }
 
-  const key = /^\/key\s+(\S+)$/i.exec(text)
-  if (key) {
-    const value = key[1]!
+  // "/key" and "/keys" are different commands and are parsed together, so the
+  // singular can never shadow the plural and a near miss on either cannot fall
+  // through to the model carrying a key with it.
+  const keyCommand = parseKeyCommand(text)
+
+  if (keyCommand.kind === 'add') {
+    const value = keyCommand.key
     // Route by key format so pasting a Gemini key while Claude is selected
     // doesn't quietly store it in the wrong slot.
     const target = inferProviderFromKey(value) ?? settings.talkProvider
@@ -197,39 +202,30 @@ function handleSlashCommand(text: string): SubmitResult | null {
     )
   }
 
-  // Bulk load: "/keys k1 k2 k3", or the same separated by commas or newlines.
-  const bulk = /^\/keys\s+(.+)$/is.exec(text)
-  if (bulk && !/^clear$/i.test(bulk[1]!.trim()) && !/^reset$/i.test(bulk[1]!.trim())) {
-    const parsed = bulk[1]!
-      .split(/[\s,;]+/)
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-    const good = parsed.filter((key) => inferProviderFromKey(key) === 'gemini')
-    if (good.length === 0) {
-      return fail(`None of those look like Gemini keys (they start with "AIza" or "AQ.").`)
+  if (keyCommand.kind === 'load') {
+    if (keyCommand.keys.length === 0) {
+      return fail(`None of those look like API keys (Gemini's start with "AIza" or "AQ.").`)
     }
-    const unique = [...new Set(good)]
     updateSettings({
-      geminiApiKey: unique[0]!,
-      geminiApiKeys: unique.slice(1),
+      geminiApiKey: keyCommand.keys[0]!,
+      geminiApiKeys: keyCommand.keys.slice(1),
       geminiKeyCooldowns: {},
       talkProvider: 'gemini'
     })
     forgetCooldowns()
-    const skipped = parsed.length - good.length
     return ok(
-      `Loaded ${unique.length} Gemini key${unique.length === 1 ? '' : 's'}.` +
-        (skipped ? ` Ignored ${skipped} that didn't look like keys.` : '') +
+      `Loaded ${keyCommand.keys.length} key${keyCommand.keys.length === 1 ? '' : 's'}.` +
+        (keyCommand.ignored ? ` Ignored ${keyCommand.ignored} that weren't keys.` : '') +
         ' They are tried in the order given, and one over quota hands off to the next.'
     )
   }
 
-  if (/^\/keys\s+reset$/i.test(text)) {
+  if (keyCommand.kind === 'reset') {
     forgetCooldowns()
     return ok('Cooldowns cleared — every key will be tried again.')
   }
 
-  if (/^\/keys$/i.test(text)) {
+  if (keyCommand.kind === 'list') {
     const keys = configuredKeys()
     if (keys.length === 0) return fail('No Gemini keys yet. Add one with "/key <your-key>".')
     return ok(
@@ -250,8 +246,8 @@ function handleSlashCommand(text: string): SubmitResult | null {
     )
   }
 
-  if (/^\/keys\s+clear$/i.test(text)) {
-    updateSettings({ geminiApiKey: '', geminiApiKeys: [] })
+  if (keyCommand.kind === 'clear') {
+    updateSettings({ geminiApiKey: '', geminiApiKeys: [], geminiKeyCooldowns: {} })
     return ok('All Gemini keys removed. Add one with "/key <your-key>".')
   }
 
@@ -340,6 +336,14 @@ function handleSlashCommand(text: string): SubmitResult | null {
         'agent <task>          take control of the machine'
       ].join('\n')
     )
+  }
+
+  // Anything else beginning with "/" is a mistyped command, not a question. It
+  // must not reach the model: a slip like "/ke <key>" would otherwise send the
+  // key itself as a prompt, and put it in the saved transcript on the way.
+  if (text.startsWith('/')) {
+    const attempted = /^\/(\S*)/.exec(text)?.[1] ?? ''
+    return fail(`Unknown command "/${attempted}". Type "/help" to see them all.`)
   }
 
   return null

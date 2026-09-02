@@ -1,3 +1,4 @@
+import { isBareApiKey } from '../../shared/commands'
 import { parseTeachRequest } from '../../shared/teach'
 import { parseMode, type Mode } from '../../shared/types'
 import { filterOptions, type Option } from './options'
@@ -222,7 +223,11 @@ function submit(text: string): void {
     return
   }
 
-  const isCommand = trimmed.startsWith('/')
+  // A pasted key must never be shown in the transcript or sent as a question.
+  // It reaches here whenever someone pastes one without typing "/key" first,
+  // which is the obvious thing to do and used to mail the key to the model.
+  const isBareKey = isBareApiKey(trimmed)
+  const isCommand = trimmed.startsWith('/') || isBareKey
   awaitingAnswer = true
   streaming = false
   input.disabled = true
@@ -230,13 +235,13 @@ function submit(text: string): void {
 
   // Commands report through the status line; questions join the transcript.
   activeAnswer = isCommand ? null : appendExchange(trimmed)
-  setStatus(isCommand ? 'Working…' : 'Looking at your screen…', 'busy')
+  setStatus(isBareKey ? 'Saving your key…' : isCommand ? 'Working…' : 'Looking at your screen…', 'busy')
   renderOptions()
 
   const forced = manualMode ?? undefined
 
   void window.argus
-    .submit(trimmed, forced)
+    .submit(isBareKey ? `/key ${trimmed}` : trimmed, forced)
     .then((result) => {
       if (activeAnswer && result.ok) {
         activeAnswer.textContent = result.message

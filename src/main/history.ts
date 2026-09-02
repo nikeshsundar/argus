@@ -51,12 +51,31 @@ export function createThread(): Thread {
  * Only the text of a conversation is stored - never the screenshot it was
  * about. Resuming a thread pairs its text with whatever is on screen then.
  */
+/**
+ * Anything shaped like an API key, so it can be kept out of the saved history.
+ *
+ * A key pasted into the bar without "/key" used to be treated as a question,
+ * which put it in the transcript and then on disk. That path is closed, but
+ * history outlives the bug that wrote it, so it is scrubbed here too.
+ */
+const KEY_SHAPES = [
+  /AIza[A-Za-z0-9_-]{30,}/g,
+  /AQ\.[A-Za-z0-9_-]{30,}/g,
+  /sk-ant-[A-Za-z0-9_-]{20,}/g,
+  /sk-proj-[A-Za-z0-9_-]{20,}/g
+]
+
+function redactKeys(text: string): string {
+  return KEY_SHAPES.reduce((carry, shape) => carry.replace(shape, '[api key removed]'), text)
+}
+
 export function saveThread(thread: Thread): void {
   if (thread.turns.length === 0) return
 
   const updated: Thread = {
     ...thread,
-    title: titleFor(thread.turns),
+    turns: thread.turns.map((turn) => ({ ...turn, text: redactKeys(turn.text) })),
+    title: redactKeys(titleFor(thread.turns)),
     updatedAt: Date.now()
   }
 
