@@ -57,7 +57,7 @@ export interface Settings {
  */
 const DEFAULTS: Settings = {
   hotkey: 'Alt+`',
-  talkProvider: 'claude',
+  talkProvider: 'gemini',
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
   geminiModel: 'gemini-3.6-flash',
@@ -126,13 +126,15 @@ export function updateSettings(patch: Partial<Settings>): Settings {
 /** True once the active Talk Mode provider has the credentials it needs. */
 export function isProviderConfigured(settings: Settings = loadSettings()): boolean {
   switch (settings.talkProvider) {
-    case 'claude':
-      return Boolean(settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'])
     case 'gemini':
       return Boolean(settings.geminiApiKey || process.env['GEMINI_API_KEY'])
     case 'openai':
       return Boolean(settings.openaiApiKey || process.env['OPENAI_API_KEY'])
     case 'ollama':
       return true
+    default:
+      // Claude and anything else named in ProviderName are recognised for key
+      // routing but have no Talk Mode implementation here.
+      return false
   }
 }

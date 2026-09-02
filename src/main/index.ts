@@ -176,6 +176,11 @@ function handleSlashCommand(text: string): SubmitResult | null {
     // Route by key format so pasting a Gemini key while Claude is selected
     // doesn't quietly store it in the wrong slot.
     const target = inferProviderFromKey(value) ?? settings.talkProvider
+    if (target !== 'gemini') {
+      return fail(
+        `That looks like a ${target} key. Argus talks to Gemini right now — get a free one at aistudio.google.com/apikey.`
+      )
+    }
     saveKey(value, target)
     if (target === 'gemini') {
       const count = configuredKeys().length
@@ -253,8 +258,8 @@ function handleSlashCommand(text: string): SubmitResult | null {
   const provider = /^\/provider\s+(\w+)$/i.exec(text)
   if (provider) {
     const name = provider[1]!.toLowerCase() as ProviderName
-    if (!['claude', 'gemini', 'openai', 'ollama'].includes(name)) {
-      return fail(`Unknown provider "${name}". Try claude or gemini.`)
+    if (name !== 'gemini') {
+      return fail(`Argus only talks to Gemini right now. Use "/provider gemini".`)
     }
     updateSettings({ talkProvider: name })
     return ok(
@@ -325,7 +330,6 @@ function handleSlashCommand(text: string): SubmitResult | null {
         `/key <api-key>        add a key for ${settings.talkProvider}`,
         '/keys                 list keys and rotation status',
         '/keys <k1> <k2> ...   load several keys at once',
-        '/provider <name>      claude or gemini',
         '/model <model-id>     Talk Mode model',
         '/model agent <id>     Agent + Teach model (fast one)',
         '/hotkey <combo>       e.g. Alt+`',
