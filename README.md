@@ -58,12 +58,12 @@ Hand over the wheel and it does the task itself.
 - *"agent find the cheapest flight tomorrow"* — the `agent` prefix still forces it
 
 ### 🎤 Voice
-Hold the mic and say it. Long instructions are miserable to type and effortless to speak, which is exactly what Agent Mode asks for.
+Click the mic and say it, then click again. Long instructions are miserable to type and effortless to speak, which is exactly what Agent Mode asks for.
 
 > *(spoken)* "um, open youtube and uh search for mister beast" → **"Open YouTube and search for MrBeast"**
 
 - Fillers, false starts and misheard brand names are cleaned up as part of transcribing — you get what you meant, not a literal transcript
-- **Hold to talk, never a wake word.** The mic is live only while your finger is down; nothing listens in the background
+- **Click to record, click to stop.** Never a wake word — nothing listens in the background. The bar turns red and the mic pulses while it's live, <kbd>Esc</kbd> discards a recording, and one stops itself after 60 seconds so a forgotten mic can't stay open
 - Talk Mode sends straight away. Agent and Teach put the text in the box and wait for <kbd>Enter</kbd> — speech misheard by one word shouldn't move your mouse
 - Argus never speaks back. Dictation, not a conversation
 

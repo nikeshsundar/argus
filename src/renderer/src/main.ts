@@ -43,6 +43,11 @@ let recordingStartedAt = 0
  * it.
  */
 let listenToken = 0
+/** Fires the automatic stop, so a forgotten recording cannot run forever. */
+let autoStop = 0
+
+/** Longest a single recording may run before it stops itself. */
+const MAX_RECORDING_MS = 60_000
 
 function setStatus(text: string, state: StatusState = 'idle'): void {
   status.textContent = text
@@ -222,6 +227,9 @@ function submit(text: string): void {
   const trimmed = text.trim()
   if (!trimmed || awaitingAnswer) return
 
+  // Typing over a live recording means they have changed their mind about it.
+  if (recorder) cancelListening()
+
   // Thread management is a UI concern - it never reaches a model.
   if (/^\/history\b/i.test(trimmed)) {
     void refreshThreads()
@@ -295,6 +303,7 @@ function submit(text: string): void {
 }
 
 window.argus.onOpened(({ capture, error, notice }) => {
+  cancelListening()
   awaitingAnswer = false
   streaming = false
   highlighted = -1
@@ -333,7 +342,12 @@ window.argus.onAgentStep((event) => {
   setStatus(`${event.description} (step ${event.index}/${event.max})`, 'busy')
 })
 
-closeButton.addEventListener('click', () => window.argus.hide())
+closeButton.addEventListener('click', () => {
+  // visibilitychange would catch this a moment later, but the microphone
+  // should stop on the click that dismissed it, not on a subsequent event.
+  cancelListening()
+  window.argus.hide()
+})
 
 // Clicking back onto the bar should let you type again without having to aim
 // at the input itself - but never steal a text selection the user is making.
@@ -358,21 +372,22 @@ input.addEventListener('input', () => {
  * for this one request; it goes back to following the wording afterwards.
  */
 /**
- * Hold to speak.
+ * Click to start, click again to stop.
  *
- * Hold rather than toggle so the microphone is provably live only while a
- * finger is down - there is no state in which Argus is listening and the user
- * has forgotten. Releasing outside the button still stops it, because a
- * pointerup that never arrives would leave the mic open.
+ * A toggle is easier to use than hold-to-talk, and brings one hazard
+ * hold-to-talk did not have: a microphone left recording because the second
+ * click never came. Three things close that off - the bar is unmistakably red
+ * while live, Escape cancels, and a recording stops itself at
+ * MAX_RECORDING_MS whatever the user does.
  */
-async function beginListening(): Promise<void> {
+async function startListening(): Promise<void> {
   if (recorder || awaitingAnswer) return
 
   const token = ++listenToken
-  // Opening the microphone is not instant, and people start talking as soon as
-  // they press. Saying so is the only honest fix - the alternative is holding
-  // the stream open between utterances, which is exactly the always-listening
-  // behaviour this app promises not to have.
+  // Opening the microphone is not instant, and people speak as soon as they
+  // click. Saying so is the only honest fix - the alternative is holding the
+  // stream open between utterances, which is the always-listening behaviour
+  // this app promises not to have.
   mic.dataset['state'] = 'starting'
   setStatus('Opening the microphone…', 'busy')
 
@@ -383,11 +398,10 @@ async function beginListening(): Promise<void> {
       }
     })
 
+    // Stopped, or the bar was dismissed, while the microphone was opening.
     if (token !== listenToken) {
-      // Released before the microphone finished opening.
       active.cancel()
-      mic.dataset['state'] = ''
-      setStatus('')
+      resetMic()
       return
     }
 
@@ -395,15 +409,35 @@ async function beginListening(): Promise<void> {
     recordingStartedAt = Date.now()
     mic.dataset['state'] = 'recording'
     bar.dataset['listening'] = 'true'
-    setStatus('Listening — release to send', 'busy')
+    setStatus('Recording — click the mic again to stop', 'busy')
+
+    // A forgotten recording stops itself rather than holding the microphone
+    // open indefinitely.
+    autoStop = window.setTimeout(() => void stopListening(), MAX_RECORDING_MS)
   } catch (error) {
     if (token !== listenToken) return
-    mic.dataset['state'] = ''
+    resetMic()
     setStatus(error instanceof Error ? error.message : 'Could not start recording.', 'error')
   }
 }
 
-async function endListening(): Promise<void> {
+/** Puts the mic and the bar back to their resting appearance. */
+function resetMic(): void {
+  window.clearTimeout(autoStop)
+  mic.dataset['state'] = ''
+  bar.dataset['listening'] = 'false'
+  micLevel.style.transform = 'scale(0.7)'
+}
+
+/** Throws the recording away without transcribing it. */
+function cancelListening(): void {
+  listenToken++
+  recorder?.cancel()
+  recorder = null
+  resetMic()
+}
+
+async function stopListening(): Promise<void> {
   listenToken++
 
   const active = recorder
@@ -411,6 +445,7 @@ async function endListening(): Promise<void> {
   recorder = null
 
   const heldFor = Date.now() - recordingStartedAt
+  window.clearTimeout(autoStop)
   mic.dataset['state'] = 'thinking'
   bar.dataset['listening'] = 'false'
   micLevel.style.transform = 'scale(0.7)'
@@ -418,25 +453,24 @@ async function endListening(): Promise<void> {
 
   const capture = await active.stop()
 
-  // A tap is a mis-press, not an utterance. Transcribing it would spend a
-  // request to be told there was no speech.
+  // Two clicks in quick succession is a mis-click, not an utterance.
   if (!capture || heldFor < MIN_UTTERANCE_MS) {
-    mic.dataset['state'] = ''
-    setStatus('Hold the mic while you speak.')
+    resetMic()
+    setStatus('That was too short — click, speak, then click again.')
     return
   }
 
   // Asked to transcribe silence the model does not return nothing - it returns
   // whatever it thinks it can hear. Catching it here costs no request at all.
   if (capture.peak < SILENCE_PEAK) {
-    mic.dataset['state'] = ''
+    resetMic()
     setStatus("Didn't hear anything. Check the right microphone is selected.", 'error')
     return
   }
 
   try {
     const text = await window.argus.transcribe(capture.wav.buffer as ArrayBuffer)
-    mic.dataset['state'] = ''
+    resetMic()
     if (!hasWords(text)) {
       setStatus("Didn't catch any words — try again.")
       return
@@ -458,20 +492,27 @@ async function endListening(): Promise<void> {
       setStatus('Check it, then press Enter to run it.')
     }
   } catch (error) {
-    mic.dataset['state'] = ''
+    resetMic()
     setStatus(error instanceof Error ? error.message : 'Could not transcribe that.', 'error')
   }
 }
 
-mic.addEventListener('pointerdown', (event) => {
-  event.preventDefault()
-  void beginListening()
+/**
+ * The bar can be dismissed from outside the renderer - the main process watches
+ * Escape globally and hides the window without telling us. A recording must not
+ * outlive the window it belongs to.
+ */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && recorder) cancelListening()
 })
 
-// Listening for the release on the window, not the button: letting go after
-// dragging off the mic would otherwise never stop the recording.
-window.addEventListener('pointerup', () => void endListening())
-window.addEventListener('pointercancel', () => void endListening())
+mic.addEventListener('click', () => {
+  if (recorder) {
+    void stopListening()
+  } else {
+    void startListening()
+  }
+})
 
 chip.addEventListener('click', () => {
   manualMode = currentMode() === 'agent' ? 'talk' : 'agent'
@@ -482,6 +523,12 @@ chip.addEventListener('click', () => {
 input.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     event.preventDefault()
+    // While recording, Escape means "throw this away", not "close the bar".
+    if (recorder) {
+      cancelListening()
+      setStatus('Recording discarded.')
+      return
+    }
     window.argus.hide()
     return
   }

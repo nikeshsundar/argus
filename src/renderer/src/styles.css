@@ -289,8 +289,24 @@ kbd {
  */
 .mic[data-state='recording'] {
   color: #ff5f57;
-  border-color: rgba(255, 95, 87, 0.5);
-  background: rgba(255, 95, 87, 0.12);
+  border-color: rgba(255, 95, 87, 0.65);
+  background: rgba(255, 95, 87, 0.16);
+  animation: recording 1.4s ease-in-out infinite;
+}
+
+/*
+ * A toggle stays on with nobody touching it, so the cue has to be stronger
+ * than it was for hold-to-talk - this is the only thing standing between the
+ * user and a microphone they forgot about.
+ */
+@keyframes recording {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 95, 87, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 95, 87, 0);
+  }
 }
 
 /* Opening the stream. Deliberately not red: nothing is being captured yet. */
