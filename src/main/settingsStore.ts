@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import type { CursorPace } from '../shared/cursorPath'
+import { inferProviderFromKey } from '../shared/keys'
 import type { ProviderName } from '../shared/types'
 
 export type { ProviderName }
@@ -56,13 +57,27 @@ export function loadSettings(): Settings {
     const stored = { ...DEFAULTS, ...(JSON.parse(raw) as Partial<Settings>) }
     // Move users off a previous default rather than stranding them on it.
     if (SUPERSEDED_HOTKEYS.includes(stored.hotkey)) stored.hotkey = DEFAULTS.hotkey
-    cache = stored
+    cache = healModelNames(stored)
   } catch {
     // No settings file yet (first run), or it is unreadable/corrupt - fall back
     // to defaults rather than failing to start.
     cache = { ...DEFAULTS }
   }
   return cache
+}
+
+/**
+ * Undoes an API key typed into "/model".
+ *
+ * A key stored as a model name reaches the provider as a model id and comes
+ * back as an opaque 400 that names neither the command nor the field. Worse, it
+ * survives a restart: the bad value is read, then written straight back out.
+ * Repairing it on the way in is the only place the cycle can be broken.
+ */
+function healModelNames(settings: Settings): Settings {
+  if (inferProviderFromKey(settings.geminiModel)) settings.geminiModel = DEFAULTS.geminiModel
+  if (inferProviderFromKey(settings.claudeModel)) settings.claudeModel = DEFAULTS.claudeModel
+  return settings
 }
 
 export function updateSettings(patch: Partial<Settings>): Settings {
