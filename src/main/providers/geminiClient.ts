@@ -61,9 +61,12 @@ export async function callGemini(options: {
     const key = takeKey() ?? options.apiKey
     const response = await post(body, key)
 
-    if (response.status === 429) {
+    // 429 is a quota window that reopens; 401/403 is a key that never will.
+    // Either way another key may work, and one bad key in the pool must not
+    // fail a request that a good one could have served.
+    if (response.status === 429 || response.status === 401 || response.status === 403) {
       const detail = await peek(response)
-      restAfterRefusal(key, detail)
+      restAfterRefusal(key, detail, response.status)
       if (hasReadyKey()) continue
       return response
     }
@@ -124,8 +127,8 @@ export async function describeGeminiFailure(response: Response, model: string): 
     // Non-JSON error body - the status alone will have to do.
   }
 
-  if (response.status === 400 && /api key/i.test(detail)) {
-    return 'That Gemini API key was rejected. Set a new one with "/key <your-key>".'
+  if ((response.status === 400 && /api key/i.test(detail)) || response.status === 401) {
+    return 'Every Gemini key was rejected. Check them with "/keys", then add a working one with "/key <your-key>".'
   }
   if (response.status === 404) {
     return `Gemini has no model "${model}" available to this key. Switch with "/model <model-id>".`

@@ -23,6 +23,14 @@ export const DAILY_COOLDOWN_MS = 15 * 60 * 1000
 /** Floor for a short cooldown, so a burst of 429s cannot spin. */
 export const MIN_COOLDOWN_MS = 5_000
 
+/**
+ * A key the server says is invalid will still be invalid in a minute.
+ *
+ * Rested for the session rather than dropped, so the user can see in "/keys"
+ * that it was rejected instead of wondering where their key went.
+ */
+export const INVALID_COOLDOWN_MS = 24 * 60 * 60 * 1000
+
 export function createKeyStates(keys: string[]): KeyState[] {
   // Order is preserved (the first key stays the default) and blanks and exact
   // duplicates are dropped, since a duplicate would just fail twice.
@@ -50,7 +58,13 @@ export function pickKey(states: KeyState[], now: number): KeyState | null {
  * seconds, which is the per-minute window talking, and honouring it would burn
  * the key again immediately.
  */
-export function cooldownFor(detail: string, retryAfterMs: number | null): number {
+export function cooldownFor(
+  detail: string,
+  retryAfterMs: number | null,
+  status = 429
+): number {
+  // A rejected credential is not a quota problem and will not heal on a timer.
+  if (status === 401 || status === 403) return INVALID_COOLDOWN_MS
   if (/perday|per day|requests per day/i.test(detail)) return DAILY_COOLDOWN_MS
   return Math.max(MIN_COOLDOWN_MS, retryAfterMs ?? MIN_COOLDOWN_MS)
 }

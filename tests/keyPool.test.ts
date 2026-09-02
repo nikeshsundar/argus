@@ -3,6 +3,7 @@ import {
   cooldownFor,
   createKeyStates,
   DAILY_COOLDOWN_MS,
+  INVALID_COOLDOWN_MS,
   describePool,
   MIN_COOLDOWN_MS,
   parseRetryDelay,
@@ -105,5 +106,29 @@ describe('reporting', () => {
     restKey(states[1]!, 30_000, NOW, 'quota')
     expect(soonestAvailable(states)).toBe(NOW + 30_000)
     expect(soonestAvailable([])).toBeNull()
+  })
+})
+
+describe('rejected credentials', () => {
+  it('rests a 401 key for the session, not for a quota window', () => {
+    // A key the server calls invalid will still be invalid in twenty seconds.
+    expect(cooldownFor('invalid authentication credentials', 21_000, 401)).toBe(
+      INVALID_COOLDOWN_MS
+    )
+    expect(cooldownFor('forbidden', null, 403)).toBe(INVALID_COOLDOWN_MS)
+  })
+
+  it('still treats a 429 as a quota window', () => {
+    expect(cooldownFor('rate limit', 30_000, 429)).toBe(30_000)
+  })
+
+  it('lets a good key serve a request a bad key refused', () => {
+    // The bug this came from: one invalid key in the pool failed requests that
+    // the two working keys either side of it could have served.
+    const states = createKeyStates(['broken', 'good'])
+    restKey(states[0]!, INVALID_COOLDOWN_MS, NOW, '401')
+    expect(pickKey(states, NOW)?.key).toBe('good')
+    // And it stays skipped for the whole session, not just a moment.
+    expect(pickKey(states, NOW + 60 * 60 * 1000)?.key).toBe('good')
   })
 })

@@ -1,5 +1,6 @@
 import {
   cooldownFor,
+  DAILY_COOLDOWN_MS,
   createKeyStates,
   describePool,
   parseRetryDelay,
@@ -45,11 +46,29 @@ export function takeKey(now: number = Date.now()): string | null {
   return pickKey(syncStates(), now)?.key ?? null
 }
 
-/** Records a refusal so this key is skipped until its quota window moves on. */
-export function restAfterRefusal(key: string, detail: string, now: number = Date.now()): void {
+/**
+ * Records a refusal so this key is skipped.
+ *
+ * `status` separates the two reasons a key gets refused: 429 is a quota window
+ * that reopens, while 401 and 403 mean the credential itself is wrong and no
+ * amount of waiting will fix it.
+ */
+export function restAfterRefusal(
+  key: string,
+  detail: string,
+  status = 429,
+  now: number = Date.now()
+): void {
   const state = syncStates().find((candidate) => candidate.key === key)
   if (!state) return
-  restKey(state, cooldownFor(detail, parseRetryDelay(detail)), now, detail.slice(0, 120))
+  restKey(state, cooldownFor(detail, parseRetryDelay(detail), status), now, detail.slice(0, 120))
+}
+
+/** Keys the server has rejected outright, for telling the user which to replace. */
+export function rejectedKeys(now: number = Date.now()): string[] {
+  return syncStates()
+    .filter((state) => state.cooldownUntil > now + DAILY_COOLDOWN_MS)
+    .map((state) => state.key)
 }
 
 /** True while at least one more key is worth trying. */

@@ -347,6 +347,25 @@ async function runTalkMode(prompt: string, capture: Capture): Promise<SubmitResu
  * Runs a guided lesson: the bar gets out of the way, the ghost cursor points at
  * the real UI, and the learner does the clicking.
  */
+/**
+ * Reopens the bar after an Agent or Teach run with a usable screenshot.
+ *
+ * Those runs clear the pending capture and the screen has moved on anyway, so
+ * showing the bar without one left the next Talk question with nothing to look
+ * at - "No screen capture available for this request". The bar is still hidden
+ * at this point, which is the only moment a capture can be taken without our
+ * own window being in it.
+ */
+async function reopenAfterRun(notice: string, failed: boolean): Promise<void> {
+  try {
+    pendingCapture = await captureActiveDisplay()
+    showRequestBar({ capture: pendingCapture.info, ...(failed ? { error: notice } : { notice }) })
+  } catch {
+    clearPendingCapture()
+    showRequestBar({ capture: null, ...(failed ? { error: notice } : { notice }) })
+  }
+}
+
 async function runTeach(topic: string): Promise<SubmitResult> {
   const bar = getRequestBar()
   clearPendingCapture()
@@ -367,7 +386,7 @@ async function runTeach(topic: string): Promise<SubmitResult> {
           max: step.index
         })
     })
-    showRequestBar({ capture: null, notice: result.summary })
+    await reopenAfterRun(result.summary, !result.ok)
     return { ok: result.ok, mode: 'agent', message: result.summary }
   } catch (error) {
     const message =
@@ -376,7 +395,7 @@ async function runTeach(topic: string): Promise<SubmitResult> {
         : error instanceof Error
           ? error.message
           : 'The lesson could not start.'
-    showRequestBar({ capture: null, notice: message })
+    await reopenAfterRun(message, true)
     return { ok: false, mode: 'agent', message }
   } finally {
     if (inFlight === controller) inFlight = null
@@ -398,7 +417,7 @@ async function runAgent(task: string): Promise<SubmitResult> {
       signal: controller.signal,
       onStep: (event) => bar?.webContents.send('argus:agent-step', event)
     })
-    showRequestBar({ capture: null, notice: result.summary })
+    await reopenAfterRun(result.summary, !result.ok)
     return { ok: result.ok, mode: 'agent', message: result.summary }
   } catch (error) {
     const message =
@@ -407,7 +426,7 @@ async function runAgent(task: string): Promise<SubmitResult> {
         : error instanceof Error
           ? error.message
           : 'Agent Mode failed.'
-    showRequestBar({ capture: null, error: message })
+    await reopenAfterRun(message, true)
     return { ok: false, mode: 'agent', message }
   } finally {
     if (inFlight === controller) inFlight = null
