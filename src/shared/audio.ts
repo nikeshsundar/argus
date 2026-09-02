@@ -21,6 +21,25 @@ export const TARGET_SAMPLE_RATE = 16_000
 export const MIN_UTTERANCE_MS = 350
 
 /**
+ * Below this peak the take is room tone, not speech.
+ *
+ * Sending it anyway is worse than doing nothing: asked to transcribe silence
+ * the model does not reliably return nothing, it returns whatever it thinks it
+ * can hear - "00" - and that then gets run as an instruction.
+ */
+export const SILENCE_PEAK = 0.02
+
+/**
+ * True when a transcript carries no actual words.
+ *
+ * Guards the same failure from the other end: digits and punctuation alone are
+ * what silence comes back as, and neither is worth spending an agent run on.
+ */
+export function hasWords(text: string): boolean {
+  return /[a-z]{2,}/i.test(text)
+}
+
+/**
  * Drops a signal to the target rate by averaging each source window.
  *
  * Averaging rather than picking one sample per window: taking every Nth sample

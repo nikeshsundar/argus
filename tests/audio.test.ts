@@ -3,7 +3,9 @@ import {
   concatChunks,
   downsample,
   encodeWav,
+  hasWords,
   peakLevel,
+  SILENCE_PEAK,
   TARGET_SAMPLE_RATE
 } from '../src/shared/audio'
 
@@ -105,5 +107,34 @@ describe('peakLevel', () => {
 
   it('never exceeds one, since it drives a transform', () => {
     expect(peakLevel(new Float32Array([4]))).toBe(1)
+  })
+})
+
+describe('hasWords', () => {
+  it('rejects what silence comes back as', () => {
+    // The reported failure: a silent take was transcribed as "00" and then run
+    // as an agent instruction.
+    for (const text of ['00', '0', '...', '  ', '', '1 2 3', '-']) {
+      expect(hasWords(text), JSON.stringify(text)).toBe(false)
+    }
+  })
+
+  it('accepts anything with a real word in it', () => {
+    for (const text of ['open instagram', 'go', 'hi there', 'search MrBeast']) {
+      expect(hasWords(text), text).toBe(true)
+    }
+  })
+})
+
+describe('SILENCE_PEAK', () => {
+  it('passes speech and rejects room tone', () => {
+    const roomTone = new Float32Array(1000).map(() => (Math.random() - 0.5) * 0.01)
+    const speech = new Float32Array(1000).map((_, i) => Math.sin(i / 4) * 0.4)
+    expect(peakLevel(roomTone)).toBeLessThan(SILENCE_PEAK)
+    expect(peakLevel(speech)).toBeGreaterThan(SILENCE_PEAK)
+  })
+
+  it('rejects a stream of exact zeros, which is a muted device', () => {
+    expect(peakLevel(new Float32Array(1000))).toBeLessThan(SILENCE_PEAK)
   })
 })

@@ -1,4 +1,4 @@
-import { MIN_UTTERANCE_MS } from '../../shared/audio'
+import { hasWords, MIN_UTTERANCE_MS, SILENCE_PEAK } from '../../shared/audio'
 import { isBareApiKey } from '../../shared/commands'
 import { startRecording, type Recorder } from './voice'
 import { parseTeachRequest } from '../../shared/teach'
@@ -251,7 +251,16 @@ function submit(text: string): void {
 
   // Commands report through the status line; questions join the transcript.
   activeAnswer = isCommand ? null : appendExchange(trimmed)
-  setStatus(isBareKey ? 'Saving your key…' : isCommand ? 'Working…' : 'Looking at your screen…', 'busy')
+  setStatus(
+    isBareKey
+      ? 'Saving your key…'
+      : isCommand
+        ? 'Working…'
+        : currentMode() === 'agent'
+          ? 'Taking control — hold Esc to stop'
+          : 'Looking at your screen…',
+    'busy'
+  )
   renderOptions()
 
   const forced = manualMode ?? undefined
@@ -407,21 +416,29 @@ async function endListening(): Promise<void> {
   micLevel.style.transform = 'scale(0.7)'
   setStatus('Transcribing…', 'busy')
 
-  const wav = await active.stop()
+  const capture = await active.stop()
 
   // A tap is a mis-press, not an utterance. Transcribing it would spend a
   // request to be told there was no speech.
-  if (!wav || heldFor < MIN_UTTERANCE_MS) {
+  if (!capture || heldFor < MIN_UTTERANCE_MS) {
     mic.dataset['state'] = ''
     setStatus('Hold the mic while you speak.')
     return
   }
 
-  try {
-    const text = await window.argus.transcribe(wav.buffer as ArrayBuffer)
+  // Asked to transcribe silence the model does not return nothing - it returns
+  // whatever it thinks it can hear. Catching it here costs no request at all.
+  if (capture.peak < SILENCE_PEAK) {
     mic.dataset['state'] = ''
-    if (!text) {
-      setStatus("Didn't catch that — try again.")
+    setStatus("Didn't hear anything. Check the right microphone is selected.", 'error')
+    return
+  }
+
+  try {
+    const text = await window.argus.transcribe(capture.wav.buffer as ArrayBuffer)
+    mic.dataset['state'] = ''
+    if (!hasWords(text)) {
+      setStatus("Didn't catch any words — try again.")
       return
     }
 

@@ -9,8 +9,15 @@ import { concatChunks, downsample, encodeWav, peakLevel, TARGET_SAMPLE_RATE } fr
  * as long as Argus is running. For an app that promises it isn't watching you,
  * it had better not be listening either.
  */
+export interface Capture {
+  wav: Uint8Array
+  /** Loudest sample in the whole take, 0-1. Near zero means nothing was heard. */
+  peak: number
+  durationMs: number
+}
+
 export interface Recorder {
-  stop(): Promise<Uint8Array | null>
+  stop(): Promise<Capture | null>
   cancel(): void
 }
 
@@ -166,7 +173,7 @@ export async function startRecording(options: RecorderOptions = {}): Promise<Rec
   }
 
   return {
-    async stop(): Promise<Uint8Array | null> {
+    async stop(): Promise<Capture | null> {
       // Let the last word arrive before tearing the stream down.
       await new Promise((resolve) => setTimeout(resolve, TAIL_MS))
 
@@ -176,7 +183,12 @@ export async function startRecording(options: RecorderOptions = {}): Promise<Rec
 
       const merged = concatChunks(chunks)
       // `sampleRate` in the constructor is a request, not a guarantee.
-      return encodeWav(rate === TARGET_SAMPLE_RATE ? merged : downsample(merged, rate))
+      const samples = rate === TARGET_SAMPLE_RATE ? merged : downsample(merged, rate)
+      return {
+        wav: encodeWav(samples),
+        peak: peakLevel(samples),
+        durationMs: Math.round((samples.length / TARGET_SAMPLE_RATE) * 1000)
+      }
     },
     cancel: teardown
   }
