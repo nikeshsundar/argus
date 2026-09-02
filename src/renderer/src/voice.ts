@@ -1,4 +1,4 @@
-import { concatChunks, downsample, encodeWav, peakLevel } from '../../shared/audio'
+import { concatChunks, downsample, encodeWav, peakLevel, TARGET_SAMPLE_RATE } from '../../shared/audio'
 
 /**
  * Microphone capture for the bar.
@@ -19,8 +19,49 @@ export interface RecorderOptions {
   onLevel?: (level: number) => void
 }
 
-/** Buffer size in frames: ~85ms at 48kHz, which is a smooth meter without churn. */
-const FRAME_SIZE = 4096
+/**
+ * Kept recording after the button is released.
+ *
+ * A release is a decision made while the last word is still being said, so
+ * cutting the stream on the exact pointerup clips it. The tail is short enough
+ * that nobody notices the delay and long enough to keep the word.
+ */
+const TAIL_MS = 350
+
+/**
+ * The capture runs in an AudioWorklet, on the audio thread.
+ *
+ * The obvious alternative, ScriptProcessorNode, runs its callback on the main
+ * thread - the same thread rendering the bar, updating the status line and
+ * animating the level meter. Under that load it silently drops buffers, and a
+ * dropped buffer is a missing word. This was the actual cause of poor
+ * transcription; the model was faithfully transcribing audio with holes in it.
+ */
+const WORKLET = `
+class Capture extends AudioWorkletProcessor {
+  constructor() {
+    super()
+    this.buffer = []
+    this.held = 0
+  }
+  process(inputs) {
+    const channel = inputs[0] && inputs[0][0]
+    if (channel) {
+      this.buffer.push(new Float32Array(channel))
+      this.held += channel.length
+      // Batched to roughly 128ms so the message port isn't woken 375 times a
+      // second for 128-frame quanta.
+      if (this.held >= 2048) {
+        this.port.postMessage(this.buffer)
+        this.buffer = []
+        this.held = 0
+      }
+    }
+    return true
+  }
+}
+registerProcessor('argus-capture', Capture)
+`
 
 export async function startRecording(options: RecorderOptions = {}): Promise<Recorder> {
   const stream = await navigator.mediaDevices.getUserMedia({
@@ -32,37 +73,51 @@ export async function startRecording(options: RecorderOptions = {}): Promise<Rec
     }
   })
 
-  const context = new AudioContext()
-  const source = context.createMediaStreamSource(stream)
-  // ScriptProcessorNode is deprecated in favour of AudioWorklet, which needs a
-  // separately loaded module file. For a few seconds of speech the simpler node
-  // is the better trade, and it behaves identically here.
-  const processor = context.createScriptProcessor(FRAME_SIZE, 1, 1)
+  // Asking for the target rate up front lets Chromium resample with a proper
+  // filter, which is better than the box average `downsample` falls back to.
+  const context = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE })
+  const moduleUrl = URL.createObjectURL(new Blob([WORKLET], { type: 'application/javascript' }))
 
-  const chunks: Float32Array[] = []
-  let stopped = false
-
-  processor.onaudioprocess = (event) => {
-    if (stopped) return
-    const input = event.inputBuffer.getChannelData(0)
-    chunks.push(new Float32Array(input))
-    options.onLevel?.(peakLevel(input))
+  try {
+    await context.audioWorklet.addModule(moduleUrl)
+  } finally {
+    URL.revokeObjectURL(moduleUrl)
   }
 
-  source.connect(processor)
-  // A ScriptProcessor only runs while connected to a destination. Routing it to
-  // a silent gain node keeps it processing without playing the microphone back
-  // through the speakers.
-  const mute = context.createGain()
-  mute.gain.value = 0
-  processor.connect(mute)
-  mute.connect(context.destination)
+  const source = context.createMediaStreamSource(stream)
+  const capture = new AudioWorkletNode(context, 'argus-capture')
+
+  const chunks: Float32Array[] = []
+  let latestLevel = 0
+  let stopped = false
+
+  capture.port.onmessage = (event: MessageEvent<Float32Array[]>) => {
+    if (stopped) return
+    for (const chunk of event.data) {
+      chunks.push(chunk)
+      const level = peakLevel(chunk)
+      if (level > latestLevel) latestLevel = level
+    }
+  }
+
+  source.connect(capture)
+
+  // The meter is read on a frame, not on every audio message. Touching layout
+  // from the audio path is what made the main thread the bottleneck before.
+  let meter = 0
+  const tick = (): void => {
+    if (stopped) return
+    options.onLevel?.(latestLevel)
+    latestLevel *= 0.6 // decay, so the ring falls back between syllables
+    meter = requestAnimationFrame(tick)
+  }
+  meter = requestAnimationFrame(tick)
 
   const teardown = (): void => {
     stopped = true
-    processor.onaudioprocess = null
-    processor.disconnect()
-    mute.disconnect()
+    cancelAnimationFrame(meter)
+    capture.port.onmessage = null
+    capture.disconnect()
     source.disconnect()
     for (const track of stream.getTracks()) track.stop()
     void context.close()
@@ -70,10 +125,16 @@ export async function startRecording(options: RecorderOptions = {}): Promise<Rec
 
   return {
     async stop(): Promise<Uint8Array | null> {
+      // Let the last word arrive before tearing the stream down.
+      await new Promise((resolve) => setTimeout(resolve, TAIL_MS))
+
       const rate = context.sampleRate
       teardown()
       if (chunks.length === 0) return null
-      return encodeWav(downsample(concatChunks(chunks), rate))
+
+      const merged = concatChunks(chunks)
+      // `sampleRate` in the constructor is a request, not a guarantee.
+      return encodeWav(rate === TARGET_SAMPLE_RATE ? merged : downsample(merged, rate))
     },
     cancel: teardown
   }

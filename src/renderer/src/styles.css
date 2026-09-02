@@ -293,6 +293,13 @@ kbd {
   background: rgba(255, 95, 87, 0.12);
 }
 
+/* Opening the stream. Deliberately not red: nothing is being captured yet. */
+.mic[data-state='starting'] {
+  color: var(--agent);
+  border-color: rgba(245, 181, 86, 0.45);
+  animation: pulse 1s ease-in-out infinite;
+}
+
 .mic[data-state='thinking'] {
   color: var(--talk);
   border-color: rgba(86, 211, 245, 0.4);
@@ -313,6 +320,16 @@ kbd {
 
 .mic[data-state='recording'] .mic-level {
   opacity: 1;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .bar[data-listening='true'] {

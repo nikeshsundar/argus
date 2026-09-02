@@ -34,6 +34,15 @@ let manualMode: Mode | null = null
 /** Live microphone, while the button is held. */
 let recorder: Recorder | null = null
 let recordingStartedAt = 0
+/**
+ * Invalidates a start that is still opening the microphone.
+ *
+ * getUserMedia takes a moment, so a quick tap can release before the recorder
+ * exists. Without this the teardown finds nothing to stop, the stream opens
+ * immediately afterwards, and the microphone stays live with no way to close
+ * it.
+ */
+let listenToken = 0
 
 function setStatus(text: string, state: StatusState = 'idle'): void {
   status.textContent = text
@@ -350,43 +359,63 @@ input.addEventListener('input', () => {
 async function beginListening(): Promise<void> {
   if (recorder || awaitingAnswer) return
 
+  const token = ++listenToken
+  // Opening the microphone is not instant, and people start talking as soon as
+  // they press. Saying so is the only honest fix - the alternative is holding
+  // the stream open between utterances, which is exactly the always-listening
+  // behaviour this app promises not to have.
+  mic.dataset['state'] = 'starting'
+  setStatus('Opening the microphone…', 'busy')
+
   try {
-    recordingStartedAt = Date.now()
-    recorder = await startRecording({
+    const active = await startRecording({
       onLevel: (level) => {
         micLevel.style.transform = `scale(${0.7 + level * 0.55})`
       }
     })
+
+    if (token !== listenToken) {
+      // Released before the microphone finished opening.
+      active.cancel()
+      mic.dataset['state'] = ''
+      setStatus('')
+      return
+    }
+
+    recorder = active
+    recordingStartedAt = Date.now()
     mic.dataset['state'] = 'recording'
     bar.dataset['listening'] = 'true'
     setStatus('Listening — release to send', 'busy')
   } catch {
-    recorder = null
+    if (token !== listenToken) return
+    mic.dataset['state'] = ''
     setStatus('No microphone available, or access was refused.', 'error')
   }
 }
 
 async function endListening(): Promise<void> {
+  listenToken++
+
   const active = recorder
   if (!active) return
   recorder = null
 
   const heldFor = Date.now() - recordingStartedAt
-  mic.dataset['state'] = ''
+  mic.dataset['state'] = 'thinking'
   bar.dataset['listening'] = 'false'
   micLevel.style.transform = 'scale(0.7)'
+  setStatus('Transcribing…', 'busy')
 
   const wav = await active.stop()
 
   // A tap is a mis-press, not an utterance. Transcribing it would spend a
   // request to be told there was no speech.
   if (!wav || heldFor < MIN_UTTERANCE_MS) {
+    mic.dataset['state'] = ''
     setStatus('Hold the mic while you speak.')
     return
   }
-
-  mic.dataset['state'] = 'thinking'
-  setStatus('Transcribing…', 'busy')
 
   try {
     const text = await window.argus.transcribe(wav.buffer as ArrayBuffer)
