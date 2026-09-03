@@ -1,6 +1,23 @@
 import { app, ipcMain, session } from 'electron'
 import { runAgentTask } from './agentLoop'
+import type { AgentAction, ScreenSize } from '../shared/agent'
 import { parseKeyCommand } from '../shared/commands'
+import { activeScreenSize, replayWorkflow } from './replay'
+import { clearWorkflows, deleteWorkflow, listWorkflows, noteRun, saveWorkflow } from './workflowStore'
+import {
+  describeWorkflow,
+  estimateMs,
+  findWorkflow,
+  formatDuration,
+  nameProblem,
+  normaliseName,
+  parseWorkflowCommand,
+  previewLines,
+  recordable,
+  screenDrifted,
+  suggestNames,
+  type Workflow
+} from '../shared/workflow'
 import { inferProviderFromKey } from '../shared/keys'
 import { configuredKeys, forgetCooldowns, poolRows, poolStatus } from './geminiKeys'
 import type { SubmitResult, Thread, ThreadSummary, Turn } from '../shared/types'
@@ -46,6 +63,16 @@ let imageAnchor = 0
 
 /** In-flight model request, so a dismiss or a new question cancels the old one. */
 let inFlight: AbortController | null = null
+
+/**
+ * The last Agent run that worked, held until the next one replaces it.
+ *
+ * Saving is offered after the fact rather than asked about beforehand, because
+ * nobody knows a task is worth keeping until they have watched it succeed. In
+ * memory only: an unsaved run is not worth surviving a restart, and the user
+ * has not yet said they want it kept anywhere.
+ */
+let lastRun: { task: string; actions: AgentAction[]; screen: ScreenSize } | null = null
 
 function clearPendingCapture(): void {
   pendingCapture = null
@@ -334,7 +361,10 @@ function handleSlashCommand(text: string): SubmitResult | null {
         '/history              past chats',
         '/new                  start a fresh chat',
         '/forget               delete all saved chats',
-        'agent <task>          take control of the machine'
+        'agent <task>          take control of the machine',
+        '/save <name>          keep the last Agent run',
+        '/workflows            saved runs you can replay for free',
+        '/run <name>           replay one, no model call'
       ].join('\n')
     )
   }
@@ -348,6 +378,120 @@ function handleSlashCommand(text: string): SubmitResult | null {
   }
 
   return null
+}
+
+/**
+ * Everything to do with saved workflows.
+ *
+ * Handled before `handleSlashCommand` and separately from it, because "/run"
+ * has to await a replay and that one is synchronous. Splitting it also keeps
+ * the unknown-command guard honest: this function claims every "/save",
+ * "/workflows" and "/run" - including malformed ones, which get a real
+ * explanation rather than "unknown command".
+ */
+async function handleWorkflowCommand(text: string): Promise<SubmitResult | null> {
+  const ok = (message: string): SubmitResult => ({ ok: true, mode: 'talk', message })
+  const fail = (message: string): SubmitResult => ({ ok: false, mode: 'talk', message })
+
+  const command = parseWorkflowCommand(text)
+  if (command.kind === 'none') return null
+
+  const saved = listWorkflows()
+
+  /** An unknown name is usually a near miss, so say what does exist. */
+  const unknown = (name: string): SubmitResult => {
+    const near = suggestNames(name, saved)
+    if (saved.length === 0) {
+      return fail('Nothing saved yet. Run an Agent task, then "/save <name>".')
+    }
+    return fail(
+      near.length > 0
+        ? `No workflow called "${name}". Did you mean: ${near.join(', ')}?`
+        : `No workflow called "${name}". Type "/workflows" to see them.`
+    )
+  }
+
+  switch (command.kind) {
+    case 'save': {
+      if (!lastRun) {
+        return fail('Nothing to save yet. Run an Agent task first, then "/save <name>".')
+      }
+      const problem = nameProblem(command.name)
+      if (problem) return fail(problem)
+
+      const actions = recordable(lastRun.actions)
+      if (actions.length === 0) {
+        return fail('That run finished without doing anything worth replaying.')
+      }
+
+      const name = command.name.trim()
+      const replaced = saved.some((flow) => normaliseName(flow.name) === normaliseName(name))
+      saveWorkflow({
+        name,
+        task: lastRun.task,
+        actions,
+        createdAt: Date.now(),
+        runs: 0,
+        screen: lastRun.screen
+      })
+
+      const eta = formatDuration(estimateMs(actions, loadSettings().cursorPace, lastRun.screen))
+      return ok(
+        `${replaced ? 'Replaced' : 'Saved'} "${name}" — ${actions.length} steps, ${eta} to replay with no model calls.\nType "${name}" in Agent Mode, or "/run ${name}".`
+      )
+    }
+
+    case 'list': {
+      if (saved.length === 0) {
+        return ok(
+          'No saved workflows yet.\nRun an Agent task, then "/save <name>" to keep it — replaying costs nothing.'
+        )
+      }
+      return ok(
+        [
+          `${saved.length} saved:`,
+          ...saved.map((flow) => `  ${describeWorkflow(flow)}`),
+          '',
+          '/run <name>              replay one',
+          '/workflows <name>        show its steps first',
+          '/workflows delete <name> remove one'
+        ].join('\n')
+      )
+    }
+
+    case 'show': {
+      const flow = findWorkflow(command.name, saved)
+      if (!flow) return unknown(command.name)
+      const eta = formatDuration(estimateMs(flow.actions, loadSettings().cursorPace, flow.screen))
+      return ok(
+        [
+          `${flow.name} — "${flow.task}"`,
+          ...previewLines(flow),
+          '',
+          `${eta}, no model calls. Run it with "/run ${flow.name}".`
+        ].join('\n')
+      )
+    }
+
+    case 'delete': {
+      const flow = findWorkflow(command.name, saved)
+      if (!flow) return unknown(command.name)
+      deleteWorkflow(flow.name)
+      return ok(`Deleted "${flow.name}".`)
+    }
+
+    case 'clear': {
+      const count = clearWorkflows()
+      return ok(count === 0 ? 'There were none to remove.' : `Removed all ${count} workflows.`)
+    }
+
+    case 'run': {
+      if (!command.name) return fail('Which one? "/run <name>" — type "/workflows" to see them.')
+      const flow = findWorkflow(command.name, saved)
+      if (!flow) return unknown(command.name)
+      return await runReplay(flow)
+    }
+  }
 }
 
 /** Turns a "teach me" request into a prompt that produces followable steps. */
@@ -450,8 +594,54 @@ async function runTeach(topic: string): Promise<SubmitResult> {
   }
 }
 
+/**
+ * Replays a saved workflow. Same overlay and same Escape as Agent Mode, with
+ * nothing to think about - so it costs no quota and finishes in seconds.
+ */
+async function runReplay(flow: Workflow): Promise<SubmitResult> {
+  const current = activeScreenSize()
+  if (screenDrifted(flow.screen, current)) {
+    return {
+      ok: false,
+      mode: 'agent',
+      message:
+        `"${flow.name}" was recorded on a ${flow.screen.width}×${flow.screen.height} screen and this one is ` +
+        `${current.width}×${current.height}. A replay clicks fixed positions with nothing watching, so on a ` +
+        `differently shaped screen it would land in the wrong places. Run the task in Agent Mode and save it again.`
+    }
+  }
+
+  const bar = getRequestBar()
+  clearPendingCapture()
+  abortInFlight()
+
+  const controller = new AbortController()
+  inFlight = controller
+  hideRequestBar()
+
+  try {
+    const result = await replayWorkflow({
+      workflow: flow,
+      signal: controller.signal,
+      onStep: (event) => bar?.webContents.send('argus:agent-step', event)
+    })
+    if (result.ok) noteRun(flow.name)
+    await reopenAfterRun(result.summary, !result.ok)
+    return { ok: result.ok, mode: 'agent', message: result.summary }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The replay could not start.'
+    await reopenAfterRun(message, true)
+    return { ok: false, mode: 'agent', message }
+  } finally {
+    if (inFlight === controller) inFlight = null
+  }
+}
+
 async function runAgent(task: string): Promise<SubmitResult> {
   const bar = getRequestBar()
+  // Taken before the bar is hidden and before anything moves, so a saved
+  // workflow records the screen the coordinates actually refer to.
+  const screen = activeScreenSize()
   clearPendingCapture()
   abortInFlight()
 
@@ -465,8 +655,13 @@ async function runAgent(task: string): Promise<SubmitResult> {
       signal: controller.signal,
       onStep: (event) => bar?.webContents.send('argus:agent-step', event)
     })
-    await reopenAfterRun(result.summary, !result.ok)
-    return { ok: result.ok, mode: 'agent', message: result.summary }
+    const worthKeeping = result.ok && recordable(result.actions).length > 0
+    lastRun = worthKeeping ? { task, actions: result.actions, screen } : null
+    const notice = worthKeeping
+      ? `${result.summary}\n\nSave it with "/save <name>" and it replays instantly next time, without a model call.`
+      : result.summary
+    await reopenAfterRun(notice, !result.ok)
+    return { ok: result.ok, mode: 'agent', message: notice }
   } catch (error) {
     const message =
       error instanceof ProviderUnavailableError
@@ -505,6 +700,12 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('argus:submit', async (_event, text: string, forced?: Mode) => {
+    // Workflows are handled first: "/run" has to await a replay, and the
+    // unknown-command guard at the end of handleSlashCommand would otherwise
+    // reject every one of these before they were understood.
+    const flowCommand = await handleWorkflowCommand(text.trim())
+    if (flowCommand) return flowCommand
+
     const command = handleSlashCommand(text.trim())
     if (command) return command
 
@@ -525,7 +726,16 @@ function registerIpc(): void {
     // shape here beats hoping "teach me" alone produces something followable.
     const asked = lesson.teach ? asLessonPrompt(lesson.topic) : prompt
 
-    if (mode === 'agent') return await runAgent(prompt)
+    if (mode === 'agent') {
+      // The name of a saved workflow, typed on its own, replays it. Only an
+      // exact match counts: a prefix would mean "gi" quietly carrying out
+      // whichever of "git push" and "gimp export" happened to be found first.
+      const named = listWorkflows().find(
+        (flow) => normaliseName(flow.name) === normaliseName(prompt)
+      )
+      if (named) return await runReplay(named)
+      return await runAgent(prompt)
+    }
 
     // The capture is deliberately kept after answering: follow-up questions ask
     // about the same screen, and re-capturing would show our own bar instead.

@@ -24,7 +24,7 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ### Contents
 
-[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Saved Workflows](#️-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
 **[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
 
@@ -66,6 +66,27 @@ Click the mic and say it, then click again. Long instructions are miserable to t
 - **Click to record, click to stop.** Never a wake word — nothing listens in the background. The bar turns red and the mic pulses while it's live, <kbd>Esc</kbd> discards a recording, and one stops itself after 60 seconds so a forgotten mic can't stay open
 - Talk Mode sends straight away. Agent and Teach put the text in the box and wait for <kbd>Enter</kbd> — speech misheard by one word shouldn't move your mouse
 - Argus never speaks back. Dictation, not a conversation
+
+### ♻️ Saved Workflows
+Agent Mode costs a model call per step and most of a minute per task, against a free tier of **20 calls a day**. But the second time you ask for the same thing, the answer is already known.
+
+So when a run succeeds, keep it:
+
+```
+agent open chrome and go to github.com/new
+  → done. Save it with "/save <name>" and it replays instantly next time.
+
+/save new repo
+  → Saved "new repo" — 4 steps, about 6s to replay with no model calls.
+```
+
+Then just type **`new repo`** in Agent Mode. Same pointer, same overlay, same <kbd>Esc</kbd> — and **zero API calls**, in seconds instead of a minute.
+
+- **Records the agent's actions, not yours.** Watching you would mean a global keyboard hook running all day — a keylogger, in an app whose whole promise is that it isn't watching. The agent's own action list is already structured, already semantic, and already known to have worked
+- Only successful actions are kept. A replay has no model to recover with, so a step that failed the first time is never repeated
+- A replay **stops at the first failure** rather than typing the rest of the sequence into whatever is now on screen
+- **Refuses to run on a differently shaped screen.** Coordinates are normalised, so 1080p → 4K is fine; 16:9 → ultrawide moves every control relative to the grid, and a blind click would land on whatever now occupies that spot
+- `/workflows <name>` shows the exact steps before you run anything
 
 ### 🎓 Teach Mode
 The one that doesn't exist anywhere else. Ask to be *taught* and it refuses to do it for you.
@@ -240,6 +261,12 @@ Type these into the bar to configure or control Argus:
 | `/model agent <id>` | Change the Agent + Teach model (a fast one; see below) |
 | `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
 | `/cursor <pace>` | Pointer speed: `natural` (default), `demo` (slow, for recording), `instant` |
+| `/save <name>` | Keep the last successful Agent run as a replayable workflow |
+| `/workflows` | List saved workflows, with step counts and how often each is used |
+| `/workflows <name>` | Show a workflow's exact steps before running it |
+| `/workflows delete <name>` | Remove one |
+| `/workflows clear` | Remove them all |
+| `/run <name>` | Replay a workflow — no model call. Typing the bare name in Agent Mode does the same |
 | `/history` | Browse and resume past conversations |
 | `/new` | Start a fresh chat |
 | `/forget` | Delete all saved chats permanently |
@@ -310,9 +337,12 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Visible pointer travel — eased glide, halo, click ring, three speeds
 - [x] Intent routing — instructions reach the agent without a trigger word
 - [x] Teach Mode — ghost cursor, captioned steps, waits for the learner
-- [x] Voice input — hold to talk, filler-cleaned transcription
+- [x] Voice input — click to record, filler-cleaned transcription
+- [x] Saved workflows — replay a successful Agent run with no model call
 
 ### 🚧 In Progress & Planned
+- [ ] Local transcription (Whisper) — voice off the daily quota entirely
+- [ ] Plan preview & undo for Agent Mode
 - [ ] Support for additional providers
 - [ ] On-screen annotations (arrows, highlights, boxes)
 - [ ] Replayable lessons — save a Teach Mode walkthrough and share it
@@ -362,10 +392,22 @@ Agent Mode gives an AI real control of your mouse and keyboard. Here's how we ke
 | **Visual Indicator** | Pulsing amber frame covers the screen during agent execution — it never operates silently |
 | **Instant Kill** | Press <kbd>Esc</kbd> from anywhere to stop immediately, even if Argus isn't focused |
 | **Action Cap** | Maximum 14 actions per task—prevents infinite loops or runaway behavior |
-| **Single-Step Execution** | One action at a time with screen re-capture between steps; no blind sequences |
+| **Single-Step Execution** | One action at a time with screen re-capture between steps; nothing is decided in advance |
 | **Visible Travel** | The pointer glides to its target rather than teleporting, so you can see where a click is going before it lands |
 
 **Warning:** Agent Mode controls your real mouse and keyboard. Only direct it at tasks you can afford to have clicked/typed. Always supervise autonomous mode on unfamiliar websites or critical applications.
+
+### Replaying a workflow is blind — deliberately
+
+A live agent looks at the screen before every action. A replay does not: skipping the screenshot and the model call is precisely what makes it free and quick. It clicks the coordinates that worked last time.
+
+So it gets the same overlay, the same <kbd>Esc</kbd>, and three limits a live run doesn't need:
+
+- **Stops at the first failure**, instead of typing the remaining steps into whatever is now on screen
+- **Refuses a differently shaped screen**, where fixed coordinates would land somewhere else entirely
+- **`/workflows <name>` prints every step** before you commit to running any of them
+
+Replay what you'd be happy to watch happen. It is a shortcut for a task you have already seen succeed — not a scheduler, and not something to point at a screen you haven't looked at.
 
 ### Teach Mode is different
 

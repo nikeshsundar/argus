@@ -54,6 +54,25 @@ export const OPTIONS: Option[] = [
     immediate: true
   },
   {
+    id: 'workflows',
+    label: 'Saved workflows',
+    hint: '/workflows',
+    insert: '/workflows',
+    immediate: true
+  },
+  {
+    id: 'save',
+    label: 'Save the last Agent run',
+    hint: '/save <name>',
+    insert: '/save '
+  },
+  {
+    id: 'run',
+    label: 'Replay a workflow',
+    hint: '/run <name> · no model call',
+    insert: '/run '
+  },
+  {
     id: 'hotkey',
     label: 'Rebind hotkey',
     hint: '/hotkey Alt+`',
@@ -86,7 +105,13 @@ export function filterOptions(value: string): Option[] {
   if (!text.startsWith('/')) return []
 
   const term = text.slice(1)
-  return OPTIONS.filter(
-    (option) => option.id.startsWith(term) || option.label.toLowerCase().includes(term)
+  // Name matches rank above label matches, and the palette's first row is the
+  // one Enter picks. Without this, typing "/save" in full offers "Saved
+  // workflows" first, because its label happens to contain the word - so the
+  // exact command someone typed loses to a near miss.
+  const byName = OPTIONS.filter((option) => option.id.startsWith(term))
+  const byLabel = OPTIONS.filter(
+    (option) => !option.id.startsWith(term) && option.label.toLowerCase().includes(term)
   )
+  return [...byName, ...byLabel]
 }

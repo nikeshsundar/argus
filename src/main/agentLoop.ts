@@ -22,6 +22,14 @@ export interface AgentRunOptions {
 export interface AgentRunResult {
   ok: boolean
   summary: string
+  /**
+   * Every action that ran and worked, in order, so a successful task can be
+   * saved and replayed without paying for the thinking a second time. Failed
+   * and cancelled actions are left out: a replay has no model to recover with,
+   * so repeating a step that did not work would only put the pointer somewhere
+   * the rest of the sequence does not expect.
+   */
+  actions: AgentAction[]
 }
 
 /**
@@ -51,13 +59,14 @@ export async function runAgentTask({
   })
 
   showOverlay()
+  const performed: AgentAction[] = []
 
   try {
     let lastResult: string | undefined
 
     for (let step = 1; step <= MAX_STEPS; step++) {
       if (stoppedByUser || signal.aborted) {
-        return { ok: false, summary: `Stopped after ${step - 1} steps.` }
+        return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
       }
 
       // The overlay would otherwise sit in the screenshot and cover the very
@@ -77,20 +86,24 @@ export async function runAgentTask({
       onStep?.(event)
 
       if (action.type === 'done') {
-        return { ok: true, summary: action.summary }
+        return { ok: true, summary: action.summary, actions: performed }
       }
 
       if (stoppedByUser || signal.aborted) {
-        return { ok: false, summary: `Stopped after ${step - 1} steps.` }
+        return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
       }
 
       lastResult = await perform(action, capture, control.signal)
+      if (lastResult === 'ok' || lastResult.startsWith('launched') || lastResult.startsWith('opened')) {
+        performed.push(action)
+      }
       await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
     }
 
     return {
       ok: false,
-      summary: `Hit the ${MAX_STEPS}-step limit without finishing. Try a smaller task.`
+      summary: `Hit the ${MAX_STEPS}-step limit without finishing. Try a smaller task.`,
+      actions: performed
     }
   } finally {
     unwatch()

@@ -26,6 +26,20 @@ describe('filterOptions', () => {
     expect(OPTIONS.every((option) => option.insert.startsWith('/'))).toBe(true)
   })
 
+  it('offers the workflow commands', () => {
+    // "/run" also matches "Save the last Agent run" by label; ranking keeps
+    // the command itself on top.
+    expect(filterOptions('/run')[0]?.id).toBe('run')
+    expect(filterOptions('/work')[0]?.id).toBe('workflows')
+  })
+
+  it('puts the command someone typed above one that merely mentions it', () => {
+    // "/save" matches the save command by name and "Saved workflows" by label.
+    // The first row is the one Enter picks, so the exact command has to win.
+    expect(filterOptions('/save')[0]?.id).toBe('save')
+    expect(filterOptions('/save').map((option) => option.id)).toContain('workflows')
+  })
+
   it('gets out of the way for anything that is not a command', () => {
     for (const text of ['what is this error', 'open instagram', 'agent open chrome']) {
       expect(filterOptions(text), text).toEqual([])
