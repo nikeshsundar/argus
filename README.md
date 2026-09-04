@@ -31,18 +31,24 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 ## Demo
 
 > [!TIP]
-> **A GIF belongs right here.** One command records and encodes it — ffmpeg does the work, you just act:
+> **A GIF belongs right here, and a video below it.** One command records once and writes both:
 >
 > ```powershell
 > winget install Gyan.FFmpeg          # once, if you don't have it
 > .\scripts\record-demo.ps1 -Seconds 10
 > ```
 >
-> Five seconds of countdown, then it records the desktop and writes `docs/demo.gif` sized for a README. `-Region 240,140,1440,810` crops to where the action is, which beats shrinking the whole desktop until the text is mush. Then add this above:
+> Five seconds of countdown, then it writes `docs/demo.gif` (sized for a README) and `docs/demo.mp4` (H.264 / yuv420p, the combination GitHub's own docs recommend). `-Region 240,140,1440,810` crops to where the action is, which beats shrinking the whole desktop until the text is mush.
+>
+> **The GIF is the hook.** Commit it and reference it normally — it autoplays the instant the page loads, which is the only thing that works in the few seconds a visitor gives a repo:
 >
 > ```markdown
 > ![Argus demo](docs/demo.gif)
 > ```
+>
+> **The MP4 is the walkthrough**, and it is *uploaded, not committed*. Drag `docs/demo.mp4` into the comment box of any GitHub issue — you never have to post the issue — and it becomes a `https://github.com/user-attachments/assets/…` URL. Put that URL on a line of its own in the README and GitHub renders a real inline player. 10 MB is the ceiling on a free plan.
+>
+> Don't link an MP4 through `raw.githubusercontent.com`: it is served with a content type that makes browsers download the file instead of playing it, and it puts a binary in your git history for good.
 >
 > **Shoot Teach Mode.** It is the thing nothing else does, and it explains itself with no narration: press <kbd>Alt</kbd>+<kbd>`</kbd>, type *"teach me how to change my display resolution"*, then click each thing the blue ghost cursor points at. Whatever is on your screen ends up in a public file, so close anything you would not post.
 

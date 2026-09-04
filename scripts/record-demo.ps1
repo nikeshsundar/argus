@@ -41,7 +41,15 @@ param(
   [string]$Region = '',
 
   # Keep the intermediate lossless capture, e.g. to re-encode at other sizes.
-  [switch]$KeepSource
+  [switch]$KeepSource,
+
+  # Skip the MP4. By default one recording produces both, because they are for
+  # two different jobs - see the note above the encode below.
+  [switch]$NoVideo,
+
+  # Width of the MP4. Video compresses far better than a GIF, so it can afford
+  # detail the GIF cannot.
+  [int]$VideoWidth = 1280
 )
 
 $ErrorActionPreference = 'Stop'
@@ -114,6 +122,29 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
+# --- and an MP4 -------------------------------------------------------------
+# Both, from one recording, because they do different jobs. A GIF autoplays
+# silently the instant the page loads, which is the only thing that works in
+# the few seconds a visitor gives a repo. A GitHub-hosted video shows a play
+# button and waits for a click, but carries audio, seeks, and far better
+# quality per byte - which is what you want for the longer walkthrough further
+# down the page.
+#
+# yuv420p is not optional: without it Safari and some Chrome builds refuse to
+# play the file at all, and scale=-2 keeps the height even, which that pixel
+# format requires.
+$video = [System.IO.Path]::ChangeExtension($Out, '.mp4')
+if (-not $NoVideo) {
+  & ffmpeg -hide_banner -loglevel error -y -i $raw `
+    -vf "scale=${VideoWidth}:-2:flags=lanczos" `
+    -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 23 -preset slow `
+    -movflags +faststart -an $video
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host 'MP4 encoding failed.' -ForegroundColor Red
+    exit 1
+  }
+}
+
 if ($KeepSource) {
   Write-Host "  kept the raw capture: $raw"
 } else {
@@ -122,13 +153,27 @@ if ($KeepSource) {
 
 $mb = [math]::Round((Get-Item $Out).Length / 1MB, 2)
 Write-Host ''
-Write-Host "  $Out  -  $mb MB" -ForegroundColor Green
+Write-Host "  $Out  -  $mb MB   (autoplays at the top of the README)" -ForegroundColor Green
 
 if ($mb -gt 10) {
-  Write-Host ''
-  Write-Host '  That is big for a README. Try -Seconds 8, -Width 800, or -Fps 10.' -ForegroundColor Yellow
+  Write-Host '    over GitHub 10 MB image limit. Try -Seconds 8, -Width 800, or -Fps 10.' -ForegroundColor Yellow
 } elseif ($mb -gt 5) {
-  Write-Host '  Fine, but -Width 800 would halve it.' -ForegroundColor DarkYellow
+  Write-Host '    fine, but -Width 800 would roughly halve it.' -ForegroundColor DarkYellow
 }
 
+if (-not $NoVideo) {
+  $vmb = [math]::Round((Get-Item $video).Length / 1MB, 2)
+  Write-Host "  $video  -  $vmb MB   (drag into a GitHub issue to get its URL)" -ForegroundColor Green
+  # 10 MB is the ceiling on a free plan; 100 MB on a paid one. Failing the
+  # upload after recording is a worse way to find out.
+  if ($vmb -gt 10) {
+    Write-Host '    over the 10 MB free-plan upload limit. Try -VideoWidth 960 or a shorter take.' -ForegroundColor Yellow
+  }
+}
+
+Write-Host ''
+Write-Host '  The GIF goes in the README as:  ![Argus demo](docs/demo.gif)' -ForegroundColor DarkGray
+Write-Host '  The MP4 is uploaded, not committed - drag it into any GitHub issue' -ForegroundColor DarkGray
+Write-Host '  comment box, copy the user-attachments URL it becomes, and paste that' -ForegroundColor DarkGray
+Write-Host '  URL on a line of its own. GitHub renders it as a player.' -ForegroundColor DarkGray
 Write-Host ''

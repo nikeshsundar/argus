@@ -10,3 +10,7 @@ tsconfig.*.tsbuildinfo
 
 # Claude provider (kept locally, not tracked)
 src/main/providers/claude.ts
+
+# Recorded demos: the GIF is committed, the MP4 is uploaded to a
+# GitHub issue comment instead of living in git history.
+docs/demo.mp4
