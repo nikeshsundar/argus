@@ -68,6 +68,21 @@ const OVERLOAD_BACKOFF_MS = [700, 1600]
  */
 const OVERLOAD_COOLDOWN_MS = 60_000
 
+/**
+ * How long to wait for a model to START answering.
+ *
+ * There was no limit at all, which is worse than a slow answer: a model that
+ * hangs holds the whole task until the user presses Escape, and two were
+ * measured hanging past 20 seconds with nothing at all.
+ *
+ * This is a deadline on the response arriving, not on the answer finishing -
+ * the timer is cleared the moment headers come back, so a long reply is never
+ * cut off halfway. A healthy model answers in two to four seconds, so ten is
+ * generous for the only thing being measured, and it caps what a dead one can
+ * cost before the next model is tried.
+ */
+const REQUEST_TIMEOUT_MS = 10_000
+
 /** When each model is worth trying again. Keyed by model id. */
 const restingUntil = new Map<string, number>()
 
@@ -119,6 +134,8 @@ export async function callGemini(options: {
    * allowance on the day the first runs out.
    */
   fallbackModels?: string[]
+  /** Told which model answered - so a substitution can be admitted, not hidden. */
+  onModelChosen?: (model: string) => void
 }): Promise<Response> {
   const candidates = preferAvailable(
     modelCandidates(options.model, options.fallbackModels),
@@ -126,13 +143,18 @@ export async function callGemini(options: {
     Date.now()
   )
 
-  let response = await attempt(candidates[0]!, options)
+  let response = await attempt(candidates[0]!, { ...options, hasAlternatives: candidates.length > 1 })
   noteAvailability(candidates[0]!, response.status)
+  if (response.ok) options.onModelChosen?.(candidates[0]!)
 
   for (let next = 1; response.status === 503 && next < candidates.length; next++) {
     if (options.signal?.aborted) return response
-    response = await attempt(candidates[next]!, options)
+    response = await attempt(candidates[next]!, {
+      ...options,
+      hasAlternatives: next < candidates.length - 1
+    })
     noteAvailability(candidates[next]!, response.status)
+    if (response.ok) options.onModelChosen?.(candidates[next]!)
   }
   return response
 }
@@ -166,24 +188,59 @@ async function attempt(
     body: unknown
     signal?: AbortSignal
     thinking?: ThinkingLevel
+    /** True when another model is queued behind this one. */
+    hasAlternatives?: boolean
   }
 ): Promise<Response> {
   const query = options.method === 'streamGenerateContent' ? '?alt=sse' : ''
   const url = `${GEMINI_ENDPOINT}/${model}:${options.method}${query}`
 
-  const send = (body: unknown, key: string): Promise<Response> =>
-    fetch(url, {
-      method: 'POST',
-      signal: options.signal,
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify(body)
-    })
+  const send = async (body: unknown, key: string): Promise<Response> => {
+    // The caller's cancellation and our own deadline both have to reach fetch,
+    // and only one of them means the user changed their mind.
+    const deadline = new AbortController()
+    const timer = setTimeout(() => deadline.abort(), REQUEST_TIMEOUT_MS)
+    const signal = options.signal
+      ? AbortSignal.any([options.signal, deadline.signal])
+      : deadline.signal
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        signal,
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(body)
+      })
+      // Headers are back, so the model is alive. Everything after this is it
+      // writing the answer, which is allowed to take as long as it takes -
+      // leaving the timer armed would cut a long reply off mid-sentence.
+      clearTimeout(timer)
+      return response
+    } catch (error) {
+      // A user pressing Escape is a real abort and must propagate.
+      if (options.signal?.aborted) throw error
+      if (!deadline.signal.aborted) throw error
+
+      // Our own deadline. A model that will not answer is unavailable, which
+      // is what 503 means - so it takes the same path and the next model in
+      // the chain gets a turn.
+      return new Response(null, { status: 503, headers: { 'x-argus-timeout': '1' } })
+    } finally {
+      clearTimeout(timer)
+    }
+  }
 
   // Retries only the "server is busy" case. A refused key, a bad model or a
   // spent quota are all answers, and asking again does not change them.
+  //
+  // And only when this is the last resort. With other models to try, asking a
+  // busy one three times is three waits before reaching the one that would
+  // have answered immediately - the cooldown will keep this model out of the
+  // way afterwards either way.
+  const retries = options.hasAlternatives ? 0 : OVERLOAD_RETRIES
   const post = async (body: unknown, key: string): Promise<Response> => {
     let response = await send(body, key)
-    for (let retry = 0; response.status === 503 && retry < OVERLOAD_RETRIES; retry++) {
+    for (let retry = 0; response.status === 503 && retry < retries; retry++) {
       if (options.signal?.aborted) return response
       await pause(OVERLOAD_BACKOFF_MS[retry] ?? 1600, options.signal)
       if (options.signal?.aborted) return response
@@ -283,6 +340,12 @@ export async function describeGeminiFailure(response: Response, model: string): 
     const wait = retryAdviceSeconds()
     const when = wait > 90 ? `about ${Math.round(wait / 60)} min` : `${wait || 30}s`
     return `Every Gemini key is over quota (the free tier allows 20 requests a day per model). Try again in ${when}, or add another key with "/key <your-key>".`
+  }
+  if (response.headers.get('x-argus-timeout')) {
+    return (
+      `"${model}" stopped responding — every model I tried was either overloaded or silent. ` +
+      'A busy model is at Google end, not yours. Try again in a minute, or pick another with "/aimodel".'
+    )
   }
   if (response.status === 503) {
     // Already retried three times by the time this is written, so "try again"

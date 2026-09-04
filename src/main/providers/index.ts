@@ -1,3 +1,4 @@
+import { OVERLOAD_FALLBACKS } from '../../shared/models'
 import { loadSettings } from '../settingsStore'
 import { createClaudeProvider } from './claude'
 import { createGeminiProvider } from './gemini'
@@ -54,7 +55,13 @@ export function createAgentProvider(): ComputerUseProvider {
     )
   }
 
-  return createGeminiAgentProvider({ apiKey: geminiKey, model: settings.agentModel })
+  // Models go down one at a time, so one alternative is not enough: the Talk
+  // model first, then a chain that does not depend on either choice.
+  return createGeminiAgentProvider({
+    apiKey: geminiKey,
+    model: settings.agentModel,
+    fallbackModels: [settings.geminiModel, ...OVERLOAD_FALLBACKS]
+  })
 }
 
 /**
@@ -72,7 +79,11 @@ export function createTeachProvider(): ReturnType<typeof createGeminiTeachProvid
     )
   }
 
-  return createGeminiTeachProvider({ apiKey: geminiKey, model: settings.agentModel })
+  return createGeminiTeachProvider({
+    apiKey: geminiKey,
+    model: settings.agentModel,
+    fallbackModels: [settings.geminiModel, ...OVERLOAD_FALLBACKS]
+  })
 }
 
 /**

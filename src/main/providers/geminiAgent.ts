@@ -153,10 +153,12 @@ export function createGeminiAgentProvider(options: {
   apiKey: string
   model: string
   /**
-   * Stands in when the quick model is overloaded. Slower per step, but a task
-   * that finishes beats one that stops halfway through operating the machine.
+   * Tried in order when the quick model is not answering. Slower per step, but
+   * a task that finishes beats one that stops halfway through operating the
+   * machine - and models go down one at a time, so one alternative is not
+   * enough.
    */
-  fallbackModel?: string
+  fallbackModels?: string[]
 }): ComputerUseProvider {
   if (!options.apiKey) {
     throw new ProviderUnavailableError('No Gemini API key set. Type "/key <your-key>" here.')
@@ -222,7 +224,7 @@ export function createGeminiAgentProvider(options: {
             model: options.model,
             // A task should not fail because the quick model is busy;
             // the Talk model is slower at this but it answers.
-            fallbackModels: options.fallbackModel ? [options.fallbackModel] : [],
+            fallbackModels: options.fallbackModels ?? [],
             method: 'generateContent',
             signal,
             thinking: 'low',

@@ -1,6 +1,7 @@
 import { callGemini, describeGeminiFailure, type GeminiResponse } from './providers/geminiClient'
 import { ProviderUnavailableError } from './providers/types'
 import { configuredKeys } from './geminiKeys'
+import { OVERLOAD_FALLBACKS } from '../shared/models'
 import { loadSettings } from './settingsStore'
 
 /**
@@ -44,8 +45,9 @@ export async function transcribe(wav: Buffer, signal?: AbortSignal): Promise<str
   const response = await callGemini({
     apiKey: configuredKeys()[0]!,
     model: settings.agentModel,
-    // Voice is not worth losing to one busy model.
-    fallbackModels: [settings.geminiModel],
+    // Voice is not worth losing to one busy model, and the obvious
+    // alternative can be busy too.
+    fallbackModels: [settings.geminiModel, ...OVERLOAD_FALLBACKS],
     method: 'generateContent',
     signal,
     thinking: 'low',

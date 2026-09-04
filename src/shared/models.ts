@@ -236,3 +236,22 @@ export function renderCatalogue(options: {
     'Any other model id still works: "/model <id>".'
   ].join('\n')
 }
+
+/**
+ * Models to try when the chosen one is not answering, in order.
+ *
+ * Not a preference list - a lifeboat. Gemini models go down individually and
+ * often: measured on one ordinary afternoon, gemini-3.5-flash-lite returned
+ * 503, gemini-3.6-flash hung for 25 seconds, and gemini-flash-lite-latest was
+ * 503 too, while gemini-3.1-flash-lite answered in 2.3s. One alternative is
+ * not enough, because the alternative can be down as well.
+ *
+ * Ordered by what answered when this was written, cheapest first. The aliases
+ * are last and deliberately included: they follow whatever Google currently
+ * considers current, so they outlive any specific id in this list.
+ */
+export const OVERLOAD_FALLBACKS = [
+  'gemini-3.1-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest'
+]
