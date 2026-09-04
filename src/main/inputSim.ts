@@ -119,11 +119,34 @@ export async function executeAction(
       // Focus does not always land on the same tick as the click.
       await new Promise((resolve) => setTimeout(resolve, 120))
 
+      // Replace what is in the field rather than adding to it. A click puts a
+      // caret somewhere in the existing value; typing from there produced
+      // things like "chatgpt.comchatgpt.com". type_text is the action for
+      // adding to what is already there.
+      await keyboard.pressKey(Key.LeftControl, Key.A)
+      await keyboard.releaseKey(Key.LeftControl, Key.A)
+
       keyboard.config.autoDelayMs = PACES[pace].typeDelayMs
       await keyboard.type(action.text)
+
       if (action.submit) {
+        // Kill the browser's inline autocompletion before committing.
+        //
+        // Typing "chatgpt" leaves the address bar holding "chatgpt" plus a
+        // selected completion from history - which can be any stale deep link
+        // you once visited. Enter accepts the completion, not what was typed,
+        // and the agent lands somewhere it never asked for and cannot explain.
+        // Delete removes the selected part and leaves exactly the typed text.
+        await keyboard.pressKey(Key.Delete)
+        await keyboard.releaseKey(Key.Delete)
+        await new Promise((resolve) => setTimeout(resolve, 80))
+
         await keyboard.pressKey(Key.Enter)
         await keyboard.releaseKey(Key.Enter)
+
+        // Submitting usually navigates. Without this the next screenshot
+        // catches a blank page mid-load, and the model plans against nothing.
+        await new Promise((resolve) => setTimeout(resolve, 700))
       }
       return 'ok'
     }

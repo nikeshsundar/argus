@@ -91,6 +91,7 @@ Hand over the wheel and it does the task itself.
   opening Edge and calling it done. The last few tasks and how each turned out are carried into the next one, for 15 minutes or until `/new`
 - **A question gets an answer, not a travelogue.** If the task was to read, check or find something, what comes back is the thing you asked for — not "I opened Gmail"
 - **Take the mouse back whenever you want.** Click, type or scroll and the agent stands down between steps and hands control over; go quiet for three seconds and it picks up where it left off. The frame goes amber -> grey so you always know who is driving
+- **It notices when it is going in circles.** Repeating an action that reports success but changes nothing is the one failure a screenshot cannot show it, so repetition is counted and named. Twice gets a blunt correction, three times ends the task honestly instead of burning the remaining steps
 - Safety limits: 14 actions max, <kbd>Esc</kbd> stops it mid-movement, amber frame while it has control
 
 **Examples:**
@@ -427,6 +428,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Model picker — Gemini free by default, Claude and OpenAI one command away
 - [x] The agent yields — touch the mouse and it stands aside, resumes when you stop
 - [x] Agent Mode roughly twice as fast — JPEG captures, a fixed double-request bug, tighter pacing
+- [x] Address bar autocomplete no longer hijacks navigation, and loops are caught instead of run to the step limit
 
 ### 🚧 In Progress & Planned
 - [ ] Ollama vision provider (it is on the menu; the implementation is not written yet)

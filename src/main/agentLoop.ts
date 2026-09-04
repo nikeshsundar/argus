@@ -1,5 +1,6 @@
 import { describeAction, type AgentAction } from '../shared/agent'
 import type { AgentRunRecord } from '../shared/agentHistory'
+import { isStuck, loopAdvice, stuckSummary } from '../shared/loop'
 import type { AgentStepEvent } from '../shared/types'
 import { loadAppIndex } from './appIndex'
 import { watchEscape } from './hotkey'
@@ -76,6 +77,12 @@ export async function runAgentTask({
 
   showOverlay()
   const performed: AgentAction[] = []
+  /**
+   * Everything tried, working or not. `performed` holds only what succeeded,
+   * and a loop is made of actions that succeed perfectly while achieving
+   * nothing - so it cannot be spotted from that list.
+   */
+  const attempted: AgentAction[] = []
 
   // The machine is the user's first. Touching the mouse or keyboard stands the
   // agent down between steps; going quiet picks it back up.
@@ -130,10 +137,21 @@ ${stoodAside}` : action.summary,
         return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
       }
 
+      attempted.push(action)
       lastResult = await asAgent(() => perform(action, capture, control.signal))
       if (lastResult === 'ok' || lastResult.startsWith('launched') || lastResult.startsWith('opened')) {
         performed.push(action)
       }
+
+      // Going in circles. Repeating an action that "worked" is the one failure
+      // the model cannot see: it is told "ok" every time, and a fresh
+      // screenshot it has already misread once is not enough to change its
+      // mind. Saying so plainly is.
+      if (isStuck(attempted)) {
+        return { ok: false, summary: stuckSummary(attempted), actions: performed }
+      }
+      const advice = loopAdvice(attempted)
+      if (advice) lastResult = `${lastResult}. ${advice}`
       await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
     }
 

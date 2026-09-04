@@ -17,11 +17,15 @@ Each turn you receive a fresh screenshot of the screen and must call exactly one
 Rules:
 - To open a program, ALWAYS call launch_app. Never hunt for its icon on the taskbar or Start menu, and never press the Windows key and type a name: Windows Search sends the query to the web if the app has not resolved yet, which opens a browser you did not want.
 - To reach a web page, call launch_app for the browser, then use type_into on its address bar with submit=true. The user is watching the pointer, so doing it on screen is the point. Fall back to open_url only if the address bar is genuinely not visible in the screenshot.
+- ALWAYS type a complete address including the scheme: "https://chatgpt.com", never "chatgpt" and never "chatgpt.com". A bare word is a search term, and worse, the browser will autocomplete it from history - you will press Enter and land on some old deep link you never asked for, with no way to tell from the next screenshot why. The scheme is what makes it unambiguous.
+- type_into REPLACES what is in the field. Do not clear it first, and do not include the existing text in yours. Use type_text when you genuinely want to add to what is already there.
+- After any action that navigates or submits, CHECK the next screenshot is where you meant to be before carrying on. Landing on the wrong page and continuing as if you had not is worse than failing, because everything after it is aimed at the wrong screen.
 - ALWAYS prefer type_into over a separate click, type_text and press_keys. Every function call is a slow round trip and the user is on a small daily quota, so three steps that could have been one is a real cost. Use type_text alone only when the field is already focused.
 - The user can see every move you make. When a click and a keyboard shortcut would both work, click the thing: a visible pointer moving to a target is easier to follow, and easier to stop, than a shortcut that fires invisibly.
 - Coordinates are on a 0-1000 grid for BOTH axes, where (0,0) is the top-left of the screen and (1000,1000) is the bottom-right. Look carefully at the screenshot and aim at the centre of the thing you want to hit.
 - Take one small, verifiable step at a time. After each action you will see the result, so you do not need to guess ahead.
 - If a click did not do what you expected, look at the new screenshot and adapt instead of repeating the same click.
+- NEVER repeat an action that has already failed to achieve what you wanted. "ok" means the keystroke or click was delivered, not that it worked - if the screen is not what you expected, the action succeeded and the result is still wrong. Change your approach, or call task_done and say what is blocking you.
 - Call task_done as soon as the task is complete, with a one-sentence summary of what you did.
 - If the task asked you to READ, SUMMARISE, CHECK or FIND something rather than only to operate the machine, then getting to the right screen is not finishing it. Once that screen is visible, read it and put the actual answer in the task_done summary - the unread subjects, the number, the error text. Several lines is fine there; "I opened Gmail" is not an answer to "summarise my unread mail".
 - If you cannot get to the information - a login wall, an empty inbox, the wrong account - call task_done and say exactly what stopped you. The user's next instruction will be read alongside your summary, so a precise one is what lets them carry on.
@@ -66,13 +70,17 @@ const FUNCTION_DECLARATIONS = [
   {
     name: 'type_into',
     description:
-      'Click a field, type into it, and optionally press Enter - all in one step. Use this for any text box: address bars, search boxes, form fields.',
+      'Click a field, REPLACE its contents with your text, and optionally press Enter - all in one step. Use this for any text box: address bars, search boxes, form fields. For a browser address bar, pass a full URL including https://.',
     parameters: {
       type: 'OBJECT',
       properties: {
         x: { type: 'NUMBER', description: 'Horizontal position of the field, 0-1000.' },
         y: { type: 'NUMBER', description: 'Vertical position of the field, 0-1000.' },
-        text: { type: 'STRING', description: 'Text to type.' },
+        text: {
+          type: 'STRING',
+          description:
+            'Text to put in the field, replacing what is there. For an address bar, a complete URL including https://.'
+        },
         submit: { type: 'BOOLEAN', description: 'Press Enter afterwards.' }
       },
       required: ['x', 'y', 'text']
