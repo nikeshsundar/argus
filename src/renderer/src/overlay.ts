@@ -27,7 +27,24 @@ window.argus.onOverlayKind((kind) => {
   }
 })
 
+/** What the banner said before it was interrupted, to put back on resume. */
+let drivingText = 'Argus is controlling your PC'
+
+window.argus.onOverlayPaused((text) => {
+  document.body.dataset['paused'] = text === null ? 'false' : 'true'
+  if (text !== null) {
+    action.textContent = text
+    step.textContent = ''
+    // The pointer marker follows a cursor the agent is no longer moving.
+    pointer.hidden = true
+  } else {
+    action.textContent = drivingText
+  }
+})
+
 window.argus.onAgentStep(({ description, index, max }) => {
+  drivingText = description
+  if (document.body.dataset['paused'] === 'true') return
   action.textContent = description
   step.textContent = `(step ${index}/${max})`
 })

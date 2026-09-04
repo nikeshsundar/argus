@@ -99,6 +99,17 @@ export function reportCursor(x: number, y: number, phase: AgentCursorEvent['phas
   } satisfies AgentCursorEvent)
 }
 
+/**
+ * Switches the frame between "the machine is being driven" and "you have
+ * control". Pass null to go back to driving.
+ *
+ * A different colour, not just different words: the frame is the one thing
+ * telling someone whether their next click will collide with the agent's.
+ */
+export function setOverlayPaused(text: string | null): void {
+  if (win && !win.isDestroyed()) win.webContents.send('argus:overlay-paused', text)
+}
+
 export function hideOverlay(): void {
   if (win && !win.isDestroyed() && win.isVisible()) win.hide()
 }

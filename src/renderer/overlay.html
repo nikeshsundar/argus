@@ -176,6 +176,30 @@
         }
       }
 
+      /*
+       * Paused: the user reached for the mouse, so the agent stood aside.
+       *
+       * Grey and still, deliberately. Amber pulsing means "this machine is
+       * being driven, keep your hands off"; the whole point of pausing is that
+       * the opposite is now true, and a frame that still looked alarming would
+       * be telling them not to do the thing they just did.
+       */
+      body[data-paused='true'] .frame {
+        border-color: rgba(150, 158, 178, 0.75);
+        box-shadow: inset 0 0 40px rgba(150, 158, 178, 0.1);
+        animation: none;
+      }
+
+      body[data-paused='true'] .dot {
+        background: #969eb2;
+        animation: none;
+      }
+
+      body[data-paused='true'] .pointer,
+      body[data-paused='true'] .ripple {
+        display: none;
+      }
+
       /* ---- Teach Mode ---------------------------------------------------- */
 
       /*

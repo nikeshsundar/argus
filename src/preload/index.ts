@@ -76,6 +76,14 @@ const api = {
     return () => ipcRenderer.off('argus:overlay-kind', listener)
   },
 
+  /** Fires when the agent stands aside for the user, and again when it resumes. */
+  onOverlayPaused: (callback: (text: string | null) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, text: string | null): void =>
+      callback(text)
+    ipcRenderer.on('argus:overlay-paused', listener)
+    return () => ipcRenderer.off('argus:overlay-paused', listener)
+  },
+
   /** Fires with each Teach Mode step, or null to clear the ghost cursor. */
   onTeachStep: (callback: (event: TeachStepEvent | null) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: TeachStepEvent | null): void =>

@@ -5,6 +5,8 @@ import { REPLAY_SETTLE_MS, type Workflow } from '../shared/workflow'
 import { watchEscape } from './hotkey'
 import { executeAction } from './inputSim'
 import { hideOverlay, showOverlay, updateOverlay } from './overlayWindow'
+import { asAgent, watchUser } from './userPresence'
+import { createYielding } from './yield'
 
 export interface ReplayResult {
   ok: boolean
@@ -61,8 +63,19 @@ export async function replayWorkflow({
 
   showOverlay()
 
+  // A replay drives the pointer exactly as the agent does, so it owes the user
+  // the same courtesy: stand aside the moment they touch anything.
+  const unwatchUser = watchUser()
+  const yielding = createYielding(control.signal)
+
   try {
     for (const [index, action] of workflow.actions.entries()) {
+      if (stoppedByUser || signal.aborted) {
+        return { ok: false, summary: `Stopped after ${index} of ${total} steps.` }
+      }
+
+      const clear = await yielding.wait()
+      if (!clear.ok) return { ok: false, summary: clear.reason }
       if (stoppedByUser || signal.aborted) {
         return { ok: false, summary: `Stopped after ${index} of ${total} steps.` }
       }
@@ -76,7 +89,7 @@ export async function replayWorkflow({
       onStep?.(event)
 
       try {
-        await executeAction(action, size, control.signal)
+        await asAgent(() => executeAction(action, size, control.signal))
       } catch (error) {
         // A live agent would be told what went wrong and try something else.
         // A replay has nobody to tell, so carrying on would mean typing the
@@ -95,9 +108,14 @@ export async function replayWorkflow({
       return { ok: false, summary: `Stopped after ${total} of ${total} steps.` }
     }
 
-    return { ok: true, summary: `Replayed "${workflow.name}" — ${total} steps, no model needed.` }
+    const stoodAside = yielding.summary()
+    const done = `Replayed "${workflow.name}" — ${total} steps, no model needed.`
+    return { ok: true, summary: stoodAside ? `${done}
+
+${stoodAside}` : done }
   } finally {
     unwatch()
+    unwatchUser()
     signal.removeEventListener('abort', abort)
     hideOverlay()
   }

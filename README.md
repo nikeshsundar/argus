@@ -90,6 +90,7 @@ Hand over the wheel and it does the task itself.
 - **Follow-ups work.** *"open gmail and summarise my unread mail"* → *"open it in Edge instead"* continues the same job, rather than
   opening Edge and calling it done. The last few tasks and how each turned out are carried into the next one, for 15 minutes or until `/new`
 - **A question gets an answer, not a travelogue.** If the task was to read, check or find something, what comes back is the thing you asked for — not "I opened Gmail"
+- **Take the mouse back whenever you want.** Click, type or scroll and the agent stands down between steps and hands control over; go quiet for three seconds and it picks up where it left off. The frame goes amber -> grey so you always know who is driving
 - Safety limits: 14 actions max, <kbd>Esc</kbd> stops it mid-movement, amber frame while it has control
 
 **Examples:**
@@ -424,6 +425,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Screen memory — ask about something that is already gone, RAM-only, opt-in
 - [x] Agent follow-ups — a new task is read alongside the last few and how they went
 - [x] Model picker — Gemini free by default, Claude and OpenAI one command away
+- [x] The agent yields — touch the mouse and it stands aside, resumes when you stop
 
 ### 🚧 In Progress & Planned
 - [ ] Ollama vision provider (it is on the menu; the implementation is not written yet)
@@ -474,6 +476,7 @@ Agent Mode gives an AI real control of your mouse and keyboard. Here's how we ke
 | Safety Layer | How It Works |
 | --- | --- |
 | **Visual Indicator** | Pulsing amber frame covers the screen during agent execution — it never operates silently |
+| **You can always take over** | Clicking, typing or scrolling stands the agent down between steps. It resumes after three seconds of quiet, and abandons the task after two minutes — the screen it planned against is gone by then, and resuming into a different one would click whatever now occupies those coordinates |
 | **Instant Kill** | Press <kbd>Esc</kbd> from anywhere to stop immediately, even if Argus isn't focused |
 | **Action Cap** | Maximum 14 actions per task—prevents infinite loops or runaway behavior |
 | **Single-Step Execution** | One action at a time with screen re-capture between steps; nothing is decided in advance |

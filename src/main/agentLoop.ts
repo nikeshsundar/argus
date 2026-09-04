@@ -7,6 +7,8 @@ import { executeAction } from './inputSim'
 import { hideOverlay, showOverlay, updateOverlay } from './overlayWindow'
 import { createAgentProvider } from './providers'
 import { captureActiveDisplay } from './screenshot'
+import { asAgent, watchUser } from './userPresence'
+import { createYielding } from './yield'
 
 /** Hard ceiling on actions per task, so a confused model can't grind forever. */
 const MAX_STEPS = 14
@@ -68,10 +70,24 @@ export async function runAgentTask({
   showOverlay()
   const performed: AgentAction[] = []
 
+  // The machine is the user's first. Touching the mouse or keyboard stands the
+  // agent down between steps; going quiet picks it back up.
+  const unwatchUser = watchUser()
+  const yielding = createYielding(control.signal)
+
   try {
     let lastResult: string | undefined
 
     for (let step = 1; step <= MAX_STEPS; step++) {
+      if (stoppedByUser || signal.aborted) {
+        return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
+      }
+
+      // Before the screenshot, not after: capturing while someone is still
+      // typing hands the model a screen that no longer exists by the time it
+      // decides what to do with it.
+      const clear = await yielding.wait()
+      if (!clear.ok) return { ok: false, summary: clear.reason, actions: performed }
       if (stoppedByUser || signal.aborted) {
         return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
       }
@@ -93,14 +109,21 @@ export async function runAgentTask({
       onStep?.(event)
 
       if (action.type === 'done') {
-        return { ok: true, summary: action.summary, actions: performed }
+        const stoodAside = yielding.summary()
+        return {
+          ok: true,
+          summary: stoodAside ? `${action.summary}
+
+${stoodAside}` : action.summary,
+          actions: performed
+        }
       }
 
       if (stoppedByUser || signal.aborted) {
         return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
       }
 
-      lastResult = await perform(action, capture, control.signal)
+      lastResult = await asAgent(() => perform(action, capture, control.signal))
       if (lastResult === 'ok' || lastResult.startsWith('launched') || lastResult.startsWith('opened')) {
         performed.push(action)
       }
@@ -114,6 +137,7 @@ export async function runAgentTask({
     }
   } finally {
     unwatch()
+    unwatchUser()
     signal.removeEventListener('abort', abort)
     hideOverlay()
   }
