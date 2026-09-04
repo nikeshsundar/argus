@@ -1,12 +1,11 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
+import { anchorToCursor, fitsOnDisplay } from '../shared/anchor'
 import type { MemoryIndicator, OpenedEvent } from '../shared/types'
 import { isRecording, retentionMinutes } from './screenMemory'
 
 const WIDTH = 660
 const HEIGHT = 190
-/** How far down the display the bar sits, as a fraction of screen height. */
-const VERTICAL_ANCHOR = 0.24
 
 let win: BrowserWindow | null = null
 
@@ -68,23 +67,28 @@ export function showRequestBar(payload: OpenedEvent): void {
   if (!win || win.isDestroyed()) return
 
   const cursor = screen.getCursorScreenPoint()
-  const { bounds } = screen.getDisplayNearestPoint(cursor)
+  const { workArea } = screen.getDisplayNearestPoint(cursor)
+  const panel = { width: WIDTH, height: lastContentHeight }
 
-  const onThisDisplay =
-    lastPosition !== null &&
-    lastPosition.x >= bounds.x &&
-    lastPosition.x + WIDTH <= bounds.x + bounds.width &&
-    lastPosition.y >= bounds.y &&
-    lastPosition.y + HEIGHT <= bounds.y + bounds.height
+  // A position the user chose by dragging outranks anything computed. Opening
+  // somewhere else every time would be overriding them, which is worse than
+  // never having anchored to the pointer in the first place.
+  const parked = lastPosition !== null && fitsOnDisplay(lastPosition, panel, workArea)
 
-  const position = onThisDisplay
+  // Otherwise: beside the pointer. You press the hotkey looking at the thing
+  // you are asking about, so that is where the answer should arrive - a fixed
+  // spot a quarter of the way down the screen costs a glance across the
+  // display and back on every single question.
+  const position = parked
     ? lastPosition!
-    : {
-        x: Math.round(bounds.x + (bounds.width - WIDTH) / 2),
-        y: Math.round(bounds.y + bounds.height * VERTICAL_ANCHOR)
-      }
+    : anchorToCursor({ cursor, panel, bounds: workArea })
 
-  win.setBounds({ ...position, width: WIDTH, height: lastContentHeight })
+  win.setBounds({
+    x: Math.round(position.x),
+    y: Math.round(position.y),
+    width: WIDTH,
+    height: lastContentHeight
+  })
 
   win.showInactive()
   win.focus()

@@ -67,6 +67,7 @@ Two rules worth knowing. A GIF holds 256 colours, so a decorative gradient borde
 
 ### 🎯 Talk Mode
 Ask questions about what's on your screen with full conversation history.
+- **Opens beside your pointer**, not in a fixed spot. You press the hotkey looking at the thing you are asking about, so that is where the answer arrives — it flips to the other side of the cursor near an edge rather than sliding over the control you just asked about. Drag it somewhere and it stays there instead
 - Follow-up context preserved across messages
 - See Gemini analyze your screen in real-time
 - Chat history is persistent and resumable

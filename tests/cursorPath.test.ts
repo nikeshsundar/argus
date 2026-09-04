@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { easeInOutCubic, glideDuration, PACES, pointAt } from '../src/shared/cursorPath'
+import { easeInOutCubic, glideDuration, PACES, pointAt, springAt } from '../src/shared/cursorPath'
 
 describe('easeInOutCubic', () => {
   it('pins both ends of the glide', () => {
@@ -79,8 +79,17 @@ describe('pointAt', () => {
     expect(pointAt(start, target, 1)).toEqual(target)
   })
 
-  it('passes through the midpoint halfway along', () => {
-    expect(pointAt(start, target, 0.5)).toEqual({ x: 500, y: 400 })
+  it('passes through the midpoint halfway along at demo pace', () => {
+    // demo keeps the symmetric ease, so half the time really is half the way.
+    expect(pointAt(start, target, 0.5, 'demo')).toEqual({ x: 500, y: 400 })
+  })
+
+  it('is well past halfway at half the time on a spring', () => {
+    // A spring front-loads its travel and then settles, so the old assertion
+    // that t=0.5 lands on the midpoint was measuring the easing curve rather
+    // than anything about pointAt.
+    const { x } = pointAt(start, target, 0.5, 'natural')
+    expect(x).toBeGreaterThan(500)
   })
 
   it('returns whole pixels, since that is all a pointer can occupy', () => {
@@ -102,5 +111,36 @@ describe('pointAt', () => {
   it('never leaves the segment, even at a clamped fraction', () => {
     expect(pointAt(start, target, -2)).toEqual(start)
     expect(pointAt(start, target, 9)).toEqual(target)
+  })
+})
+
+describe('springAt', () => {
+  it('starts where it started and ends exactly on target', () => {
+    // The click happens at the end, so the last value has to be exact.
+    expect(springAt(0)).toBe(0)
+    expect(springAt(1)).toBe(1)
+  })
+
+  it('overshoots, which is the whole point of a spring', () => {
+    const samples = Array.from({ length: 100 }, (_, i) => springAt(i / 100))
+    expect(Math.max(...samples)).toBeGreaterThan(1)
+  })
+
+  it('overshoots by a little, not a lot', () => {
+    // Enough to read as momentum, not so much that it looks like a wobble.
+    const samples = Array.from({ length: 200 }, (_, i) => springAt(i / 200))
+    expect(Math.max(...samples)).toBeLessThan(1.2)
+  })
+
+  it('settles rather than oscillating forever', () => {
+    // The last stretch should be sitting on the target, not still ringing.
+    for (const t of [0.85, 0.9, 0.95]) {
+      expect(Math.abs(springAt(t) - 1), `t=${t}`).toBeLessThan(0.05)
+    }
+  })
+
+  it('clamps outside its range instead of running away', () => {
+    expect(springAt(-1)).toBe(0)
+    expect(springAt(4)).toBe(1)
   })
 })

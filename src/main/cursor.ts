@@ -44,7 +44,7 @@ export async function glideTo(
     if (signal?.aborted) return
 
     const t = Math.min(1, (Date.now() - begin) / duration)
-    const { x, y } = pointAt(start, target, t)
+    const { x, y } = pointAt(start, target, t, pace)
 
     await mouse.setPosition(new Point(x, y))
     reportCursor(x, y, 'move')

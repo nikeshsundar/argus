@@ -37,6 +37,28 @@ export const PACES: Record<CursorPace, PaceProfile> = {
   demo: { pxPerSecond: 1100, minMs: 420, maxMs: 1400, typeDelayMs: 45 }
 }
 
+/**
+ * A damped spring, settling at 1 after a small overshoot.
+ *
+ * The pointer used to travel on a pure ease: correct, and slightly dead. A
+ * spring arrives with a little momentum and settles, which is what makes a
+ * moving thing read as alive rather than animated. `damping` below 1 is
+ * underdamped, so it passes the target and comes back.
+ *
+ * Overshooting is safe here. The glide only decides where the pointer is drawn
+ * on the way; the click happens after it lands, at the exact coordinate.
+ */
+export function springAt(t: number, damping = 0.62): number {
+  const clamped = Math.min(1, Math.max(0, t))
+  if (clamped >= 1) return 1
+
+  // Chosen so the overshoot is visible but small - about 8% at the default
+  // damping, which reads as life rather than as a wobble.
+  const frequency = 9
+  const decay = Math.exp(-damping * frequency * clamped)
+  return 1 - decay * Math.cos(frequency * Math.sqrt(1 - damping * damping) * clamped)
+}
+
 /** Slow at both ends, quick through the middle - how a hand actually moves. */
 export function easeInOutCubic(t: number): number {
   const clamped = Math.min(1, Math.max(0, t))
@@ -56,9 +78,14 @@ export function glideDuration(distance: number, pace: CursorPace): number {
 export function pointAt(
   start: { x: number; y: number },
   target: { x: number; y: number },
-  t: number
+  t: number,
+  pace: CursorPace = 'natural'
 ): { x: number; y: number } {
-  const eased = easeInOutCubic(t)
+  // A spring rather than a plain ease: it arrives with a little momentum and
+  // settles, which is the difference between a pointer that looks animated and
+  // one that looks alive. `demo` keeps the ease, because a deliberate
+  // demonstration should not bounce.
+  const eased = pace === 'demo' ? easeInOutCubic(t) : springAt(t)
   return {
     x: Math.round(start.x + (target.x - start.x) * eased),
     y: Math.round(start.y + (target.y - start.y) * eased)

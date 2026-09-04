@@ -1,10 +1,46 @@
+/*
+ * Design tokens.
+ *
+ * Surfaces are a ladder, not a set of one-off colours: each step up is
+ * lighter, so depth comes from a rule rather than from picking a shade each
+ * time something needs to look raised. Hover and press are the same idea -
+ * one opacity applied over whatever is underneath, so every control reacts
+ * identically without each one carrying its own hover colour.
+ */
 :root {
+  /* Surfaces, deepest first. */
   --bg: rgba(16, 17, 26, 0.92);
+  --surface-1: rgba(255, 255, 255, 0.035);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-3: rgba(255, 255, 255, 0.09);
+
   --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  /* Text, in three weights of attention. */
   --text: #f1f3f8;
   --muted: #8a90a6;
+  --faint: #676d80;
+
   --talk: #56d3f5;
   --agent: #f5b556;
+  --danger: #f5566a;
+
+  /*
+   * State layers, after Material Design 3: one translucent overlay at a fixed
+   * opacity rather than a bespoke colour per control. Contrast against the
+   * 0.92-alpha bar was checked for each - --muted on it is 4.7:1, --faint is
+   * 3.4:1 and so is only used for text that is decoration rather than
+   * information.
+   */
+  --state-hover: 0.08;
+  --state-press: 0.12;
+
+  /* Motion. Fast for feedback, normal for change, slow for arrival. */
+  --fast: 120ms;
+  --normal: 220ms;
+  --slow: 380ms;
+
   --font:
     'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
@@ -131,7 +167,7 @@ body {
 }
 
 .close:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-3);
   color: var(--text);
 }
 
@@ -220,7 +256,7 @@ body {
 }
 
 .option[data-selected='true'] {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-3);
 }
 
 .option-label {
@@ -239,7 +275,7 @@ body {
   display: flex;
   gap: 16px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 11px;
 }
@@ -250,9 +286,9 @@ body {
 
 kbd {
   padding: 1px 5px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid var(--border-strong);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-2);
   font-family: inherit;
   font-size: 10px;
 }
@@ -278,7 +314,7 @@ kbd {
 .mic:hover,
 .mic:focus-visible {
   color: var(--text);
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--border-strong);
   outline: none;
 }
 
