@@ -31,11 +31,20 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 ## Demo
 
 > [!TIP]
-> **A GIF belongs right here.** Record <kbd>Alt</kbd>+<kbd>`</kbd> → ask a question → get an answer, and separately an Agent Mode task, with [ScreenToGif](https://www.screentogif.com/) or [ShareX](https://getsharex.com/) — both free, both built for exactly this. Save it as `docs/demo.gif` and drop this in above:
+> **A GIF belongs right here.** One command records and encodes it — ffmpeg does the work, you just act:
+>
+> ```powershell
+> winget install Gyan.FFmpeg          # once, if you don't have it
+> .\scripts\record-demo.ps1 -Seconds 10
+> ```
+>
+> Five seconds of countdown, then it records the desktop and writes `docs/demo.gif` sized for a README. `-Region 240,140,1440,810` crops to where the action is, which beats shrinking the whole desktop until the text is mush. Then add this above:
 >
 > ```markdown
 > ![Argus demo](docs/demo.gif)
 > ```
+>
+> **Shoot Teach Mode.** It is the thing nothing else does, and it explains itself with no narration: press <kbd>Alt</kbd>+<kbd>`</kbd>, type *"teach me how to change my display resolution"*, then click each thing the blue ghost cursor points at. Whatever is on your screen ends up in a public file, so close anything you would not post.
 
 ## Features
 
