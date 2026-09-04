@@ -12,4 +12,3 @@ tsconfig.*.tsbuildinfo
 
 # Recorded demos: the GIF is committed, the MP4 is uploaded to a
 # GitHub issue comment instead of living in git history.
-docs/demo.mp4
