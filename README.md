@@ -345,6 +345,7 @@ Type `/help` in the bar for everything else, or read the **[full feature guide](
 | Nothing appeared at all | Argus has no window. Look in the system tray by the clock, and press <kbd>Alt</kbd>+<kbd>`</kbd> |
 | The hotkey does nothing | Another app already owns it. Click the tray icon to open the bar, then `/hotkey Control+Alt+Space` |
 | `Every Gemini key is over quota` | The free tier is 20 requests a day. Add a second key from a **different** Google project with `/key` — quota is counted per project, not per key |
+| `"gemini-3.5-flash-lite" is overloaded` | Google's problem, not yours. Argus retries three times and then falls back to your Talk model on its own, so voice and Agent Mode keep working. If you still see this, both were busy — wait a minute |
 | It stopped when you closed the terminal | That terminal was running it. Run `npm run dev` again |
 | You changed the code and nothing changed | The old copy is still running. `Get-Process electron \| Stop-Process -Force`, then `npm run dev` |
 

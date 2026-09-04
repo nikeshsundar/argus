@@ -44,6 +44,8 @@ export async function transcribe(wav: Buffer, signal?: AbortSignal): Promise<str
   const response = await callGemini({
     apiKey: configuredKeys()[0]!,
     model: settings.agentModel,
+    // Voice is not worth losing to one busy model.
+    fallbackModels: [settings.geminiModel],
     method: 'generateContent',
     signal,
     thinking: 'low',

@@ -87,6 +87,11 @@ export interface TeachSession {
 export interface TeachProviderOptions {
   apiKey: string
   model: string
+  /**
+   * Stands in when the quick model is overloaded. Slower per step, but a task
+   * that finishes beats one that stops halfway through operating the machine.
+   */
+  fallbackModel?: string
 }
 
 const ACTIONS: TeachAction[] = ['click', 'type', 'look']
@@ -147,6 +152,9 @@ export function createGeminiTeachProvider(options: TeachProviderOptions): {
           const response = await callGemini({
             apiKey: options.apiKey,
             model: options.model,
+            // A task should not fail because the quick model is busy;
+            // the Talk model is slower at this but it answers.
+            fallbackModels: options.fallbackModel ? [options.fallbackModel] : [],
             method: 'generateContent',
             signal,
             thinking: 'low',

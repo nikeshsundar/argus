@@ -73,9 +73,58 @@ export async function callGemini(options: {
   body: unknown
   signal?: AbortSignal
   thinking?: ThinkingLevel
+  /**
+   * Models to try when the chosen one is overloaded, in order.
+   *
+   * Only for models the user did not choose - the fast one behind Agent, Teach
+   * and voice. Retrying does not help when a model is refusing everyone, and
+   * failing the task while another model on the same key would have answered
+   * is a worse outcome than a slower answer. Talk Mode deliberately passes
+   * nothing here: someone who picked a model with "/aimodel" should not get a
+   * silent substitute answering in its place.
+   *
+   * Free-tier quota is counted per model, so this also buys a second
+   * allowance on the day the first runs out.
+   */
+  fallbackModels?: string[]
 }): Promise<Response> {
+  const candidates = modelCandidates(options.model, options.fallbackModels)
+
+  let response = await attempt(candidates[0]!, options)
+  for (let next = 1; response.status === 503 && next < candidates.length; next++) {
+    if (options.signal?.aborted) return response
+    response = await attempt(candidates[next]!, options)
+  }
+  return response
+}
+
+/**
+ * The models to try, in order, first choice first.
+ *
+ * Blanks and repeats are dropped: settings can legitimately hold the same id
+ * for the quick model and the Talk model, and trying it twice would double the
+ * wait before reporting a failure that was already decided.
+ */
+export function modelCandidates(model: string, fallbacks: string[] = []): string[] {
+  const seen: string[] = []
+  for (const name of [model, ...fallbacks]) {
+    if (name && !seen.includes(name)) seen.push(name)
+  }
+  return seen
+}
+
+async function attempt(
+  model: string,
+  options: {
+    apiKey: string
+    method: 'generateContent' | 'streamGenerateContent'
+    body: unknown
+    signal?: AbortSignal
+    thinking?: ThinkingLevel
+  }
+): Promise<Response> {
   const query = options.method === 'streamGenerateContent' ? '?alt=sse' : ''
-  const url = `${GEMINI_ENDPOINT}/${options.model}:${options.method}${query}`
+  const url = `${GEMINI_ENDPOINT}/${model}:${options.method}${query}`
 
   const send = (body: unknown, key: string): Promise<Response> =>
     fetch(url, {
@@ -98,7 +147,7 @@ export async function callGemini(options: {
     return response
   }
 
-  const wantsThinking = Boolean(options.thinking) && thinkingSupport.get(options.model) !== false
+  const wantsThinking = Boolean(options.thinking) && thinkingSupport.get(model) !== false
   const body = wantsThinking ? withThinking(options.body, options.thinking!) : options.body
 
   // One attempt per key. A refused key is rested and the next one picked up,
@@ -123,12 +172,12 @@ export async function callGemini(options: {
     if (response.status === 400 && wantsThinking) {
       const detail = await peek(response)
       if (/thinking/i.test(detail)) {
-        thinkingSupport.set(options.model, false)
+        thinkingSupport.set(model, false)
         return await post(options.body, key)
       }
     }
 
-    if (response.ok && wantsThinking) thinkingSupport.set(options.model, true)
+    if (response.ok && wantsThinking) thinkingSupport.set(model, true)
 
     return response
   }
