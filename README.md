@@ -30,27 +30,38 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ## Demo
 
+![Argus demo](docs/demo.gif)
+
+*Agent Mode: one sentence, and it opens the browser, searches YouTube and plays the video. The amber bar across the top is Argus reporting each action before it takes it — `Type "mrbeast" at 475,100 · step 3/14 · hold Esc to stop`.*
+
 > [!TIP]
-> **A GIF belongs right here, and a video below it.** One command records once and writes both:
+> **The full 65-second walkthrough plays inline** once you upload it. `docs/demo.mp4` is built and ready — drag it into the comment box of any GitHub issue (you never have to post the issue), copy the `https://github.com/user-attachments/assets/…` URL it turns into, and paste that URL on a line of its own here. GitHub renders it as a real player. 10 MB is the free-plan ceiling; the file is 4.6 MB.
 >
-> ```powershell
-> winget install Gyan.FFmpeg          # once, if you don't have it
-> .\scripts\record-demo.ps1 -Seconds 10
-> ```
->
-> Five seconds of countdown, then it writes `docs/demo.gif` (sized for a README) and `docs/demo.mp4` (H.264 / yuv420p, the combination GitHub's own docs recommend). `-Region 240,140,1440,810` crops to where the action is, which beats shrinking the whole desktop until the text is mush.
->
-> **The GIF is the hook.** Commit it and reference it normally — it autoplays the instant the page loads, which is the only thing that works in the few seconds a visitor gives a repo:
->
-> ```markdown
-> ![Argus demo](docs/demo.gif)
-> ```
->
-> **The MP4 is the walkthrough**, and it is *uploaded, not committed*. Drag `docs/demo.mp4` into the comment box of any GitHub issue — you never have to post the issue — and it becomes a `https://github.com/user-attachments/assets/…` URL. Put that URL on a line of its own in the README and GitHub renders a real inline player. 10 MB is the ceiling on a free plan.
->
-> Don't link an MP4 through `raw.githubusercontent.com`: it is served with a content type that makes browsers download the file instead of playing it, and it puts a binary in your git history for good.
->
-> **Shoot Teach Mode.** It is the thing nothing else does, and it explains itself with no narration: press <kbd>Alt</kbd>+<kbd>`</kbd>, type *"teach me how to change my display resolution"*, then click each thing the blue ghost cursor points at. Whatever is on your screen ends up in a public file, so close anything you would not post.
+> Don't link an MP4 through `raw.githubusercontent.com`: it is served with a content type that makes browsers download the file rather than play it, and it puts a binary in your git history for good.
+
+<details>
+<summary>Recording your own</summary>
+
+```powershell
+winget install Gyan.FFmpeg          # once, if you don't have it
+.\scripts\record-demo.ps1 -Seconds 10
+```
+
+Five seconds of countdown, then it writes `docs/demo.gif` and `docs/demo.mp4` (H.264 / yuv420p, the combination GitHub's own docs ask for). `-Region 240,140,1440,810` crops to where the action is, which beats shrinking the whole desktop until the text is mush.
+
+Already have a recording? Cut the GIF straight out of it — the source file is never modified:
+
+```powershell
+ffmpeg -ss 41 -t 11 -i your-recording.mp4 `
+  -vf "fps=10,scale=760:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" `
+  -loop 0 docs/demo.gif
+```
+
+Two rules worth knowing. A GIF holds 256 colours, so a decorative gradient border costs you palette entries that should be spent on UI text — crop it off. And keep the GIF under ~5 MB: it autoplays, so every visitor downloads all of it before they have decided whether they care.
+
+**Shoot Teach Mode next.** It is the thing nothing else does, and it explains itself with no narration: <kbd>Alt</kbd>+<kbd>`</kbd>, *"teach me how to change my display resolution"*, then click each thing the blue ghost cursor points at. Whatever is on your screen ends up in a public file, so close anything you would not post.
+
+</details>
 
 ## Features
 
