@@ -3,6 +3,15 @@ import { runAgentTask } from './agentLoop'
 import type { AgentAction, ScreenSize } from '../shared/agent'
 import { rememberRun, type AgentRunRecord } from '../shared/agentHistory'
 import { parseKeyCommand } from '../shared/commands'
+import {
+  keySource,
+  needsKey,
+  parseAiModelCommand,
+  providerDefault,
+  renderCatalogue,
+  resolveChoice,
+  suggestModels
+} from '../shared/models'
 import { activeScreenSize, replayWorkflow } from './replay'
 import { clearWorkflows, deleteWorkflow, listWorkflows, noteRun, saveWorkflow } from './workflowStore'
 import {
@@ -199,6 +208,107 @@ function setupHotkey(): string | null {
   return null
 }
 
+/** True once this provider has the credentials it needs to answer. */
+function providerHasKey(provider: ProviderName, settings = loadSettings()): boolean {
+  switch (provider) {
+    case 'gemini':
+      return Boolean(settings.geminiApiKey || process.env['GEMINI_API_KEY'])
+    case 'claude':
+      return Boolean(settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'])
+    case 'openai':
+      return Boolean(settings.openaiApiKey || process.env['OPENAI_API_KEY'])
+    case 'ollama':
+      // Runs on this machine. Whether it is actually running is a different
+      // question, and one the first request answers better than a guess here.
+      return true
+  }
+}
+
+/** The model Talk Mode would use right now. Each provider keeps its own. */
+function activeModelId(settings = loadSettings()): string {
+  switch (settings.talkProvider) {
+    case 'claude':
+      return settings.claudeModel
+    case 'openai':
+      return settings.openaiModel
+    case 'ollama':
+      return providerDefault('ollama')?.id ?? ''
+    default:
+      return settings.geminiModel
+  }
+}
+
+/**
+ * "/aimodel" - the menu of models, and switching between them.
+ *
+ * Argus is bring-your-own-key, so this is the command that decides who answers
+ * and who gets billed. Two rules follow from that. The menu says up front which
+ * rows can actually answer, because discovering a missing key costs a request
+ * and produces an error that names the wrong problem. And an ambiguous name is
+ * refused rather than guessed: "claude" meaning Opus when the user pictured
+ * Sonnet is somebody else's money.
+ */
+function handleAiModelCommand(text: string): SubmitResult | null {
+  const ok = (message: string): SubmitResult => ({ ok: true, mode: 'talk', message })
+  const fail = (message: string): SubmitResult => ({ ok: false, mode: 'talk', message })
+
+  const command = parseAiModelCommand(text)
+  if (command.kind === 'none') return null
+
+  const settings = loadSettings()
+
+  if (command.kind === 'list') {
+    return ok(
+      renderCatalogue({
+        activeId: activeModelId(settings),
+        hasKey: (provider) => providerHasKey(provider, settings)
+      })
+    )
+  }
+
+  const choice = resolveChoice(command.query)
+  if (!choice) {
+    const near = suggestModels(command.query).slice(0, 4)
+    return fail(
+      near.length > 0
+        ? `"${command.query}" matches ${near.length === 1 ? 'nothing exactly' : 'more than one'}. Did you mean: ${near.join(', ')}?`
+        : `No model called "${command.query}". Type "/aimodel" to see them.`
+    )
+  }
+
+  switch (choice.provider) {
+    case 'gemini':
+      updateSettings({ talkProvider: 'gemini', geminiModel: choice.id })
+      break
+    case 'claude':
+      updateSettings({ talkProvider: 'claude', claudeModel: choice.id })
+      break
+    case 'openai':
+      updateSettings({ talkProvider: 'openai', openaiModel: choice.id })
+      break
+    case 'ollama':
+      updateSettings({ talkProvider: 'ollama' })
+      break
+  }
+
+  if (needsKey(choice.provider) && !providerHasKey(choice.provider, loadSettings())) {
+    return ok(
+      [
+        `Talk Mode is set to ${choice.label} (${choice.id}).`,
+        `It needs a ${choice.provider} key before it can answer — add one with "/key <your-key>".`,
+        `Get one at ${keySource(choice.provider)}.`,
+        '',
+        'Nothing is lost in the meantime: "/aimodel gemini" goes back to the free one.'
+      ].join('\n')
+    )
+  }
+
+  return ok(
+    `Talk Mode now uses ${choice.label} (${choice.id}). ${choice.note}` +
+      (choice.provider === 'gemini' ? '' : '\n\nAgent and Teach Mode still run on Gemini.')
+  )
+}
+
 /**
  * Slash commands keep setup inside the bar itself, so there's no settings
  * window to build before the app is usable.
@@ -245,11 +355,6 @@ function handleSlashCommand(text: string): SubmitResult | null {
     // Route by key format so pasting a Gemini key while Claude is selected
     // doesn't quietly store it in the wrong slot.
     const target = inferProviderFromKey(value) ?? settings.talkProvider
-    if (target !== 'gemini') {
-      return fail(
-        `That looks like a ${target} key. Argus talks to Gemini right now — get a free one at aistudio.google.com/apikey.`
-      )
-    }
     saveKey(value, target)
     if (target === 'gemini') {
       const count = configuredKeys().length
@@ -259,10 +364,12 @@ function handleSlashCommand(text: string): SubmitResult | null {
           : 'Gemini API key saved. Ask away.'
       )
     }
+    const model = providerDefault(target)
     return ok(
       target === settings.talkProvider
         ? `${target} API key saved. Ask away.`
-        : `Recognised a ${target} key — saved it and switched Talk Mode to ${target}.`
+        : `Recognised a ${target} key — saved it and switched Talk Mode to ` +
+          `${model?.label ?? target}. Change it with "/aimodel".`
     )
   }
 
@@ -315,18 +422,16 @@ function handleSlashCommand(text: string): SubmitResult | null {
     return ok('All Gemini keys removed. Add one with "/key <your-key>".')
   }
 
+  const aiModel = handleAiModelCommand(text)
+  if (aiModel) return aiModel
+
   const provider = /^\/provider\s+(\w+)$/i.exec(text)
   if (provider) {
-    const name = provider[1]!.toLowerCase() as ProviderName
-    if (name !== 'gemini') {
-      return fail(`Argus only talks to Gemini right now. Use "/provider gemini".`)
-    }
-    updateSettings({ talkProvider: name })
-    return ok(
-      isProviderConfigured(loadSettings())
-        ? `Talk Mode now uses ${name}.`
-        : `Talk Mode now uses ${name}. Add a key with "/key <your-key>".`
-    )
+    // Kept as an alias for "/aimodel <provider>", which is where the menu and
+    // the key hints live. One code path decides what switching means.
+    const name = provider[1]!.toLowerCase()
+    const picked = handleAiModelCommand(`/aimodel ${name}`)
+    return picked ?? fail(`No provider called "${name}". Type "/aimodel" to see them.`)
   }
 
   // Agent and Teach share one model, separate from Talk's - they are tuned for
@@ -349,7 +454,13 @@ function handleSlashCommand(text: string): SubmitResult | null {
       saveKey(id, looksLikeKey)
       return ok(`That's a ${looksLikeKey} API key, not a model — saved it as your key instead.`)
     }
-    updateSettings(settings.talkProvider === 'gemini' ? { geminiModel: id } : { claudeModel: id })
+    updateSettings(
+      settings.talkProvider === 'claude'
+        ? { claudeModel: id }
+        : settings.talkProvider === 'openai'
+          ? { openaiModel: id }
+          : { geminiModel: id }
+    )
     return ok(`${settings.talkProvider} model set to ${id}.`)
   }
 
@@ -387,6 +498,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
   if (/^\/help$/i.test(text)) {
     return ok(
       [
+        '/aimodel              pick the model that answers (Gemini is free)',
         `/key <api-key>        add a key for ${settings.talkProvider}`,
         '/keys                 list keys and rotation status',
         '/keys <k1> <k2> ...   load several keys at once',

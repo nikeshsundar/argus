@@ -42,6 +42,13 @@ describe('filterOptions', () => {
     expect(filterOptions('/save').map((option) => option.id)).toContain('workflows')
   })
 
+  it('offers the model picker, and does not let it shadow "/model"', () => {
+    // Both exist and both must stay reachable: "/aimodel" is the menu,
+    // "/model" sets a raw id for anything the menu does not list.
+    expect(filterOptions('/aim')[0]?.id).toBe('aimodel')
+    expect(filterOptions('/model')[0]?.id).toBe('model')
+  })
+
   it('offers the screen memory commands', () => {
     expect(filterOptions('/rec')[0]?.id).toBe('recall')
     expect(filterOptions('/mem')[0]?.id).toBe('memory')

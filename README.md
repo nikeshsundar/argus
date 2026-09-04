@@ -24,7 +24,7 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ### Contents
 
-[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Screen Memory](#-screen-memory) · [Saved Workflows](#️-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Models](#-bring-your-own-model) · [Screen Memory](#-screen-memory) · [Saved Workflows](#️-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
 **[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
 
@@ -70,6 +70,17 @@ Ask questions about what's on your screen with full conversation history.
 - Follow-up context preserved across messages
 - See Gemini analyze your screen in real-time
 - Chat history is persistent and resumable
+
+### 🔑 Bring Your Own Model
+`/aimodel` lists what can answer, and you pick.
+
+- **Gemini is the default and it is free** — 20 requests a day, no card, no signup wall. Argus is usable the minute you clone it
+- Claude, GPT and local Ollama are one command away: `/aimodel claude sonnet`, `/aimodel 6`, `/aimodel ollama`
+- **Paste a key and Argus files it by its own format** — `sk-ant-…`, `sk-…` and `AIza…` each route to the right provider, and Talk Mode switches with them. You never have to say which one it is
+- The menu marks which rows are **ready** and which **need a key** before you pick one, rather than letting you find out a request later
+- An ambiguous name is refused, not guessed. `/aimodel claude` is fine; `/aimodel flash` matches two models and says so — picking wrong is somebody's money
+
+Agent and Teach Mode still run on Gemini: they are a dozen quick "which control next" calls per task, which is a different job from one answer worth waiting for.
 
 ### 🤖 Agent Mode
 Hand over the wheel and it does the task itself.
@@ -321,7 +332,9 @@ Type these into the bar to configure or control Argus:
 | `/keys <k1> <k2> …` | Load several keys at once, in the order given |
 | `/keys reset` | Clear cooldowns and try every key again |
 | `/keys clear` | Remove every stored key |
-| `/model <model-id>` | Change the Talk Mode model |
+| `/aimodel` | The model menu: Gemini (free), Claude, GPT, local Ollama. Says which ones your keys cover |
+| `/aimodel <n>` | Pick by row number, or by name — `/aimodel claude sonnet` |
+| `/model <model-id>` | Set a raw model id, for anything the menu doesn't list |
 | `/model agent <id>` | Change the Agent + Teach model (a fast one; see below) |
 | `/hotkey <combo>` | Rebind the activation hotkey (e.g., `Control+Alt+Space`) |
 | `/cursor <pace>` | Pointer speed: `natural` (default), `demo` (slow, for recording), `instant` |
@@ -410,14 +423,14 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Saved workflows — replay a successful Agent run with no model call
 - [x] Screen memory — ask about something that is already gone, RAM-only, opt-in
 - [x] Agent follow-ups — a new task is read alongside the last few and how they went
+- [x] Model picker — Gemini free by default, Claude and OpenAI one command away
 
 ### 🚧 In Progress & Planned
+- [ ] Ollama vision provider (it is on the menu; the implementation is not written yet)
 - [ ] Local transcription (Whisper) — voice off the daily quota entirely
 - [ ] Plan preview & undo for Agent Mode
-- [ ] Support for additional providers
 - [ ] On-screen annotations (arrows, highlights, boxes)
 - [ ] Replayable lessons — save a Teach Mode walkthrough and share it
-- [ ] OpenAI and local Ollama provider support
 - [ ] Settings UI (currently all in-bar commands)
 - [ ] Encrypt stored API keys with Electron `safeStorage`
 - [ ] Prebuilt installers in GitHub Releases

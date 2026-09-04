@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import type { CursorPace } from '../shared/cursorPath'
+import { DEFAULT_MODEL_ID } from '../shared/models'
 import { DEFAULT_MINUTES } from '../shared/recall'
 import { inferProviderFromKey } from '../shared/keys'
 import type { ProviderName } from '../shared/types'
@@ -45,6 +46,8 @@ export interface Settings {
    */
   geminiKeyCooldowns: Record<string, number>
   openaiApiKey: string
+  /** Model used when Talk Mode is on OpenAI. Each provider keeps its own. */
+  openaiModel: string
   ollamaHost: string
   /** How visibly Agent Mode moves the pointer and types. */
   cursorPace: CursorPace
@@ -71,12 +74,13 @@ const DEFAULTS: Settings = {
   talkProvider: 'gemini',
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
-  geminiModel: 'gemini-3.6-flash',
+  geminiModel: DEFAULT_MODEL_ID,
   agentModel: 'gemini-3.5-flash-lite',
   geminiApiKey: '',
   geminiApiKeys: [],
   geminiKeyCooldowns: {},
   openaiApiKey: '',
+  openaiModel: 'gpt-5',
   ollamaHost: 'http://127.0.0.1:11434',
   cursorPace: 'natural',
   memoryEnabled: false,
@@ -124,6 +128,7 @@ function healModelNames(settings: Settings): Settings {
   if (inferProviderFromKey(settings.geminiModel)) settings.geminiModel = DEFAULTS.geminiModel
   if (inferProviderFromKey(settings.agentModel)) settings.agentModel = DEFAULTS.agentModel
   if (inferProviderFromKey(settings.claudeModel)) settings.claudeModel = DEFAULTS.claudeModel
+  if (inferProviderFromKey(settings.openaiModel)) settings.openaiModel = DEFAULTS.openaiModel
   return settings
 }
 
@@ -143,11 +148,13 @@ export function isProviderConfigured(settings: Settings = loadSettings()): boole
       return Boolean(settings.geminiApiKey || process.env['GEMINI_API_KEY'])
     case 'openai':
       return Boolean(settings.openaiApiKey || process.env['OPENAI_API_KEY'])
+    case 'claude':
+      return Boolean(settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'])
     case 'ollama':
+      // Local, so there is no key to be missing. Whether the server is up is
+      // answered better by the first request than by a guess here.
       return true
     default:
-      // Claude and anything else named in ProviderName are recognised for key
-      // routing but have no Talk Mode implementation here.
       return false
   }
 }

@@ -29,14 +29,15 @@ export const OPTIONS: Option[] = [
     immediate: true
   },
   {
-    id: 'provider',
-    label: 'Switch provider',
-    hint: '/provider claude · gemini',
-    insert: '/provider '
+    id: 'aimodel',
+    label: 'Pick the AI model',
+    hint: '/aimodel  gemini free · claude · gpt',
+    insert: '/aimodel',
+    immediate: true
   },
   {
     id: 'model',
-    label: 'Change model',
+    label: 'Set a model id directly',
     hint: '/model <model-id>',
     insert: '/model '
   },

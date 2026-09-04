@@ -1,5 +1,7 @@
 import { loadSettings } from '../settingsStore'
+import { createClaudeProvider } from './claude'
 import { createGeminiProvider } from './gemini'
+import { createOpenAiProvider } from './openai'
 import { createGeminiAgentProvider } from './geminiAgent'
 import { createGeminiRecallProvider, type RecallProvider } from './geminiRecall'
 import { createGeminiTeachProvider } from './geminiTeach'
@@ -17,9 +19,23 @@ export function createTalkProvider(): VisionProvider {
         model: settings.geminiModel
       })
 
+    case 'claude':
+      return createClaudeProvider({
+        apiKey: settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'] || '',
+        model: settings.claudeModel
+      })
+
+    case 'openai':
+      return createOpenAiProvider({
+        apiKey: settings.openaiApiKey || process.env['OPENAI_API_KEY'] || '',
+        model: settings.openaiModel
+      })
+
     default:
+      // Ollama is on the menu but has no vision implementation yet. Saying so
+      // beats a provider that silently answers nothing.
       throw new ProviderUnavailableError(
-        `Provider "${settings.talkProvider}" isn't available. Switch with "/provider gemini".`
+        `Talk Mode cannot use ${settings.talkProvider} yet. Pick another with "/aimodel".`
       )
   }
 }
