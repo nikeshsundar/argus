@@ -248,6 +248,32 @@ a{ color:inherit; }
 .rail-card li{ margin-bottom:6px; }
 .rail-card a{ color:var(--iris); text-decoration:underline; text-underline-offset:2px; }
 
+/* --- install: checkpoints and lists ------------------------------------ */
+/* Every step says how to tell it worked, so nobody carries on from a
+   half-finished one wondering why the next command fails. */
+.step .check{
+  margin-top:14px; padding:10px 14px; border-left:2px solid var(--iris);
+  background:var(--iris-soft); border-radius:0 8px 8px 0;
+  font-size:.88rem; color:var(--ink); max-width:56ch;
+}
+.step .check b{ color:var(--iris); }
+.step .alt{
+  margin-top:12px; font-size:.86rem; color:var(--muted); max-width:56ch;
+}
+.step .alt b{ color:var(--ink); }
+.step .muted{ color:var(--muted); }
+.prereq{ margin:14px 0 0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
+.prereq li{ font-size:.92rem; color:var(--muted); padding-left:18px; position:relative; }
+.prereq li::before{ content:"→"; position:absolute; left:0; color:var(--iris); }
+.prereq b{ color:var(--ink); }
+.prereq a{ color:var(--iris); text-decoration:underline; text-underline-offset:2px; }
+.substeps{ margin:14px 0 0; padding-left:20px; display:flex; flex-direction:column; gap:7px; }
+.substeps li{ font-size:.92rem; color:var(--muted); }
+.substeps b{ color:var(--ink); }
+.substeps a{ color:var(--iris); text-decoration:underline; text-underline-offset:2px; }
+.step p a{ color:var(--iris); }
+.rail-card li b{ color:var(--ink); }
+
 /* ============================= SAFETY ============================= */
 .safety{ background:var(--surface-2); }
 .safety-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-top:44px; }
@@ -438,74 +464,120 @@ flowchart LR
     <div class="wrap">
       <div class="section-head">
         <p class="eyebrow">Get it running</p>
-        <h2>Five minutes, start to first answer.</h2>
+        <h2>Ten minutes, and you have never opened a terminal before.</h2>
+        <p class="lede" style="margin-top:16px;">There is no installer yet — you build it from the source, which is four commands. Every step below says what you should see when it worked, so you always know whether to carry on.</p>
       </div>
 
       <div class="install-grid">
         <div class="steps">
 
           <div class="step">
+            <div class="step-num">0</div>
+            <div>
+              <h4>Install the two things Argus needs</h4>
+              <p>Both are free, both are one-click installers, and you only ever do this once. Take the defaults on every screen.</p>
+              <ul class="prereq">
+                <li><a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> — click the big <b>LTS</b> button. This is what runs Argus.</li>
+                <li><a href="https://git-scm.com/download/win" target="_blank" rel="noopener">Git for Windows</a> — this is what downloads the code. <span class="muted">You can skip it; see step 1.</span></li>
+              </ul>
+              <p style="margin-top:14px;"><b>Then restart your computer.</b> Installers add things to a list Windows only re-reads on startup, and skipping this is the single most common reason the next step fails.</p>
+            </div>
+          </div>
+
+          <div class="step">
             <div class="step-num">1</div>
             <div>
-              <h4>Clone the repository</h4>
-              <p>Open a terminal anywhere and run:</p>
+              <h4>Open a terminal, and check they are there</h4>
+              <p>Press <kbd>Win</kbd>&nbsp;+&nbsp;<kbd>R</kbd>, type <code>powershell</code>, press <kbd>Enter</kbd>. A blue-black window opens. That is the terminal — you type commands into it and press <kbd>Enter</kbd>.</p>
               <div class="term">
-                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">cmd</span></div>
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">powershell</span></div>
                 <div class="term-body">
-                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> git clone https://github.com/nikeshsundar/argus.git</span><button class="copy-btn" data-copy="git clone https://github.com/nikeshsundar/argus.git">copy</button></div>
-                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> cd argus</span><button class="copy-btn" data-copy="cd argus">copy</button></div>
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> node -v</span><button class="copy-btn" data-copy="node -v">copy</button></div>
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> git --version</span><button class="copy-btn" data-copy="git --version">copy</button></div>
                 </div>
               </div>
+              <p class="check"><b>Worked if</b> each prints a version number, like <code>v22.14.0</code>. If either says <i>"not recognized"</i>, that thing did not install — or you have not restarted since.</p>
             </div>
           </div>
 
           <div class="step">
             <div class="step-num">2</div>
             <div>
-              <h4>Install dependencies</h4>
-              <p>Needs <a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> installed.</p>
+              <h4>Download the code</h4>
+              <p>Paste both lines, one at a time. This puts Argus in your user folder.</p>
               <div class="term">
-                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">cmd</span></div>
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">powershell</span></div>
                 <div class="term-body">
-                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm install</span><button class="copy-btn" data-copy="npm install">copy</button></div>
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> git clone https://github.com/nikeshsundar/argus.git</span><button class="copy-btn" data-copy="git clone https://github.com/nikeshsundar/argus.git">copy</button></div>
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> cd argus</span><button class="copy-btn" data-copy="cd argus">copy</button></div>
                 </div>
               </div>
+              <p class="check"><b>Worked if</b> the text before the cursor now ends in <code>\argus&gt;</code>. That means you are inside the folder, which the next commands need.</p>
+              <p class="alt"><b>No Git?</b> <a href="https://github.com/nikeshsundar/argus/archive/refs/heads/main.zip">Download the ZIP</a>, right-click it, <i>Extract All</i>. Then in the extracted folder, hold <kbd>Shift</kbd>, right-click empty space, and choose <i>Open PowerShell window here</i> — you can skip straight to step 3.</p>
             </div>
           </div>
 
           <div class="step">
             <div class="step-num">3</div>
             <div>
-              <h4>Run it</h4>
-              <p>Argus starts in your system tray — no window opens yet, that's expected.</p>
+              <h4>Install and start it</h4>
+              <p>The first command downloads what Argus is built from and takes a minute or two. It is noisy; that is normal.</p>
               <div class="term">
-                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">cmd</span></div>
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">powershell</span></div>
                 <div class="term-body">
+                  <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm install</span><button class="copy-btn" data-copy="npm install">copy</button></div>
                   <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm run dev</span><button class="copy-btn" data-copy="npm run dev">copy</button></div>
                 </div>
               </div>
+              <p class="check"><b>Worked if</b> a small bar appears in the middle of your screen. <b>Argus lives in the system tray</b> — the little icons by the clock. No app window opens, and nothing appears in the taskbar. That is not a mistake, it is the whole point.</p>
+              <p class="alt"><b>Leave that terminal open.</b> Closing it quits Argus. Minimise it instead.</p>
             </div>
           </div>
 
           <div class="step">
             <div class="step-num">4</div>
             <div>
-              <h4>Add a free API key</h4>
-              <p>Grab one from <a href="https://ai.google.dev" target="_blank" rel="noopener">Google AI Studio</a> — no card required. Press <kbd>Alt</kbd>+<kbd>`</kbd>, then type directly into the bar:</p>
-              <div class="term">
-                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">argus</span></div>
-                <div class="term-body">
-                  <div class="term-line"><span class="term-cmd"><span class="rem">/key</span> YOUR_GEMINI_KEY</span><button class="copy-btn" data-copy="/key YOUR_GEMINI_KEY">copy</button></div>
-                </div>
-              </div>
+              <h4>Get a free key from Google</h4>
+              <p>Argus does not have its own AI — you point it at one. Google's free tier needs no card and takes about a minute.</p>
+              <ol class="substeps">
+                <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></li>
+                <li>Sign in with any Google account</li>
+                <li>Click <b>Create API key</b></li>
+                <li>Pick any project it offers, or let it make one</li>
+                <li>Click <b>Copy</b>. The key is a long string starting <code>AIza…</code></li>
+              </ol>
+              <p class="check"><b>Keep it private.</b> It is a password to your Google AI account. Argus stores it on your machine and sends it nowhere but Google.</p>
             </div>
           </div>
 
           <div class="step">
             <div class="step-num">5</div>
             <div>
+              <h4>Paste the key into Argus</h4>
+              <p>Press <kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>`</kbd> — that is the key above <kbd>Tab</kbd>, left of <kbd>1</kbd>. The bar appears. Type <code>/key</code>, a space, then paste with <kbd>Ctrl</kbd>&nbsp;+&nbsp;<kbd>V</kbd>, and press <kbd>Enter</kbd>.</p>
+              <div class="term">
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">argus</span></div>
+                <div class="term-body">
+                  <div class="term-line"><span class="term-cmd"><span class="rem">/key</span> AIzaSy…your-key-here</span><button class="copy-btn" data-copy="/key ">copy</button></div>
+                </div>
+              </div>
+              <p class="check"><b>Worked if</b> the bar replies <i>"Gemini API key saved. Ask away."</i></p>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">6</div>
+            <div>
               <h4>Ask it something</h4>
-              <p>Press <kbd>Alt</kbd>+<kbd>`</kbd> from anywhere in Windows. Type a question, or start with <code>agent</code> to hand over the keyboard.</p>
+              <p>Open anything at all — a web page, an error message, a spreadsheet. Press <kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>`</kbd> and type a question about what you are looking at.</p>
+              <div class="term">
+                <div class="term-bar"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">argus</span></div>
+                <div class="term-body">
+                  <div class="term-line"><span class="term-cmd">what is this page about?</span><button class="copy-btn" data-copy="what is this page about?">copy</button></div>
+                  <div class="term-line"><span class="term-cmd">agent open notepad and write a shopping list</span><button class="copy-btn" data-copy="agent open notepad and write a shopping list">copy</button></div>
+                </div>
+              </div>
+              <p class="check">That is everything. Type <code>/help</code> in the bar to see the rest, or read the <a href="./features.html">full feature guide</a>.</p>
             </div>
           </div>
 
@@ -513,35 +585,51 @@ flowchart LR
 
         <div>
           <div class="rail-card">
-            <h5>Requirements</h5>
+            <h5>What you need</h5>
             <ul>
               <li>Windows 10 or 11</li>
-              <li>Node.js (for running from source)</li>
-              <li>A free Gemini API key</li>
+              <li><a href="https://nodejs.org" target="_blank" rel="noopener">Node.js</a> — free, one click</li>
+              <li>A free Google Gemini key — no card</li>
+              <li>About ten minutes</li>
             </ul>
           </div>
+
           <div class="rail-card">
-            <h5>Prefer an installer?</h5>
-            <p>Build a one-click <code>.exe</code> yourself:</p>
+            <h5>If something went wrong</h5>
+            <ul>
+              <li><b>"npm is not recognized"</b> — Node.js is not installed, or you have not restarted since installing it.</li>
+              <li><b>Nothing appeared</b> — Argus has no window. Look in the system tray by the clock, and press <kbd>Alt</kbd>&nbsp;+&nbsp;<kbd>`</kbd>.</li>
+              <li><b>The hotkey does nothing</b> — another app already owns it. Click the tray icon to open the bar, then type <code>/hotkey Control+Alt+Space</code>.</li>
+              <li><b>"Every Gemini key is over quota"</b> — the free tier is 20 requests a day. Add a second key from a <i>different</i> Google project with <code>/key</code>; quota is counted per project.</li>
+              <li><b>It stopped working after you closed the terminal</b> — that terminal was running it. Run <code>npm run dev</code> again.</li>
+            </ul>
+          </div>
+
+          <div class="rail-card">
+            <h5>Prefer a real .exe?</h5>
+            <p>Build a one-click installer for yourself, then you never need the terminal again:</p>
             <div class="term" style="margin-top:12px;">
               <div class="term-body">
                 <div class="term-line"><span class="term-cmd"><span class="prompt">&gt;</span> npm run package</span><button class="copy-btn" data-copy="npm run package">copy</button></div>
               </div>
             </div>
+            <p style="margin-top:12px; font-size:.86rem; color:var(--muted);">It appears in the <code>dist</code> folder. Run it once and Argus installs like any other program.</p>
           </div>
+
           <div class="rail-card">
-            <h5>Configured entirely in the bar</h5>
+            <h5>Everything is set in the bar</h5>
             <ul>
-              <li><code>/provider</code> — switch model</li>
+              <li><code>/help</code> — list every command</li>
+              <li><code>/aimodel</code> — choose which AI answers</li>
               <li><code>/hotkey</code> — rebind the shortcut</li>
               <li><code>/history</code> — resume a past chat</li>
-              <li><code>/help</code> — list everything</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
   </section>
+
 
   <!-- ============================= SAFETY ============================= -->
   <section class="section safety" id="safety">

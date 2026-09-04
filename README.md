@@ -24,7 +24,7 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ### Contents
 
-[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Models](#-bring-your-own-model) · [Screen Memory](#-screen-memory) · [Saved Workflows](#️-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+[Install](#install-it) · [Demo](#demo) · [Features](#features) · [Models](#-bring-your-own-model) · [Screen Memory](#-screen-memory) · [Saved Workflows](#-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
 **[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
 
@@ -252,51 +252,112 @@ This is the feature that most needs the source to be readable, which is a large 
 
 ## Getting Started
 
-### Download (no build required)
+### Install it
 
-**[⬇ Download the latest installer](https://github.com/nikeshsundar/argus/releases/latest)** — run it, and Argus lives in your system tray.
+**There is no prebuilt installer yet.** You build it from source — four commands, about ten minutes, and you do not need to know what any of them mean. Every step below says what you should see when it worked, so you never have to guess whether to carry on.
 
-On first launch press <kbd>Alt</kbd>+<kbd>`</kbd> and set a free [Gemini API key](https://aistudio.google.com/apikey):
+> The step-by-step version of this, with screenshots of what to click, is on the site: **[nikeshsundar.github.io/argus#install](https://nikeshsundar.github.io/argus/#install)**
 
+#### 0. Install the two things Argus needs
+
+Both are free, both are one-click installers, and you only do this once. Take the defaults on every screen.
+
+| | |
+|---|---|
+| **[Node.js](https://nodejs.org)** | Click the big **LTS** button. This is what runs Argus. |
+| **[Git for Windows](https://git-scm.com/download/win)** | This is what downloads the code. *Optional — see step 2.* |
+
+**Then restart your computer.** Installers add themselves to a list Windows only re-reads on startup, and skipping this is the most common reason the next step fails.
+
+#### 1. Open a terminal and check they are there
+
+Press <kbd>Win</kbd>+<kbd>R</kbd>, type `powershell`, press <kbd>Enter</kbd>. A blue-black window opens — that is the terminal. You type commands into it and press <kbd>Enter</kbd>.
+
+```powershell
+node -v
+git --version
 ```
-/key YOUR_KEY_HERE
-```
 
-> [!NOTE]
-> Windows will show **"Windows protected your PC"**. The installer isn't code-signed — a certificate costs a few hundred dollars a year, which a free project doesn't have. Click **More info → Run anyway**. Every release is built by [GitHub Actions](.github/workflows/release.yml) from the tag it's named after, so you can check the source the binary came from.
+✅ **Worked if** each prints a version number, like `v22.14.0`. If either says *"not recognized"*, that thing did not install — or you have not restarted since.
 
-### Build it yourself
+#### 2. Download the code
 
-Prefer to compile it, or want to change something? Everything below builds the same installer.
-
-### Prerequisites
-- Windows 10 or 11
-- An API key from Google Gemini
-  - [Get a Gemini API key](https://ai.google.dev)
-
-### Quick Start
-
-```bash
+```powershell
 git clone https://github.com/nikeshsundar/argus.git
 cd argus
+```
+
+✅ **Worked if** the text before your cursor now ends in `\argus>`. That means you are inside the folder, which the next commands need.
+
+> **No Git?** [Download the ZIP](https://github.com/nikeshsundar/argus/archive/refs/heads/main.zip), right-click it → **Extract All**. Then in the extracted folder hold <kbd>Shift</kbd>, right-click empty space, and choose **Open PowerShell window here**. Skip to step 3.
+
+#### 3. Install and start it
+
+```powershell
 npm install
 npm run dev
 ```
 
-The app lives in your system tray. Press <kbd>Alt</kbd>+<kbd>`</kbd> to open the bar.
+The first command takes a minute or two and prints a lot. That is normal.
 
-**First time setup:**
-1. Paste your Gemini API key into the bar: `/key YOUR_API_KEY`
-2. Argus activates and selects the matching model
-3. Start asking
+✅ **Worked if** a small bar appears in the middle of your screen. **Argus lives in the system tray** — the small icons next to your clock. No app window opens and nothing appears in the taskbar; that is the whole point of it.
 
-**Note:** `npm run dev` also prints a local Vite URL. Ignore it—it won't work in a browser since Argus needs desktop APIs.
+> **Leave that terminal open.** Closing it quits Argus. Minimise it instead.
 
-### Build a Windows Installer
+#### 4. Get a free key from Google
 
-```bash
-npm run package   # outputs release/Argus-<version>-Setup.exe
+Argus has no AI of its own — you point it at one. Google's free tier needs no card.
+
+1. Go to **[aistudio.google.com/apikey](https://aistudio.google.com/apikey)**
+2. Sign in with any Google account
+3. Click **Create API key**
+4. Pick any project it offers, or let it make one
+5. Click **Copy** — the key is a long string starting `AIza…`
+
+Treat it like a password. Argus stores it on your machine and sends it nowhere but Google.
+
+#### 5. Paste the key into Argus
+
+Press <kbd>Alt</kbd>+<kbd>`</kbd> — the key above <kbd>Tab</kbd>, left of <kbd>1</kbd>. The bar appears. Type `/key`, a space, then paste with <kbd>Ctrl</kbd>+<kbd>V</kbd> and press <kbd>Enter</kbd>.
+
 ```
+/key AIzaSy…your-key-here
+```
+
+✅ **Worked if** the bar replies *"Gemini API key saved. Ask away."*
+
+#### 6. Ask it something
+
+Open anything — a web page, an error, a spreadsheet. Press <kbd>Alt</kbd>+<kbd>`</kbd> and ask about what you are looking at.
+
+```
+what is this page about?
+agent open notepad and write a shopping list
+```
+
+Type `/help` in the bar for everything else, or read the **[full feature guide](https://nikeshsundar.github.io/argus/features.html)**.
+
+### If something went wrong
+
+| What you see | What it means |
+|---|---|
+| `npm is not recognized` | Node.js is not installed, or you have not restarted since installing it |
+| Nothing appeared at all | Argus has no window. Look in the system tray by the clock, and press <kbd>Alt</kbd>+<kbd>`</kbd> |
+| The hotkey does nothing | Another app already owns it. Click the tray icon to open the bar, then `/hotkey Control+Alt+Space` |
+| `Every Gemini key is over quota` | The free tier is 20 requests a day. Add a second key from a **different** Google project with `/key` — quota is counted per project, not per key |
+| It stopped when you closed the terminal | That terminal was running it. Run `npm run dev` again |
+| You changed the code and nothing changed | The old copy is still running. `Get-Process electron \| Stop-Process -Force`, then `npm run dev` |
+
+### Build a real installer
+
+Once it runs, you can build a one-click `.exe` for yourself and never touch the terminal again:
+
+```powershell
+npm run package   # outputs dist/Argus-<version>-Setup.exe
+```
+
+Windows will say **"Windows protected your PC"** — the installer is not code-signed, because a certificate costs a few hundred dollars a year that a free project does not have. Click **More info → Run anyway**.
+
 
 ## Commands & Keyboard Shortcuts
 
