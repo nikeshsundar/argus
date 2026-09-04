@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { modelCandidates, preferAvailable } from '../src/main/providers/geminiClient'
+import { cooldownAfter, modelCandidates, preferAvailable } from '../src/main/providers/geminiClient'
 
 describe('modelCandidates', () => {
   it('tries the chosen model first', () => {
@@ -62,5 +62,23 @@ describe('preferAvailable', () => {
       ['b', NOW + 1_000]
     ])
     expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['b'])
+  })
+})
+
+describe('cooldownAfter', () => {
+  it('rests a model briefly on its first refusal', () => {
+    // A passing spike deserves a passing cooldown.
+    expect(cooldownAfter(1)).toBe(60_000)
+  })
+
+  it('backs off when a model keeps refusing', () => {
+    // Otherwise a long outage is re-discovered every minute, at ten seconds a
+    // time, for as long as it lasts.
+    expect(cooldownAfter(2)).toBe(120_000)
+    expect(cooldownAfter(3)).toBe(240_000)
+  })
+
+  it('stops at a quarter of an hour, so recovery is still noticed', () => {
+    expect(cooldownAfter(20)).toBe(15 * 60_000)
   })
 })

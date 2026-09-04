@@ -69,6 +69,17 @@ const OVERLOAD_BACKOFF_MS = [700, 1600]
 const OVERLOAD_COOLDOWN_MS = 60_000
 
 /**
+ * Each further refusal rests a model longer, up to a quarter of an hour.
+ *
+ * A minute is right for a passing spike. It is wrong for the afternoon Google
+ * spends degraded, where it means re-discovering the same outage every single
+ * minute, at ten seconds a time, for as long as it lasts. Backing off spends
+ * that once and then leaves it alone - while still coming back on its own,
+ * which is the whole reason not to drop a model permanently.
+ */
+const COOLDOWN_CEILING_MS = 15 * 60_000
+
+/**
  * How long to wait for a model to START answering.
  *
  * There was no limit at all, which is worse than a slow answer: a model that
@@ -95,6 +106,8 @@ export const STEP_TIMEOUT_MS = 12_000
 
 /** When each model is worth trying again. Keyed by model id. */
 const restingUntil = new Map<string, number>()
+/** How long the last rest was, so the next one can be longer. */
+const restLength = new Map<string, number>()
 
 /**
  * Puts models that are known to be up ahead of ones that just refused.
@@ -183,8 +196,28 @@ export async function callGemini(options: {
 
 /** Remembers which models are refusing, so the next call skips them. */
 function noteAvailability(model: string, status: number): void {
-  if (status === 503) restingUntil.set(model, Date.now() + OVERLOAD_COOLDOWN_MS)
-  else restingUntil.delete(model)
+  if (status !== 503) {
+    // Answering clears the record entirely: a model that is back should get
+    // the short cooldown again if it stumbles later, not the long one it
+    // earned during an outage that is over.
+    restingUntil.delete(model)
+    restLength.delete(model)
+    return
+  }
+
+  const rest = Math.min(
+    COOLDOWN_CEILING_MS,
+    (restLength.get(model) ?? OVERLOAD_COOLDOWN_MS / 2) * 2
+  )
+  restLength.set(model, rest)
+  restingUntil.set(model, Date.now() + rest)
+}
+
+/** Exported for tests: the rest a model has earned after this many refusals. */
+export function cooldownAfter(failures: number): number {
+  let rest = OVERLOAD_COOLDOWN_MS / 2
+  for (let n = 0; n < failures; n++) rest = Math.min(COOLDOWN_CEILING_MS, rest * 2)
+  return rest
 }
 
 /**
