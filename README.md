@@ -24,7 +24,7 @@ Self-hosted. Privacy-first. Zero telemetry. Your API key, your data.
 
 ### Contents
 
-[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Saved Workflows](#️-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
+[Download](#download-no-build-required) · [Demo](#demo) · [Features](#features) · [Screen Memory](#-screen-memory) · [Saved Workflows](#️-saved-workflows) · [Teach Mode](#-teach-mode) · [How it works](#how-it-works) · [Why Argus?](#why-argus) · [Privacy](#privacy) · [Getting Started](#getting-started) · [Commands](#commands--keyboard-shortcuts) · [Chat History](#chat-history--persistence) · [The Hotkey](#how-the-hotkey-works) · [Roadmap](#roadmap) · [Development](#development) · [Safety](#safety--agent-mode) · [Contributing](#contributing)
 
 **[→ nikeshsundar.github.io/argus](https://nikeshsundar.github.io/argus)** — what it does, and how to install it, in five minutes.
 
@@ -67,6 +67,28 @@ Click the mic and say it, then click again. Long instructions are miserable to t
 - Talk Mode sends straight away. Agent and Teach put the text in the box and wait for <kbd>Enter</kbd> — speech misheard by one word shouldn't move your mouse
 - Argus never speaks back. Dictation, not a conversation
 
+### 🧠 Screen Memory
+Ask about something that is **already gone**.
+
+Argus can keep a short, rolling record of what has been on your screen — in RAM, never on disk — so a question doesn't have to be about what is in front of you right now.
+
+```
+/memory on                              keep the last 10 minutes
+/recall what was that error code        the dialog you already dismissed
+/recall what was the price on that tab  the one you closed
+/recall what have i been doing          your standup note, written for you
+/memory off                             stop, and forget everything
+```
+
+You don't have to type `/recall`. While memory is on, a question that could only be about the past — *"what was that popup"*, *"where did I see that phone number"*, *"what did I close a minute ago"* — is answered from the timeline instead of from the live screen.
+
+- **Every frame is dated.** The answer tells you *when* it saw the thing — "3m ago, in the Chrome window" — so you can go back and check it yourself
+- **It quotes, it doesn't paraphrase.** Error codes, prices and file paths come back character for character, and "it isn't in the last 10 minutes" is a valid answer. A plausible-looking invented error code is the one failure you couldn't detect
+- **The live screen is always included**, so *"is that error still up"* and *"what changed"* have a now to compare against
+- Answering costs one model call. Recording costs none — nothing is sent anywhere until you ask a question
+
+**It is off by default, and it is meant to be obvious when it isn't.** A red **● 10m** pill sits in the bar every time you open it, the tray icon's tooltip says so, and `/memory purge` empties it instantly.
+
 ### ♻️ Saved Workflows
 Agent Mode costs a model call per step and most of a minute per task, against a free tier of **20 calls a day**. But the second time you ask for the same thing, the answer is already known.
 
@@ -104,6 +126,7 @@ No more pausing a YouTube tutorial every four seconds to switch tabs.
 
 ### 🔒 Privacy Built-In
 - Screenshots stay in RAM only—never written to disk or logged
+- Nothing is captured until you press the hotkey, unless you switch [Screen Memory](#-screen-memory) on yourself
 - Disabled when the hotkey isn't pressed
 - Your own API key—no Argus servers, no data collection
 - BYOK (Bring Your Own Key) model
@@ -165,8 +188,20 @@ Every Agent Mode step re-captures the screen before deciding the next move — i
 ## Privacy
 
 - Screenshots are **held in memory only** — never written to disk, never logged, and dropped when you dismiss the bar. Saved chats keep their text, never the image.
-- The screen is captured **only when you press the hotkey**. Nothing runs in the background watching you.
+- **By default, the screen is captured only when you press the hotkey.** Nothing runs in the background watching you.
 - You bring your own API key. There is no Argus server; your screen goes to the model provider *you* choose, and nowhere else.
+
+### The one exception: Screen Memory
+
+[Screen Memory](#-screen-memory) is the only feature that looks at your screen without you pressing anything, and it exists because a question about something you already closed can't be answered any other way. It is off until you turn it on, and while it is on:
+
+- **Frames never touch the disk.** They are JPEG buffers in one process. `/memory off`, `/memory purge`, and quitting each drop them; there is no code path that writes one out, and nothing survives a restart.
+- **It stops recording while Argus's own windows are up** — the bar, the agent overlay, or any request in flight. The bar is where you type, including sometimes an API key, and none of that belongs in a recording.
+- **Nothing is sent anywhere until you ask a question.** Recording is entirely local. Only when you run `/recall` do up to eight frames go to the model — the same provider, the same key, the same one-off request as any other question.
+- **It says so, every time.** A red pill in the bar on every open, and the tray tooltip whenever you hover it. `settings.json` holds the flag in plain text; the frames are held nowhere.
+- Bounded by default: 10 minutes, capped at 60. It samples every 5 seconds and drops frames that are near-identical to the one before, so ten idle minutes cost one frame and a busy ten cost about 8 MB of RAM.
+
+This is the feature that most needs the source to be readable, which is a large part of why it is here rather than in something you'd have to trust. If you would rather it did not exist, leaving it off is enough — nothing else in Argus depends on it.
 
 ## Requirements
 
@@ -267,6 +302,11 @@ Type these into the bar to configure or control Argus:
 | `/workflows delete <name>` | Remove one |
 | `/workflows clear` | Remove them all |
 | `/run <name>` | Replay a workflow — no model call. Typing the bare name in Agent Mode does the same |
+| `/memory on [minutes]` | Start remembering the screen (default 10 min, max 60) |
+| `/memory` | Whether it's recording, how much is held, how far back |
+| `/recall <question>` | Ask about something already gone |
+| `/memory purge` | Forget everything held right now |
+| `/memory off` | Stop recording, and forget everything |
 | `/history` | Browse and resume past conversations |
 | `/new` | Start a fresh chat |
 | `/forget` | Delete all saved chats permanently |
@@ -339,6 +379,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Teach Mode — ghost cursor, captioned steps, waits for the learner
 - [x] Voice input — click to record, filler-cleaned transcription
 - [x] Saved workflows — replay a successful Agent run with no model call
+- [x] Screen memory — ask about something that is already gone, RAM-only, opt-in
 
 ### 🚧 In Progress & Planned
 - [ ] Local transcription (Whisper) — voice off the daily quota entirely

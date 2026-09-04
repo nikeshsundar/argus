@@ -27,7 +27,7 @@ import { parseTeachRequest } from '../shared/teach'
 import { runTeachLesson } from './teachLoop'
 import { transcribe } from './transcribe'
 import { disposeHotkeys, hotkeyStrategy, registerHotkey, watchEscape } from './hotkey'
-import { createTalkProvider } from './providers'
+import { createRecallProvider, createTalkProvider } from './providers'
 import { ProviderUnavailableError } from './providers/types'
 import {
   createRequestBar,
@@ -38,6 +38,31 @@ import {
   showRequestBar
 } from './requestBar'
 import { captureActiveDisplay, type Capture } from './screenshot'
+import { isOverlayVisible } from './overlayWindow'
+import {
+  configureMemory,
+  heldFrames,
+  isRecording,
+  memoryStatus,
+  purgeMemory,
+  retentionMinutes,
+  setRetention,
+  startMemory,
+  stopMemory
+} from './screenMemory'
+import {
+  clampWindow,
+  describeMemory,
+  DEFAULT_MINUTES,
+  formatAge,
+  frameLabel,
+  lookbackMs,
+  looksLikeRecall,
+  MAX_MINUTES,
+  MIN_MINUTES,
+  parseMemoryCommand,
+  selectFrames
+} from '../shared/recall'
 import { isProviderConfigured, loadSettings, updateSettings, type ProviderName } from './settingsStore'
 import { createTray, refreshTrayMenu } from './tray'
 
@@ -325,7 +350,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
       return fail(`Windows wouldn't give up "${accelerator}". Still using ${loadSettings().hotkey}.`)
     }
     updateSettings({ hotkey: accelerator })
-    refreshTrayMenu({ onOpen: () => void openRequestBar() })
+    refreshTray()
     return ok(`Hotkey is now ${accelerator}.`)
   }
 
@@ -364,7 +389,10 @@ function handleSlashCommand(text: string): SubmitResult | null {
         'agent <task>          take control of the machine',
         '/save <name>          keep the last Agent run',
         '/workflows            saved runs you can replay for free',
-        '/run <name>           replay one, no model call'
+        '/run <name>           replay one, no model call',
+        '/memory on            remember the last few minutes of screen',
+        '/recall <question>    ask about something already gone',
+        '/memory off           stop, and forget it all'
       ].join('\n')
     )
   }
@@ -491,6 +519,164 @@ async function handleWorkflowCommand(text: string): Promise<SubmitResult | null>
       if (!flow) return unknown(command.name)
       return await runReplay(flow)
     }
+  }
+}
+
+/**
+ * Everything to do with screen memory.
+ *
+ * Async and separate from `handleSlashCommand` for the same reason the
+ * workflow commands are: "/recall" has to await a model call, and the
+ * unknown-command guard at the end of that function is synchronous. Every
+ * "/memory" and "/recall" is claimed here, malformed ones included, so a typo
+ * gets an explanation instead of "unknown command".
+ */
+async function handleMemoryCommand(text: string): Promise<SubmitResult | null> {
+  const ok = (message: string): SubmitResult => ({ ok: true, mode: 'talk', message })
+  const fail = (message: string): SubmitResult => ({ ok: false, mode: 'talk', message })
+
+  const command = parseMemoryCommand(text)
+  if (command.kind === 'none') return null
+
+  switch (command.kind) {
+    case 'status':
+      return ok(describeMemory(memoryStatus(), Date.now()))
+
+    case 'on': {
+      if (command.raw && command.minutes === null) {
+        return fail(
+          `"${command.raw}" isn't a length. Try "/memory on 10" — anything from ${MIN_MINUTES} to ${MAX_MINUTES} minutes.`
+        )
+      }
+
+      const minutes = command.minutes ?? loadSettings().memoryMinutes ?? DEFAULT_MINUTES
+      updateSettings({ memoryEnabled: true, memoryMinutes: minutes })
+      setRetention(minutes)
+      startMemory(minutes)
+      refreshTray()
+
+      return ok(
+        [
+          `Screen memory on — keeping the last ${minutes} minutes.`,
+          '',
+          'Frames live in RAM and are never written to disk. Argus stops recording',
+          'while this bar is open or the agent is running, and forgets everything the',
+          'moment you type "/memory off".',
+          '',
+          'Ask about something already gone: /recall what was that error'
+        ].join('\n')
+      )
+    }
+
+    case 'off': {
+      const forgotten = stopMemory()
+      updateSettings({ memoryEnabled: false })
+      refreshTray()
+      return ok(
+        forgotten === 0
+          ? 'Screen memory off. Nothing was being kept.'
+          : `Screen memory off — ${forgotten} remembered moment${forgotten === 1 ? '' : 's'} forgotten.`
+      )
+    }
+
+    case 'purge': {
+      const forgotten = purgeMemory()
+      return ok(
+        forgotten === 0
+          ? 'There was nothing to forget.'
+          : `Forgot ${forgotten} remembered moment${forgotten === 1 ? '' : 's'}.` +
+              (isRecording() ? ' Still recording from here on — "/memory off" to stop.' : '')
+      )
+    }
+
+    case 'ask': {
+      if (!command.question) {
+        return fail('Ask it something: "/recall what was that error code".')
+      }
+      return await runRecall(command.question)
+    }
+
+    default:
+      return fail(
+        `I don't know "/memory ${command.raw}". Try "/memory on", "/memory off", "/memory purge", or "/memory" on its own.`
+      )
+  }
+}
+
+/**
+ * Answers a question about the recent past.
+ *
+ * The live screen goes on the end of the timeline whenever there is one, so
+ * "what changed since I opened this" and "is that error still up" have a now to
+ * compare against. Nothing is sent until this point: recording alone never
+ * leaves the machine.
+ */
+async function runRecall(question: string): Promise<SubmitResult> {
+  const fail = (message: string): SubmitResult => ({ ok: false, mode: 'talk', message })
+
+  if (!isRecording() && heldFrames().length === 0) {
+    return fail(
+      [
+        'Screen memory is off, so there is nothing to look back through.',
+        'Turn it on with "/memory on" and Argus will keep the last',
+        `${loadSettings().memoryMinutes} minutes of your screen in RAM.`
+      ].join(' ')
+    )
+  }
+
+  const now = Date.now()
+  const retentionMs = retentionMinutes() * 60_000
+  const windowMs = clampWindow(lookbackMs(question), retentionMs)
+  const chosen = selectFrames(heldFrames(), { now, windowMs })
+
+  if (chosen.length === 0) {
+    const status = memoryStatus()
+    return fail(
+      status.frames === 0
+        ? 'Nothing has been recorded yet — give it a few seconds of screen time and ask again.'
+        : `Nothing that far back. The oldest thing I have is from ${formatAge(now - status.oldestAt!)}.`
+    )
+  }
+
+  const provider = createRecallProvider()
+  const bar = getRequestBar()
+
+  abortInFlight()
+  const controller = new AbortController()
+  inFlight = controller
+
+  const frames = chosen.map((frame) => ({
+    jpeg: frame.jpeg,
+    label: frameLabel(frame, now)
+  }))
+
+  // The screen as it is right now, captured before the bar opened.
+  if (pendingCapture) {
+    frames.push({ jpeg: pendingCapture.model.png, label: '[the screen right now]' })
+  }
+
+  try {
+    const answer = await provider.ask({
+      question,
+      frames,
+      signal: controller.signal,
+      onDelta: (delta) => {
+        if (!controller.signal.aborted) bar?.webContents.send('argus:delta', delta)
+      }
+    })
+
+    // Recorded in the transcript like any other exchange, so a follow-up can
+    // refer back to it - and so the user can see later what they asked.
+    thread.turns.push({ role: 'user', text: question }, { role: 'model', text: answer })
+    saveThread(thread)
+
+    const searched = `\n\n— from ${chosen.length} frame${chosen.length === 1 ? '' : 's'} of the last ${Math.round(windowMs / 60_000) || 1} min`
+    return { ok: true, mode: 'talk', message: (answer || '(empty response)') + searched }
+  } catch (error) {
+    if (error instanceof ProviderUnavailableError) return fail(error.message)
+    return fail(error instanceof Error ? error.message : 'Could not search screen memory.')
+  } finally {
+    if (inFlight === controller) inFlight = null
   }
 }
 
@@ -706,6 +892,9 @@ function registerIpc(): void {
     const flowCommand = await handleWorkflowCommand(text.trim())
     if (flowCommand) return flowCommand
 
+    const memoryCommand = await handleMemoryCommand(text.trim())
+    if (memoryCommand) return memoryCommand
+
     const command = handleSlashCommand(text.trim())
     if (command) return command
 
@@ -739,6 +928,12 @@ function registerIpc(): void {
 
     // The capture is deliberately kept after answering: follow-up questions ask
     // about the same screen, and re-capturing would show our own bar instead.
+    // A question about something already gone is answered from the timeline
+    // instead of from the one screen in front of us. Only while recording, and
+    // only for wordings that cannot be about the live screen - see
+    // `looksLikeRecall`, which errs towards leaving questions alone.
+    if (isRecording() && looksLikeRecall(asked)) return await runRecall(asked)
+
     const capture = pendingCapture
     if (!capture) {
       return { ok: false, mode, message: 'No screen capture available for this request.' }
@@ -788,6 +983,32 @@ function registerIpc(): void {
   })
 }
 
+/** Rebuilds the tray menu, which shows the recorder's state and switches it. */
+function refreshTray(): void {
+  refreshTrayMenu({
+    onOpen: () => void openRequestBar(),
+    onToggleMemory: () => void toggleMemory(),
+    onPurgeMemory: () => {
+      purgeMemory()
+      refreshTray()
+    }
+  })
+}
+
+/** The tray's switch. Same effect as "/memory on" and "/memory off". */
+function toggleMemory(): void {
+  if (isRecording()) {
+    stopMemory()
+    updateSettings({ memoryEnabled: false })
+  } else {
+    const minutes = loadSettings().memoryMinutes || DEFAULT_MINUTES
+    setRetention(minutes)
+    startMemory(minutes)
+    updateSettings({ memoryEnabled: true, memoryMinutes: minutes })
+  }
+  refreshTray()
+}
+
 // A second instance would fight over the global hotkey, so hand off to the first.
 if (!app.requestSingleInstanceLock()) {
   app.quit()
@@ -798,10 +1019,31 @@ if (!app.requestSingleInstanceLock()) {
     createRequestBar()
     allowMicrophone()
     registerIpc()
-    createTray({ onOpen: () => void openRequestBar() })
+
+    // The recorder keeps its eyes shut while any of our own windows are up. A
+    // buffer full of Argus's UI answers nothing, and the bar is where the user
+    // types - including, sometimes, an API key.
+    configureMemory({
+      shouldSkip: () => isRequestBarVisible() || isOverlayVisible() || inFlight !== null
+    })
+
+    createTray({
+      onOpen: () => void openRequestBar(),
+      onToggleMemory: () => void toggleMemory(),
+      onPurgeMemory: () => {
+        purgeMemory()
+        refreshTray()
+      }
+    })
 
     const hotkey = setupHotkey()
-    refreshTrayMenu({ onOpen: () => void openRequestBar() })
+
+    // Recording survives a restart because the flag does, not because any
+    // frame does: the buffer always starts empty.
+    const settings = loadSettings()
+    if (settings.memoryEnabled) startMemory(settings.memoryMinutes || DEFAULT_MINUTES)
+
+    refreshTray()
     console.log(
       hotkey
         ? `Argus ready - press ${hotkey} (via ${hotkeyStrategy()})`
@@ -822,6 +1064,8 @@ if (!app.requestSingleInstanceLock()) {
   // Tray app: closing the request bar must not quit the process.
   app.on('window-all-closed', () => {})
   app.on('will-quit', () => {
+    // Whatever was remembered dies with the process. Nothing to flush.
+    stopMemory()
     saveThread(thread)
     disposeHotkeys()
     abortInFlight()

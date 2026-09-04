@@ -1,6 +1,7 @@
 import { loadSettings } from '../settingsStore'
 import { createGeminiProvider } from './gemini'
 import { createGeminiAgentProvider } from './geminiAgent'
+import { createGeminiRecallProvider, type RecallProvider } from './geminiRecall'
 import { createGeminiTeachProvider } from './geminiTeach'
 import { ProviderUnavailableError, type ComputerUseProvider, type VisionProvider } from './types'
 
@@ -56,4 +57,24 @@ export function createTeachProvider(): ReturnType<typeof createGeminiTeachProvid
   }
 
   return createGeminiTeachProvider({ apiKey: geminiKey, model: settings.agentModel })
+}
+
+/**
+ * Builds the screen-memory provider.
+ *
+ * Runs on the Talk model rather than the fast agent one: reading an error code
+ * out of a downscaled frame is exactly the kind of careful looking the quick
+ * model was chosen to skip.
+ */
+export function createRecallProvider(): RecallProvider {
+  const settings = loadSettings()
+  const geminiKey = settings.geminiApiKey || process.env['GEMINI_API_KEY'] || ''
+
+  if (!geminiKey) {
+    throw new ProviderUnavailableError(
+      'Screen memory needs a Gemini key to answer. Add one with "/key <your-key>".'
+    )
+  }
+
+  return createGeminiRecallProvider({ apiKey: geminiKey, model: settings.geminiModel })
 }

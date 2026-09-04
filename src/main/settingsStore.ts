@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import type { CursorPace } from '../shared/cursorPath'
+import { DEFAULT_MINUTES } from '../shared/recall'
 import { inferProviderFromKey } from '../shared/keys'
 import type { ProviderName } from '../shared/types'
 
@@ -47,6 +48,16 @@ export interface Settings {
   ollamaHost: string
   /** How visibly Agent Mode moves the pointer and types. */
   cursorPace: CursorPace
+  /**
+   * Whether the rolling screen recording is running.
+   *
+   * Off by default and stored as a plain flag, so what it is doing is
+   * inspectable in a text file. The frames themselves are never persisted -
+   * only the fact that recording was switched on.
+   */
+  memoryEnabled: boolean
+  /** How many minutes of screen to keep while it is on. */
+  memoryMinutes: number
 }
 
 /**
@@ -67,7 +78,9 @@ const DEFAULTS: Settings = {
   geminiKeyCooldowns: {},
   openaiApiKey: '',
   ollamaHost: 'http://127.0.0.1:11434',
-  cursorPace: 'natural'
+  cursorPace: 'natural',
+  memoryEnabled: false,
+  memoryMinutes: DEFAULT_MINUTES
 }
 
 let cache: Settings | null = null

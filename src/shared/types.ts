@@ -12,12 +12,26 @@ export interface CaptureInfo {
   capturedAt: number
 }
 
+/**
+ * Whether the rolling screen recording is running, and for how long back.
+ *
+ * Sent with every open so the bar can show it. A feature that remembers your
+ * screen has to say so somewhere you cannot miss - a setting buried in a file
+ * is not consent, it is a thing you agreed to once and forgot.
+ */
+export interface MemoryIndicator {
+  recording: boolean
+  /** Short form for the pill, e.g. "10m". */
+  label: string
+}
+
 /** Sent to the renderer each time the request bar is opened by the hotkey. */
 export interface OpenedEvent {
   capture: CaptureInfo | null
   error?: string
   /** Replaces the default status line - used for first-run setup hints. */
   notice?: string
+  memory?: MemoryIndicator
 }
 
 /** One exchange in an ongoing Talk Mode conversation. */

@@ -14,7 +14,9 @@ describe('filterOptions', () => {
   })
 
   it('filters commands as the user types after a slash', () => {
-    expect(filterOptions('/mo').map((option) => option.id)).toEqual(['model'])
+    // "/mo" also reaches "Screen memory" by label; the command named by what
+    // was typed is the one Enter has to pick.
+    expect(filterOptions('/mo')[0]?.id).toBe('model')
     expect(filterOptions('/cur').map((option) => option.id)).toEqual(['cursor'])
   })
 
@@ -38,6 +40,11 @@ describe('filterOptions', () => {
     // The first row is the one Enter picks, so the exact command has to win.
     expect(filterOptions('/save')[0]?.id).toBe('save')
     expect(filterOptions('/save').map((option) => option.id)).toContain('workflows')
+  })
+
+  it('offers the screen memory commands', () => {
+    expect(filterOptions('/rec')[0]?.id).toBe('recall')
+    expect(filterOptions('/mem')[0]?.id).toBe('memory')
   })
 
   it('gets out of the way for anything that is not a command', () => {

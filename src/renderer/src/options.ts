@@ -73,6 +73,19 @@ export const OPTIONS: Option[] = [
     insert: '/run '
   },
   {
+    id: 'recall',
+    label: 'Ask about something already gone',
+    hint: '/recall <question>',
+    insert: '/recall '
+  },
+  {
+    id: 'memory',
+    label: 'Screen memory',
+    hint: '/memory on · off · purge',
+    insert: '/memory',
+    immediate: true
+  },
+  {
     id: 'hotkey',
     label: 'Rebind hotkey',
     hint: '/hotkey Alt+`',

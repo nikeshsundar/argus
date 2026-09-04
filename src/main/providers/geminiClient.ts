@@ -143,3 +143,57 @@ export async function describeGeminiFailure(response: Response, model: string): 
   }
   return `Gemini API error ${response.status}${detail ? `: ${detail}` : ''}`
 }
+
+/**
+ * Pulls the answer out of one Gemini payload.
+ *
+ * Shared by every text-producing caller here, so a reasoning part leaking into
+ * a visible answer is a bug that can only exist in one place.
+ */
+export function extractText(payload: unknown): string {
+  const response = payload as GeminiResponse
+  if (response.error?.message) throw new Error(`Gemini: ${response.error.message}`)
+  return (response.candidates?.[0]?.content?.parts ?? [])
+    .filter((part) => !part.thought && part.text) // reasoning parts stay internal
+    .map((part) => part.text)
+    .join('')
+    .trim()
+}
+
+/** Reads a streamed answer, reporting each chunk as it lands. */
+export async function consumeStream(
+  body: ReadableStream<Uint8Array>,
+  onDelta: (text: string) => void
+): Promise<string> {
+  let answer = ''
+  for await (const event of readServerSentEvents(body)) {
+    const text = extractText(JSON.parse(event))
+    if (!text) continue
+    answer += text
+    onDelta(text)
+  }
+  return answer.trim()
+}
+
+/** Yields the JSON payload of each `data:` event in an SSE stream. */
+async function* readServerSentEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  for await (const bytes of body as unknown as AsyncIterable<Uint8Array>) {
+    // Gemini separates events with CRLF pairs; dropping CR lets one
+    // delimiter check cover both CRLF and LF streams.
+    buffer += decoder.decode(bytes, { stream: true }).replace(/\r/g, '')
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const event = buffer.slice(0, boundary)
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf('\n\n')
+
+      for (const line of event.split('\n')) {
+        if (line.startsWith('data:')) yield line.slice(5).trim()
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import { callGemini, describeGeminiFailure, type GeminiResponse } from './geminiClient'
+import { callGemini, consumeStream, describeGeminiFailure, extractText } from './geminiClient'
 import { TALK_SYSTEM_PROMPT } from './prompt'
 import { ProviderUnavailableError, type VisionProvider, type VisionRequest } from './types'
 
@@ -73,55 +73,9 @@ export function createGeminiProvider(options: { apiKey: string; model: string })
       const response = await callGemini({ apiKey, model, method: 'generateContent', body, signal })
       if (!response.ok) throw new Error(await describeGeminiFailure(response, model))
 
-      const text = extractText((await response.json()) as GeminiResponse)
+      const text = extractText(await response.json())
       if (text) onDelta(text)
       return text
-    }
-  }
-}
-
-function extractText(payload: GeminiResponse): string {
-  if (payload.error?.message) throw new Error(`Gemini: ${payload.error.message}`)
-  return (payload.candidates?.[0]?.content?.parts ?? [])
-    .filter((part) => !part.thought && part.text) // reasoning parts stay internal
-    .map((part) => part.text)
-    .join('')
-    .trim()
-}
-
-async function consumeStream(
-  body: ReadableStream<Uint8Array>,
-  onDelta: (text: string) => void
-): Promise<string> {
-  let answer = ''
-  for await (const event of readServerSentEvents(body)) {
-    const text = extractText(JSON.parse(event) as GeminiResponse)
-    if (!text) continue
-    answer += text
-    onDelta(text)
-  }
-  return answer.trim()
-}
-
-/** Yields the JSON payload of each `data:` event in an SSE stream. */
-async function* readServerSentEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  for await (const bytes of body as unknown as AsyncIterable<Uint8Array>) {
-    // Gemini separates events with CRLF pairs; dropping CR lets one
-    // delimiter check cover both CRLF and LF streams.
-    buffer += decoder.decode(bytes, { stream: true }).replace(/\r/g, '')
-
-    let boundary = buffer.indexOf('\n\n')
-    while (boundary !== -1) {
-      const event = buffer.slice(0, boundary)
-      buffer = buffer.slice(boundary + 2)
-      boundary = buffer.indexOf('\n\n')
-
-      for (const line of event.split('\n')) {
-        if (line.startsWith('data:')) yield line.slice(5).trim()
-      }
     }
   }
 }

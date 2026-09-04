@@ -352,3 +352,55 @@ kbd {
   border-color: rgba(255, 95, 87, 0.45);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 95, 87, 0.25) inset;
 }
+
+/*
+ * Recording indicator.
+ *
+ * Red, next to the close button, on every single open while screen memory is
+ * running. This is the one piece of UI in the app that exists to be noticed
+ * rather than used: a feature that keeps the last ten minutes of your screen
+ * has to be impossible to forget is running.
+ */
+.rec {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 7px;
+  border: 1px solid rgba(245, 86, 106, 0.35);
+  border-radius: 999px;
+  background: rgba(245, 86, 106, 0.12);
+  color: #f5566a;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: default;
+}
+
+.rec[hidden] {
+  display: none;
+}
+
+.rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: rec-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rec-dot {
+    animation: none;
+  }
+}

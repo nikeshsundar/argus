@@ -1,6 +1,7 @@
 import { BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
-import type { OpenedEvent } from '../shared/types'
+import type { MemoryIndicator, OpenedEvent } from '../shared/types'
+import { isRecording, retentionMinutes } from './screenMemory'
 
 const WIDTH = 660
 const HEIGHT = 190
@@ -87,7 +88,10 @@ export function showRequestBar(payload: OpenedEvent): void {
 
   win.showInactive()
   win.focus()
-  win.webContents.send('argus:opened', payload)
+  // The recording indicator is attached here rather than by each caller, so
+  // there is no way to open the bar without it: a screen recorder that is only
+  // sometimes advertised is worse than one that never is.
+  win.webContents.send('argus:opened', { ...payload, memory: memoryIndicator() })
 }
 
 /**
@@ -118,4 +122,10 @@ export function isRequestBarVisible(): boolean {
 
 export function getRequestBar(): BrowserWindow | null {
   return win
+}
+
+/** What the bar's recording pill shows. */
+function memoryIndicator(): MemoryIndicator {
+  const recording = isRecording()
+  return { recording, label: recording ? `${retentionMinutes()}m` : '' }
 }

@@ -1,5 +1,6 @@
 import { hasWords, MIN_UTTERANCE_MS, SILENCE_PEAK } from '../../shared/audio'
 import { isBareApiKey } from '../../shared/commands'
+import { isRecallQuestion } from '../../shared/recall'
 import { startRecording, type Recorder } from './voice'
 import { parseTeachRequest } from '../../shared/teach'
 import { parseMode, type Mode } from '../../shared/types'
@@ -14,6 +15,8 @@ const closeButton = document.querySelector<HTMLButtonElement>('#close')!
 const mic = document.querySelector<HTMLButtonElement>('#mic')!
 const micLevel = document.querySelector<HTMLSpanElement>('#mic-level')!
 const bar = document.querySelector<HTMLElement>('#bar')!
+const rec = document.querySelector<HTMLSpanElement>('#rec')!
+const recLabel = document.querySelector<HTMLSpanElement>('#rec-label')!
 
 type StatusState = 'idle' | 'busy' | 'done' | 'error'
 
@@ -251,7 +254,9 @@ function submit(text: string): void {
   // It reaches here whenever someone pastes one without typing "/key" first,
   // which is the obvious thing to do and used to mail the key to the model.
   const isBareKey = isBareApiKey(trimmed)
-  const isCommand = trimmed.startsWith('/') || isBareKey
+  // "/recall" is the exception: its reply is an answer, not a report, so it
+  // streams into the transcript like any other question.
+  const isCommand = (trimmed.startsWith('/') && !isRecallQuestion(trimmed)) || isBareKey
   awaitingAnswer = true
   streaming = false
   input.disabled = true
@@ -302,7 +307,7 @@ function submit(text: string): void {
     })
 }
 
-window.argus.onOpened(({ capture, error, notice }) => {
+window.argus.onOpened(({ capture, error, notice, memory }) => {
   cancelListening()
   awaitingAnswer = false
   streaming = false
@@ -314,6 +319,11 @@ window.argus.onOpened(({ capture, error, notice }) => {
   syncChip()
   renderOptions()
   input.focus()
+
+  // Shown on every open while recording, never suppressed by a notice or an
+  // error. The pill is the app admitting what it is doing.
+  rec.hidden = !memory?.recording
+  if (memory?.recording) recLabel.textContent = memory.label
 
   if (error) {
     setStatus(error, 'error')
