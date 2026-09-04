@@ -1,4 +1,5 @@
 import { describeAction, type AgentAction } from '../shared/agent'
+import type { AgentRunRecord } from '../shared/agentHistory'
 import type { AgentStepEvent } from '../shared/types'
 import { loadAppIndex } from './appIndex'
 import { watchEscape } from './hotkey'
@@ -17,6 +18,11 @@ export interface AgentRunOptions {
   signal: AbortSignal
   /** Reports each step to the bar as well as the overlay. */
   onStep?: (event: AgentStepEvent) => void
+  /**
+   * The last few tasks and how they went. Without it every run starts from
+   * nothing, and "open it in Edge instead" is read as the whole job.
+   */
+  history?: AgentRunRecord[]
 }
 
 export interface AgentRunResult {
@@ -41,11 +47,12 @@ export interface AgentRunResult {
 export async function runAgentTask({
   task,
   signal,
-  onStep
+  onStep,
+  history = []
 }: AgentRunOptions): Promise<AgentRunResult> {
   const provider = createAgentProvider()
   const installedApps = (await loadAppIndex()).map((entry) => entry.name).slice(0, 200)
-  const session = provider.startTask(task, signal, installedApps)
+  const session = provider.startTask(task, signal, installedApps, history)
 
   let stoppedByUser = false
   // A glide can be a second long at demo pace, so Escape has to reach into the

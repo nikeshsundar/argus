@@ -1,6 +1,7 @@
 import { app, ipcMain, session } from 'electron'
 import { runAgentTask } from './agentLoop'
 import type { AgentAction, ScreenSize } from '../shared/agent'
+import { rememberRun, type AgentRunRecord } from '../shared/agentHistory'
 import { parseKeyCommand } from '../shared/commands'
 import { activeScreenSize, replayWorkflow } from './replay'
 import { clearWorkflows, deleteWorkflow, listWorkflows, noteRun, saveWorkflow } from './workflowStore'
@@ -98,6 +99,16 @@ let inFlight: AbortController | null = null
  * has not yet said they want it kept anywhere.
  */
 let lastRun: { task: string; actions: AgentAction[]; screen: ScreenSize } | null = null
+
+/**
+ * The last few Agent tasks and how each one turned out.
+ *
+ * Agent Mode used to start every run from nothing, so a follow-up like "open
+ * it in Edge instead" arrived with no idea what "it" referred to - the agent
+ * did the literal thing and correctly reported it as finished. This is what a
+ * new task gets to read. In memory, and cleared by "/new" along with the chat.
+ */
+let agentRuns: AgentRunRecord[] = []
 
 function clearPendingCapture(): void {
   pendingCapture = null
@@ -839,8 +850,19 @@ async function runAgent(task: string): Promise<SubmitResult> {
     const result = await runAgentTask({
       task,
       signal: controller.signal,
-      onStep: (event) => bar?.webContents.send('argus:agent-step', event)
+      onStep: (event) => bar?.webContents.send('argus:agent-step', event),
+      history: agentRuns
     })
+
+    // Recorded whether or not it worked. "Opened Gmail but you are not signed
+    // in" is precisely the context the next task needs.
+    agentRuns = rememberRun(agentRuns, {
+      task,
+      summary: result.summary,
+      ok: result.ok,
+      at: Date.now()
+    })
+
     const worthKeeping = result.ok && recordable(result.actions).length > 0
     lastRun = worthKeeping ? { task, actions: result.actions, screen } : null
     const notice = worthKeeping
@@ -980,6 +1002,9 @@ function registerIpc(): void {
     saveThread(thread)
     thread = createThread()
     imageAnchor = 0
+    // "A new chat" has to mean the agent forgets too, or the next task quietly
+    // continues one the user believes they have cleared away.
+    agentRuns = []
   })
 }
 

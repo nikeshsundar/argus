@@ -1,4 +1,5 @@
 import type { AgentAction } from '../../shared/agent'
+import { formatAgentHistory, type AgentRunRecord } from '../../shared/agentHistory'
 import {
   callGemini,
   describeGeminiFailure,
@@ -21,6 +22,8 @@ Rules:
 - Take one small, verifiable step at a time. After each action you will see the result, so you do not need to guess ahead.
 - If a click did not do what you expected, look at the new screenshot and adapt instead of repeating the same click.
 - Call task_done as soon as the task is complete, with a one-sentence summary of what you did.
+- If the task asked you to READ, SUMMARISE, CHECK or FIND something rather than only to operate the machine, then getting to the right screen is not finishing it. Once that screen is visible, read it and put the actual answer in the task_done summary - the unread subjects, the number, the error text. Several lines is fine there; "I opened Gmail" is not an answer to "summarise my unread mail".
+- If you cannot get to the information - a login wall, an empty inbox, the wrong account - call task_done and say exactly what stopped you. The user's next instruction will be read alongside your summary, so a precise one is what lets them carry on.
 - If the task is impossible or unsafe, call task_done and explain why in the summary.`
 
 const FUNCTION_DECLARATIONS = [
@@ -116,10 +119,17 @@ const FUNCTION_DECLARATIONS = [
   },
   {
     name: 'task_done',
-    description: 'Finish the task and report what happened.',
+    description:
+      'Finish the task. If the task asked for information, this is where the answer goes - not a description of the steps you took.',
     parameters: {
       type: 'OBJECT',
-      properties: { summary: { type: 'STRING' } },
+      properties: {
+        summary: {
+          type: 'STRING',
+          description:
+            'What you did, or - when the task asked you to read, summarise, check or find something - the answer itself, read off the screen.'
+        }
+      },
       required: ['summary']
     }
   }
@@ -141,7 +151,12 @@ export function createGeminiAgentProvider(options: {
   return {
     name: 'gemini',
 
-    startTask(task: string, signal?: AbortSignal, installedApps: string[] = []): AgentSession {
+    startTask(
+      task: string,
+      signal?: AbortSignal,
+      installedApps: string[] = [],
+      history: AgentRunRecord[] = []
+    ): AgentSession {
       const contents: Content[] = []
       let pendingCall: string | null = null
 
@@ -151,6 +166,12 @@ export function createGeminiAgentProvider(options: {
         ? `\n\nInstalled programs you can pass to launch_app:\n${installedApps.join(', ')}`
         : ''
 
+      // What happened on the last few tasks, so a fragment can be read as the
+      // continuation it is. Empty for a first task, and the block itself tells
+      // the model to ignore it when the new request stands on its own.
+      const recap = formatAgentHistory(history, Date.now())
+      const preamble = recap ? `${recap}\n\n` : ''
+
       return {
         async next(screenshot: Buffer, lastResult?: string): Promise<AgentAction> {
           const image = {
@@ -158,7 +179,10 @@ export function createGeminiAgentProvider(options: {
           }
 
           if (contents.length === 0) {
-            contents.push({ role: 'user', parts: [image, { text: `Task: ${task}${appList}` }] })
+            contents.push({
+              role: 'user',
+              parts: [image, { text: `${preamble}Task: ${task}${appList}` }]
+            })
           } else {
             // Report the previous action's outcome, then show the new screen.
             contents.push({

@@ -50,6 +50,9 @@ Hand over the wheel and it does the task itself.
 - Clicks, types and navigates on your real desktop
 - **The pointer travels** — an eased glide with a halo and a click ring, so you can follow every move instead of watching things happen
 - No trigger word needed: *"open instagram"* is understood as an instruction
+- **Follow-ups work.** *"open gmail and summarise my unread mail"* → *"open it in Edge instead"* continues the same job, rather than
+  opening Edge and calling it done. The last few tasks and how each turned out are carried into the next one, for 15 minutes or until `/new`
+- **A question gets an answer, not a travelogue.** If the task was to read, check or find something, what comes back is the thing you asked for — not "I opened Gmail"
 - Safety limits: 14 actions max, <kbd>Esc</kbd> stops it mid-movement, amber frame while it has control
 
 **Examples:**
@@ -380,6 +383,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Voice input — click to record, filler-cleaned transcription
 - [x] Saved workflows — replay a successful Agent run with no model call
 - [x] Screen memory — ask about something that is already gone, RAM-only, opt-in
+- [x] Agent follow-ups — a new task is read alongside the last few and how they went
 
 ### 🚧 In Progress & Planned
 - [ ] Local transcription (Whisper) — voice off the daily quota entirely
