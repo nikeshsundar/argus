@@ -1123,6 +1123,15 @@ function registerIpc(): void {
 
   ipcMain.on('argus:resize', (_event, height: number) => resizeRequestBar(height))
 
+  // The recording pill in the bar is a button. A visible indicator you cannot
+  // act on just sends you looking for the command that turns it off.
+  ipcMain.handle('argus:stop-memory', (): number => {
+    const forgotten = stopMemory()
+    updateSettings({ memoryEnabled: false })
+    refreshTray()
+    return forgotten
+  })
+
   ipcMain.handle('argus:threads', (): ThreadSummary[] => listThreads())
 
   ipcMain.handle('argus:open-thread', (_event, id: string): Turn[] => {

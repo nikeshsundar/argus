@@ -57,15 +57,18 @@
           </svg>
           <span class="mic-level" id="mic-level"></span>
         </button>
-        <span
+        <button
           class="rec"
           id="rec"
+          type="button"
           hidden
-          title="Screen memory is recording. /memory off to stop and forget it."
+          title="Screen memory is recording. Click to stop and forget everything."
+          aria-label="Stop screen memory"
         >
           <span class="rec-dot"></span>
-          <span id="rec-label">10m</span>
-        </span>
+          <span class="rec-label" id="rec-label">10m</span>
+          <span class="rec-stop">Stop</span>
+        </button>
         <button id="close" class="close" type="button" title="Close (Esc twice)">×</button>
       </div>
 

@@ -29,6 +29,12 @@ const api = {
   /** Asks the main process to fit the window to this content height. */
   resize: (height: number): void => ipcRenderer.send('argus:resize', height),
 
+  /**
+   * Stops screen memory and forgets what it held. Resolves with how many
+   * moments were dropped, so the bar can say what just happened.
+   */
+  stopMemory: (): Promise<number> => ipcRenderer.invoke('argus:stop-memory'),
+
   /** Past conversations, newest first. */
   threads: (): Promise<ThreadSummary[]> => ipcRenderer.invoke('argus:threads'),
 

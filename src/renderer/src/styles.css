@@ -363,6 +363,8 @@ kbd {
  */
 .rec {
   flex: none;
+  font-family: inherit;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -379,6 +381,44 @@ kbd {
 
 .rec[hidden] {
   display: none;
+}
+
+/*
+ * It reads as a status until you reach for it, then as a button.
+ *
+ * An indicator you cannot act on makes you go and find the command; a button
+ * labelled "Stop" all the time stops saying how far back it remembers. Showing
+ * one and then the other is how it manages to be both.
+ */
+.rec-stop {
+  display: none;
+}
+
+.rec:hover,
+.rec:focus-visible {
+  border-color: rgba(245, 86, 106, 0.85);
+  background: rgba(245, 86, 106, 0.2);
+  outline: none;
+}
+
+.rec:hover .rec-label,
+.rec:focus-visible .rec-label {
+  display: none;
+}
+
+.rec:hover .rec-stop,
+.rec:focus-visible .rec-stop {
+  display: inline;
+}
+
+.rec:hover .rec-dot,
+.rec:focus-visible .rec-dot {
+  border-radius: 1px;
+  animation: none;
+}
+
+.rec:active {
+  transform: scale(0.96);
 }
 
 .rec-dot {

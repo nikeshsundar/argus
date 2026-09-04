@@ -54,6 +54,38 @@ function withThinking(body: unknown, level: ThinkingLevel): unknown {
 const OVERLOAD_RETRIES = 2
 const OVERLOAD_BACKOFF_MS = [700, 1600]
 
+/**
+ * How long a model that answered 503 is left alone.
+ *
+ * Without this the retries become the problem they were meant to solve. While
+ * a model is down, every request pays three failed round trips and 2.3
+ * seconds of backoff before falling back - on every transcription, every agent
+ * step. Learning it once and going straight to the model that works is the
+ * difference between a slow feature and a broken one.
+ *
+ * A minute, because being overloaded is a passing state and this must not
+ * strand someone on a slower model after Google recovers.
+ */
+const OVERLOAD_COOLDOWN_MS = 60_000
+
+/** When each model is worth trying again. Keyed by model id. */
+const restingUntil = new Map<string, number>()
+
+/**
+ * Puts models that are known to be up ahead of ones that just refused.
+ *
+ * If every candidate is resting the original order is kept: something has to
+ * be tried, and a stale cooldown is a worse reason to fail than a real 503.
+ */
+export function preferAvailable(
+  candidates: string[],
+  resting: Map<string, number>,
+  now: number
+): string[] {
+  const ready = candidates.filter((model) => (resting.get(model) ?? 0) <= now)
+  return ready.length > 0 ? ready : candidates
+}
+
 function pause(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(done, ms)
@@ -88,14 +120,27 @@ export async function callGemini(options: {
    */
   fallbackModels?: string[]
 }): Promise<Response> {
-  const candidates = modelCandidates(options.model, options.fallbackModels)
+  const candidates = preferAvailable(
+    modelCandidates(options.model, options.fallbackModels),
+    restingUntil,
+    Date.now()
+  )
 
   let response = await attempt(candidates[0]!, options)
+  noteAvailability(candidates[0]!, response.status)
+
   for (let next = 1; response.status === 503 && next < candidates.length; next++) {
     if (options.signal?.aborted) return response
     response = await attempt(candidates[next]!, options)
+    noteAvailability(candidates[next]!, response.status)
   }
   return response
+}
+
+/** Remembers which models are refusing, so the next call skips them. */
+function noteAvailability(model: string, status: number): void {
+  if (status === 503) restingUntil.set(model, Date.now() + OVERLOAD_COOLDOWN_MS)
+  else restingUntil.delete(model)
 }
 
 /**

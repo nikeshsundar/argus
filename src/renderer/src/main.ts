@@ -15,7 +15,7 @@ const closeButton = document.querySelector<HTMLButtonElement>('#close')!
 const mic = document.querySelector<HTMLButtonElement>('#mic')!
 const micLevel = document.querySelector<HTMLSpanElement>('#mic-level')!
 const bar = document.querySelector<HTMLElement>('#bar')!
-const rec = document.querySelector<HTMLSpanElement>('#rec')!
+const rec = document.querySelector<HTMLButtonElement>('#rec')!
 const recLabel = document.querySelector<HTMLSpanElement>('#rec-label')!
 
 type StatusState = 'idle' | 'busy' | 'done' | 'error'
@@ -306,6 +306,27 @@ function submit(text: string): void {
       thread.scrollTop = thread.scrollHeight
     })
 }
+
+rec.addEventListener('click', () => {
+  // No confirmation. Being able to stop instantly is the entire reason the
+  // pill is visible; a dialog between the user and that is the wrong trade,
+  // and "/memory on" starts it again in one command.
+  rec.disabled = true
+  void window.argus
+    .stopMemory()
+    .then((forgotten) => {
+      rec.hidden = true
+      setStatus(
+        forgotten === 0
+          ? 'Screen memory off. Nothing was being kept.'
+          : `Screen memory off — ${forgotten} remembered moment${forgotten === 1 ? '' : 's'} forgotten. "/memory on" starts it again.`,
+        'done'
+      )
+    })
+    .finally(() => {
+      rec.disabled = false
+    })
+})
 
 window.argus.onOpened(({ capture, error, notice, memory }) => {
   cancelListening()

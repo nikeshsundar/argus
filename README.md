@@ -129,7 +129,7 @@ You don't have to type `/recall`. While memory is on, a question that could only
 - **The live screen is always included**, so *"is that error still up"* and *"what changed"* have a now to compare against
 - Answering costs one model call. Recording costs none — nothing is sent anywhere until you ask a question
 
-**It is off by default, and it is meant to be obvious when it isn't.** A red **● 10m** pill sits in the bar every time you open it, the tray icon's tooltip says so, and `/memory purge` empties it instantly.
+**It is off by default, and it is meant to be obvious when it isn't.** A red **● 10m** pill sits in the bar every time you open it — and it is a button: hover it and it says **Stop**, click it and recording ends and everything held is forgotten, with no confirmation to click through. The tray tooltip says so too, and `/memory purge` empties it without stopping.
 
 ### ♻️ Saved Workflows
 Agent Mode costs a model call per step and most of a minute per task, against a free tier of **20 calls a day**. But the second time you ask for the same thing, the answer is already known.

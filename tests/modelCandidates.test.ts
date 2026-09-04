@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { modelCandidates } from '../src/main/providers/geminiClient'
+import { modelCandidates, preferAvailable } from '../src/main/providers/geminiClient'
 
 describe('modelCandidates', () => {
   it('tries the chosen model first', () => {
@@ -21,5 +21,35 @@ describe('modelCandidates', () => {
   it('is just the model when there is nothing to fall back to', () => {
     expect(modelCandidates('a')).toEqual(['a'])
     expect(modelCandidates('a', [])).toEqual(['a'])
+  })
+})
+
+describe('preferAvailable', () => {
+  const NOW = 1_700_000_000_000
+
+  it('leaves the order alone when nothing is resting', () => {
+    expect(preferAvailable(['a', 'b'], new Map(), NOW)).toEqual(['a', 'b'])
+  })
+
+  it('skips a model that just refused', () => {
+    // The whole point: while a model is down, every request should go straight
+    // to the one that works instead of paying three failed round trips first.
+    const resting = new Map([['a', NOW + 30_000]])
+    expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['b'])
+  })
+
+  it('brings a model back once its cooldown has passed', () => {
+    const resting = new Map([['a', NOW - 1]])
+    expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['a', 'b'])
+  })
+
+  it('tries everything rather than nothing when all are resting', () => {
+    // Something has to be attempted, and a stale cooldown is a worse reason to
+    // fail than a real 503.
+    const resting = new Map([
+      ['a', NOW + 10_000],
+      ['b', NOW + 10_000]
+    ])
+    expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['a', 'b'])
   })
 })
