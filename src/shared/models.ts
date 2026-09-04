@@ -249,8 +249,15 @@ export function renderCatalogue(options: {
  * Ordered by what answered when this was written, cheapest first. The aliases
  * are last and deliberately included: they follow whatever Google currently
  * considers current, so they outlive any specific id in this list.
+ *
+ * Judge a model by an image request, never a text one. During one outage
+ * gemini-3.1-flash-lite answered "hi" perfectly and returned 503 for the exact
+ * same prompt with a screenshot attached: it is multimodal capacity that runs
+ * out first, and Argus only ever sends images. A text probe would have put a
+ * useless model at the front of this list.
  */
 export const OVERLOAD_FALLBACKS = [
+  'gemini-3-flash-preview',
   'gemini-3.1-flash-lite',
   'gemini-flash-lite-latest',
   'gemini-flash-latest'
