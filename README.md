@@ -85,7 +85,7 @@ Agent and Teach Mode still run on Gemini: they are a dozen quick "which control 
 ### 🤖 Agent Mode
 Hand over the wheel and it does the task itself.
 - Clicks, types and navigates on your real desktop
-- **The pointer travels** — an eased glide with a halo and a click ring, so you can follow every move instead of watching things happen
+- **The pointer travels** — an eased glide with a halo and a click ring, so you can follow every move instead of watching things happen. Tuned for speed, not for show: `/cursor demo` slows it down for recording, `/cursor instant` removes it
 - No trigger word needed: *"open instagram"* is understood as an instruction
 - **Follow-ups work.** *"open gmail and summarise my unread mail"* → *"open it in Edge instead"* continues the same job, rather than
   opening Edge and calling it done. The last few tasks and how each turned out are carried into the next one, for 15 minutes or until `/new`
@@ -426,6 +426,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Agent follow-ups — a new task is read alongside the last few and how they went
 - [x] Model picker — Gemini free by default, Claude and OpenAI one command away
 - [x] The agent yields — touch the mouse and it stands aside, resumes when you stop
+- [x] Agent Mode roughly twice as fast — JPEG captures, a fixed double-request bug, tighter pacing
 
 ### 🚧 In Progress & Planned
 - [ ] Ollama vision provider (it is on the menu; the implementation is not written yet)

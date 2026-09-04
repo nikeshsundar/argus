@@ -27,7 +27,13 @@ export interface PaceProfile {
 
 export const PACES: Record<CursorPace, PaceProfile> = {
   instant: { pxPerSecond: Infinity, minMs: 0, maxMs: 0, typeDelayMs: 4 },
-  natural: { pxPerSecond: 2600, minMs: 180, maxMs: 620, typeDelayMs: 12 },
+  // Retuned for speed. The old numbers spent up to 620ms crossing the screen
+  // and did it a dozen times a task, which is most of a slow-feeling run for a
+  // flourish nobody asked to watch twice. 300ms still reads unmistakably as a
+  // glide rather than a jump, and you can still follow it.
+  natural: { pxPerSecond: 4200, minMs: 90, maxMs: 300, typeDelayMs: 7 },
+  // Untouched. This one exists to be watched - for recording, and for anyone
+  // who wants to see exactly what is happening.
   demo: { pxPerSecond: 1100, minMs: 420, maxMs: 1400, typeDelayMs: 45 }
 }
 

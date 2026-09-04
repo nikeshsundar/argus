@@ -26,7 +26,7 @@ export function createClaudeProvider(options: { apiKey: string; model: string })
       // same screen, so re-sending it would just burn tokens.
       const imageBlock: Anthropic.Beta.BetaImageBlockParam = {
         type: 'image',
-        source: { type: 'base64', media_type: 'image/png', data: image.toString('base64') }
+        source: { type: 'base64', media_type: 'image/jpeg', data: image.toString('base64') }
       }
 
       const messages: Anthropic.Beta.BetaMessageParam[] = history.map((turn, index) => ({

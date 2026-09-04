@@ -1,4 +1,5 @@
 import type { TeachAction, TeachStep } from '../../shared/teach'
+import { MODEL_IMAGE_MIME } from '../screenshot'
 import {
   callGemini,
   describeGeminiFailure,
@@ -116,7 +117,7 @@ export function createGeminiTeachProvider(options: TeachProviderOptions): {
       return {
         async next(screenshot: Buffer, lastResult?: string): Promise<TeachTurn> {
           const image = {
-            inline_data: { mime_type: 'image/png', data: screenshot.toString('base64') }
+            inline_data: { mime_type: MODEL_IMAGE_MIME, data: screenshot.toString('base64') }
           }
 
           if (contents.length === 0) {

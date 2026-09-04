@@ -22,6 +22,17 @@ export interface GeminiResponse {
  */
 export type ThinkingLevel = 'low' | 'high'
 
+/**
+ * Models known to reject `thinkingConfig`, so the hint is offered once.
+ *
+ * Without this the retry below fires on every single call: Agent Mode makes a
+ * dozen of them per task, so a model that does not understand the hint was
+ * costing two HTTP round trips and two of a twenty-a-day quota for every step,
+ * and thinking at full depth anyway. The streaming path has always remembered
+ * its own failure this way; this one had been left to relearn it forever.
+ */
+const thinkingSupport = new Map<string, boolean>()
+
 /** Merges a thinking hint into the request without disturbing the rest of it. */
 function withThinking(body: unknown, level: ThinkingLevel): unknown {
   const request = body as { generationConfig?: Record<string, unknown> }
@@ -53,7 +64,8 @@ export async function callGemini(options: {
       body: JSON.stringify(body)
     })
 
-  const body = options.thinking ? withThinking(options.body, options.thinking) : options.body
+  const wantsThinking = Boolean(options.thinking) && thinkingSupport.get(options.model) !== false
+  const body = wantsThinking ? withThinking(options.body, options.thinking!) : options.body
 
   // One attempt per key. A refused key is rested and the next one picked up,
   // so a quota that runs out mid-task does not end the task.
@@ -72,11 +84,17 @@ export async function callGemini(options: {
     }
 
     // thinkingConfig is not understood by every model. It is a speed hint, so
-    // a model that rejects it should still run the task - just slower.
-    if (response.status === 400 && options.thinking) {
+    // a model that rejects it should still run the task - just slower. Noted,
+    // so this costs one wasted request per model rather than one per step.
+    if (response.status === 400 && wantsThinking) {
       const detail = await peek(response)
-      if (/thinking/i.test(detail)) return await post(options.body, key)
+      if (/thinking/i.test(detail)) {
+        thinkingSupport.set(options.model, false)
+        return await post(options.body, key)
+      }
     }
+
+    if (response.ok && wantsThinking) thinkingSupport.set(options.model, true)
 
     return response
   }

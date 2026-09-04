@@ -12,8 +12,15 @@ import { createYielding } from './yield'
 
 /** Hard ceiling on actions per task, so a confused model can't grind forever. */
 const MAX_STEPS = 14
-/** Time for the screen to settle after an action before looking again. */
-const SETTLE_MS = 500
+/**
+ * Extra pause after an action before looking again.
+ *
+ * Small, because it is not the only wait: the screen grab that follows takes
+ * about 400ms on its own, so the screen already gets most of a second to
+ * settle before the model sees it. The old 500 was stacked on top of that and
+ * bought nothing but a slower agent - a dozen steps of it is six seconds.
+ */
+const SETTLE_MS = 150
 
 export interface AgentRunOptions {
   task: string

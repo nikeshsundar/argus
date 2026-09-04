@@ -1,4 +1,5 @@
 import { callGemini, consumeStream, describeGeminiFailure, extractText } from './geminiClient'
+import { MODEL_IMAGE_MIME } from '../screenshot'
 import { TALK_SYSTEM_PROMPT } from './prompt'
 import { ProviderUnavailableError, type VisionProvider, type VisionRequest } from './types'
 
@@ -30,7 +31,7 @@ export function createGeminiProvider(options: { apiKey: string; model: string })
       // The screenshot rides on one turn only - later questions are about the
       // same screen, so re-sending it would just burn tokens.
       const imagePart = {
-        inline_data: { mime_type: 'image/png', data: image.toString('base64') }
+        inline_data: { mime_type: MODEL_IMAGE_MIME, data: image.toString('base64') }
       }
 
       const contents = history.map((turn, index) => ({

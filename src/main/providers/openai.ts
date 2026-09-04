@@ -1,3 +1,4 @@
+import { MODEL_IMAGE_MIME } from '../screenshot'
 import { TALK_SYSTEM_PROMPT } from './prompt'
 import { ProviderUnavailableError, type VisionProvider, type VisionRequest } from './types'
 
@@ -33,7 +34,7 @@ export function createOpenAiProvider(options: { apiKey: string; model: string })
       // same screen, so re-sending it would just burn tokens.
       const imagePart = {
         type: 'image_url',
-        image_url: { url: `data:image/png;base64,${image.toString('base64')}` }
+        image_url: { url: `data:${MODEL_IMAGE_MIME};base64,${image.toString('base64')}` }
       }
 
       const messages: unknown[] = [{ role: 'system', content: TALK_SYSTEM_PROMPT }]

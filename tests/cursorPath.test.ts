@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { easeInOutCubic, glideDuration, pointAt } from '../src/shared/cursorPath'
+import { easeInOutCubic, glideDuration, PACES, pointAt } from '../src/shared/cursorPath'
 
 describe('easeInOutCubic', () => {
   it('pins both ends of the glide', () => {
@@ -30,21 +30,38 @@ describe('glideDuration', () => {
   })
 
   it('holds a short hop open long enough to be seen', () => {
-    // 40px at natural pace is ~15ms of travel; the floor is what makes it
-    // visible rather than a flicker.
-    expect(glideDuration(40, 'natural')).toBe(180)
+    // A few dozen pixels is a handful of milliseconds of travel; the floor is
+    // what makes it visible rather than a flicker. Asserted against the pace
+    // itself, so retuning for speed does not have to come here and edit a
+    // magic number - which is how a test stops checking anything.
+    expect(glideDuration(40, 'natural')).toBe(PACES.natural.minMs)
   })
 
   it('caps a long haul so a 4K sweep stays brisk', () => {
-    expect(glideDuration(4000, 'natural')).toBe(620)
-    expect(glideDuration(4000, 'demo')).toBe(1400)
+    expect(glideDuration(4000, 'natural')).toBe(PACES.natural.maxMs)
+    expect(glideDuration(4000, 'demo')).toBe(PACES.demo.maxMs)
+  })
+
+  it('keeps the pointer watchable without making it a journey', () => {
+    // The two ends of the range Agent Mode actually runs at. Nobody should
+    // wait a second for a pointer, and nobody can follow a 20ms jump.
+    expect(PACES.natural.minMs).toBeGreaterThanOrEqual(60)
+    expect(PACES.natural.maxMs).toBeLessThanOrEqual(350)
   })
 
   it('scales with distance between the clamps', () => {
-    const short = glideDuration(800, 'natural')
-    const long = glideDuration(1400, 'natural')
-    expect(short).toBeGreaterThan(180)
-    expect(long).toBeLessThan(620)
+    // The distances have to come from the pace too. Hardcoding them meant that
+    // making the pointer faster moved the ceiling below the test's "long" hop,
+    // and the test failed for a reason that had nothing to do with scaling.
+    const { pxPerSecond, minMs, maxMs } = PACES.natural
+    const floorPx = (minMs / 1000) * pxPerSecond
+    const ceilPx = (maxMs / 1000) * pxPerSecond
+
+    const short = glideDuration(floorPx * 1.2, 'natural')
+    const long = glideDuration(ceilPx * 0.9, 'natural')
+
+    expect(short).toBeGreaterThan(minMs)
+    expect(long).toBeLessThan(maxMs)
     expect(long).toBeGreaterThan(short)
   })
 

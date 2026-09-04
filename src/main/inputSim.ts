@@ -71,14 +71,16 @@ export async function executeAction(
           `No installed app matches "${action.name}". Try the exact name from the Start menu.`
         )
       }
-      // Programs take a moment to paint their first window.
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Programs take a moment to paint their first window. The screen grab
+      // before the next decision adds ~400ms of its own, so this only has to
+      // cover the rest.
+      await new Promise((resolve) => setTimeout(resolve, 900))
       return `launched ${launched}`
     }
 
     case 'openUrl': {
       await shell.openExternal(action.url)
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await new Promise((resolve) => setTimeout(resolve, 900))
       return `opened ${action.url}`
     }
 
