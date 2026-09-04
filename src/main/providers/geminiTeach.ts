@@ -2,6 +2,7 @@ import type { TeachAction, TeachStep } from '../../shared/teach'
 import { MODEL_IMAGE_MIME } from '../screenshot'
 import {
   callGemini,
+  STEP_TIMEOUT_MS,
   describeGeminiFailure,
   dropStaleImages,
   type GeminiPart,
@@ -157,6 +158,7 @@ export function createGeminiTeachProvider(options: TeachProviderOptions): {
             // A task should not fail because the quick model is busy;
             // the Talk model is slower at this but it answers.
             fallbackModels: options.fallbackModels ?? [],
+            timeoutMs: STEP_TIMEOUT_MS,
             method: 'generateContent',
             signal,
             thinking: 'low',

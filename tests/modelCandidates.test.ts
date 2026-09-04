@@ -43,13 +43,24 @@ describe('preferAvailable', () => {
     expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['a', 'b'])
   })
 
-  it('tries everything rather than nothing when all are resting', () => {
-    // Something has to be attempted, and a stale cooldown is a worse reason to
-    // fail than a real 503.
+  it('tries only one when everything is resting, rather than the whole chain', () => {
+    // Google is having a bad minute and none of them will answer. Walking the
+    // whole chain spends the full deadline per model to reach the conclusion
+    // the first one already established - which is how a working fallback
+    // turns into a slower way to fail.
     const resting = new Map([
-      ['a', NOW + 10_000],
-      ['b', NOW + 10_000]
+      ['a', NOW + 30_000],
+      ['b', NOW + 10_000],
+      ['c', NOW + 20_000]
     ])
-    expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['a', 'b'])
+    expect(preferAvailable(['a', 'b', 'c'], resting, NOW)).toEqual(['b'])
+  })
+
+  it('picks the one closest to being worth another try', () => {
+    const resting = new Map([
+      ['a', NOW + 50_000],
+      ['b', NOW + 1_000]
+    ])
+    expect(preferAvailable(['a', 'b'], resting, NOW)).toEqual(['b'])
   })
 })

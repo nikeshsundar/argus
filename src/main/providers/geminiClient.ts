@@ -77,11 +77,21 @@ const OVERLOAD_COOLDOWN_MS = 60_000
  *
  * This is a deadline on the response arriving, not on the answer finishing -
  * the timer is cleared the moment headers come back, so a long reply is never
- * cut off halfway. A healthy model answers in two to four seconds, so ten is
- * generous for the only thing being measured, and it caps what a dead one can
- * cost before the next model is tried.
+ * cut off halfway.
+ *
+ * Generous, because headers do not come back until the request has finished
+ * uploading. A voice clip is most of a megabyte of audio; ten seconds looked
+ * ample against a "hi" and then timed out every model in the chain on a real
+ * transcription, turning a working fallback into a slower way to fail.
  */
-const REQUEST_TIMEOUT_MS = 10_000
+const REQUEST_TIMEOUT_MS = 25_000
+
+/**
+ * Agent and Teach steps send one small screenshot and ask one small question,
+ * a dozen times a task. Waiting 25 seconds on each of those is its own
+ * failure, so they set their own, shorter deadline.
+ */
+export const STEP_TIMEOUT_MS = 12_000
 
 /** When each model is worth trying again. Keyed by model id. */
 const restingUntil = new Map<string, number>()
@@ -98,7 +108,17 @@ export function preferAvailable(
   now: number
 ): string[] {
   const ready = candidates.filter((model) => (resting.get(model) ?? 0) <= now)
-  return ready.length > 0 ? ready : candidates
+  if (ready.length > 0) return ready
+
+  // Everything is resting, so Google is having a bad minute and none of these
+  // is going to answer. Walking the whole chain again would spend the deadline
+  // once per model to reach the same conclusion - a minute of waiting to be
+  // told what the first ten seconds already established. Try the one closest
+  // to being worth another go, and report quickly.
+  const soonest = [...candidates].sort(
+    (a, b) => (resting.get(a) ?? 0) - (resting.get(b) ?? 0)
+  )
+  return soonest.slice(0, 1)
 }
 
 function pause(ms: number, signal?: AbortSignal): Promise<void> {
@@ -136,6 +156,8 @@ export async function callGemini(options: {
   fallbackModels?: string[]
   /** Told which model answered - so a substitution can be admitted, not hidden. */
   onModelChosen?: (model: string) => void
+  /** Overrides the default deadline. Small, frequent calls should ask for less. */
+  timeoutMs?: number
 }): Promise<Response> {
   const candidates = preferAvailable(
     modelCandidates(options.model, options.fallbackModels),
@@ -190,6 +212,7 @@ async function attempt(
     thinking?: ThinkingLevel
     /** True when another model is queued behind this one. */
     hasAlternatives?: boolean
+    timeoutMs?: number
   }
 ): Promise<Response> {
   const query = options.method === 'streamGenerateContent' ? '?alt=sse' : ''
@@ -199,7 +222,7 @@ async function attempt(
     // The caller's cancellation and our own deadline both have to reach fetch,
     // and only one of them means the user changed their mind.
     const deadline = new AbortController()
-    const timer = setTimeout(() => deadline.abort(), REQUEST_TIMEOUT_MS)
+    const timer = setTimeout(() => deadline.abort(), options.timeoutMs ?? REQUEST_TIMEOUT_MS)
     const signal = options.signal
       ? AbortSignal.any([options.signal, deadline.signal])
       : deadline.signal

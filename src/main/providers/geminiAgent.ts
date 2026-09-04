@@ -3,6 +3,7 @@ import { formatAgentHistory, type AgentRunRecord } from '../../shared/agentHisto
 import { MODEL_IMAGE_MIME } from '../screenshot'
 import {
   callGemini,
+  STEP_TIMEOUT_MS,
   describeGeminiFailure,
   dropStaleImages,
   type GeminiPart,
@@ -225,6 +226,7 @@ export function createGeminiAgentProvider(options: {
             // A task should not fail because the quick model is busy;
             // the Talk model is slower at this but it answers.
             fallbackModels: options.fallbackModels ?? [],
+            timeoutMs: STEP_TIMEOUT_MS,
             method: 'generateContent',
             signal,
             thinking: 'low',
