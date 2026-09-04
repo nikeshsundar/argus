@@ -1,4 +1,30 @@
 import { app, ipcMain, session } from 'electron'
+
+/**
+ * Stop a dead stdout from crashing the app.
+ *
+ * Argus is normally started from a terminal. Close that terminal - or kill the
+ * npm process that owns it - and the pipe our stdout points at is gone, while
+ * this process carries on running. The next console write then fails with
+ * EPIPE, and because nothing is listening for an error on that stream, Node
+ * reports it as an uncaught exception and Electron puts up "A JavaScript error
+ * occurred in the main process" over whatever the user was doing.
+ *
+ * Which is absurd: the failure is that nobody is reading our logs. That is not
+ * an application error and must not look like one. Attaching a listener is
+ * what makes the stream deliver the error here instead of throwing it.
+ *
+ * Deliberately narrow. Any other stream error is left alone, and uncaught
+ * exceptions in general still reach Electron's reporting - a real bug should
+ * still be loud.
+ */
+for (const stream of [process.stdout, process.stderr]) {
+  stream.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EPIPE' || error.code === 'ERR_STREAM_DESTROYED') return
+    // Anything else is worth knowing about, but the stream that just failed is
+    // not the place to say it.
+  })
+}
 import { runAgentTask } from './agentLoop'
 import type { AgentAction, ScreenSize } from '../shared/agent'
 import { rememberRun, type AgentRunRecord } from '../shared/agentHistory'

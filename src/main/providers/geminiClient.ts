@@ -45,6 +45,27 @@ function withThinking(body: unknown, level: ThinkingLevel): unknown {
   }
 }
 
+/**
+ * A 503 from Gemini means "busy, come back" - it is the one status where
+ * trying again is the correct response rather than a hopeful one. Two extra
+ * attempts, backing off, because the alternative is handing the user an error
+ * for something that would have worked a second later.
+ */
+const OVERLOAD_RETRIES = 2
+const OVERLOAD_BACKOFF_MS = [700, 1600]
+
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms)
+    function done(): void {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', done)
+      resolve()
+    }
+    signal?.addEventListener('abort', done, { once: true })
+  })
+}
+
 export async function callGemini(options: {
   apiKey: string
   model: string
@@ -56,13 +77,26 @@ export async function callGemini(options: {
   const query = options.method === 'streamGenerateContent' ? '?alt=sse' : ''
   const url = `${GEMINI_ENDPOINT}/${options.model}:${options.method}${query}`
 
-  const post = (body: unknown, key: string): Promise<Response> =>
+  const send = (body: unknown, key: string): Promise<Response> =>
     fetch(url, {
       method: 'POST',
       signal: options.signal,
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify(body)
     })
+
+  // Retries only the "server is busy" case. A refused key, a bad model or a
+  // spent quota are all answers, and asking again does not change them.
+  const post = async (body: unknown, key: string): Promise<Response> => {
+    let response = await send(body, key)
+    for (let retry = 0; response.status === 503 && retry < OVERLOAD_RETRIES; retry++) {
+      if (options.signal?.aborted) return response
+      await pause(OVERLOAD_BACKOFF_MS[retry] ?? 1600, options.signal)
+      if (options.signal?.aborted) return response
+      response = await send(body, key)
+    }
+    return response
+  }
 
   const wantsThinking = Boolean(options.thinking) && thinkingSupport.get(options.model) !== false
   const body = wantsThinking ? withThinking(options.body, options.thinking!) : options.body
@@ -157,7 +191,14 @@ export async function describeGeminiFailure(response: Response, model: string): 
     return `Every Gemini key is over quota (the free tier allows 20 requests a day per model). Try again in ${when}, or add another key with "/key <your-key>".`
   }
   if (response.status === 503) {
-    return `Gemini says "${model}" is overloaded right now. Try again, or switch with "/model <model-id>".`
+    // Already retried three times by the time this is written, so "try again"
+    // on its own would be poor advice - name the way out as well. Talk and the
+    // Agent/Teach/voice model are set by different commands, and pointing at
+    // the wrong one is how someone changes a setting that was never involved.
+    return (
+      `Gemini says "${model}" is overloaded — I tried ${OVERLOAD_RETRIES + 1} times. ` +
+      'Give it a minute, or switch model: "/aimodel" for Talk, "/model agent <id>" for Agent, Teach and voice.'
+    )
   }
   return `Gemini API error ${response.status}${detail ? `: ${detail}` : ''}`
 }
