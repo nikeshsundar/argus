@@ -1,0 +1,874 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://nikeshsundar.github.io/argus/features.html" />
+<meta property="og:title" content="Argus — every feature, and how to reach it" />
+<meta property="og:description" content="Every mode and command in Argus: what it is for, the exact keys to get there, and where it stops." />
+<meta property="og:image" content="https://nikeshsundar.github.io/argus/icon.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Argus — every feature, and how to reach it" />
+<meta name="twitter:description" content="Every mode and command in Argus: what it is for, the exact keys to get there, and where it stops." />
+<meta name="twitter:image" content="https://nikeshsundar.github.io/argus/icon.png" />
+<link rel="icon" type="image/png" href="./icon.png" />
+
+<title>Features · Argus</title>
+<meta name="description" content="Every mode and command in Argus: what it is for, the exact keys to get there, and where it stops." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,440;0,9..144,560;0,9..144,650;1,9..144,440&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+/* ============================= TOKENS ============================= */
+/* Same set as the home page, so the two never drift apart visually. */
+:root{
+  --bg:#EEF1F7;
+  --ink:#10121B;
+  --muted:#5B6178;
+  --surface:#FFFFFF;
+  --surface-2:#E6E9F1;
+  --border:rgba(16,18,27,.11);
+  --iris:#1094B8;
+  --iris-soft:rgba(16,148,184,.12);
+  --amber:#A66313;
+  --amber-soft:rgba(166,99,19,.12);
+  --term-bg:#0A0B12;
+  --term-ink:#E7EAF3;
+  --term-muted:#7C8299;
+  --shadow:0 24px 60px rgba(16,18,27,.10);
+
+  --font-display:"Fraunces",ui-serif,Georgia,serif;
+  --font-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A0B12;
+    --ink:#EDEFF7;
+    --muted:#8A90A6;
+    --surface:#12141F;
+    --surface-2:#181B29;
+    --border:rgba(255,255,255,.09);
+    --iris:#56D3F5;
+    --iris-soft:rgba(86,211,245,.12);
+    --amber:#F5B556;
+    --amber-soft:rgba(245,181,86,.13);
+    --shadow:0 24px 60px rgba(0,0,0,.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A0B12;
+  --ink:#EDEFF7;
+  --muted:#8A90A6;
+  --surface:#12141F;
+  --surface-2:#181B29;
+  --border:rgba(255,255,255,.09);
+  --iris:#56D3F5;
+  --iris-soft:rgba(86,211,245,.12);
+  --amber:#F5B556;
+  --amber-soft:rgba(245,181,86,.13);
+  --shadow:0 24px 60px rgba(0,0,0,.45);
+  color-scheme: dark;
+}
+
+/* ============================= RESET / BASE ============================= */
+*{ box-sizing:border-box; }
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; scroll-padding-top:86px; }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--font-body);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+img{ max-width:100%; }
+h1,h2,h3{
+  font-family:var(--font-display);
+  font-weight:560;
+  line-height:1.08;
+  text-wrap:balance;
+  margin:0;
+  color:var(--ink);
+}
+p{ margin:0; }
+a{ color:inherit; }
+::selection{ background:var(--iris-soft); color:var(--ink); }
+:focus-visible{ outline:2px solid var(--iris); outline-offset:3px; border-radius:4px; }
+
+.wrap{ max-width:1180px; margin:0 auto; padding:0 28px; }
+.eyebrow{
+  font-family:var(--font-mono);
+  font-size:12px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--muted);
+}
+.lede{ font-size:1.1rem; color:var(--muted); max-width:56ch; }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}
+
+/* ============================= NAV ============================= */
+.nav{
+  position:sticky; top:0; z-index:40;
+  backdrop-filter:blur(14px) saturate(140%);
+  background:color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom:1px solid var(--border);
+}
+.nav .wrap{ display:flex; align-items:center; gap:28px; height:66px; }
+.brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:650; font-size:1.15rem; text-decoration:none; margin-right:auto; }
+.brand img{ width:26px; height:26px; border-radius:7px; display:block; }
+.navlinks{ display:flex; gap:26px; font-size:.92rem; color:var(--muted); }
+.navlinks a{ text-decoration:none; }
+.navlinks a:hover{ color:var(--ink); }
+.navlinks a[aria-current="page"]{ color:var(--ink); font-weight:600; }
+.nav-cta{
+  font-family:var(--font-mono); font-size:.82rem; font-weight:500;
+  padding:9px 16px; border-radius:8px; border:1px solid var(--border);
+  text-decoration:none; color:var(--ink); white-space:nowrap;
+}
+.nav-cta:hover{ border-color:var(--iris); }
+@media (max-width:760px){ .navlinks{ display:none; } }
+
+/* ============================= PAGE HEAD ============================= */
+.page-head{ padding:72px 0 48px; }
+.page-head h1{ font-size:clamp(2.3rem,4.6vw,3.2rem); margin:14px 0 20px; }
+.page-head h1 em{ font-style:italic; color:var(--iris); }
+
+.legend{
+  display:flex; flex-wrap:wrap; gap:10px; margin-top:28px;
+}
+.legend span{
+  font-family:var(--font-mono); font-size:.74rem; letter-spacing:.03em;
+  padding:6px 11px; border-radius:999px; border:1px solid var(--border);
+  color:var(--muted); background:var(--surface);
+}
+
+/* ============================= LAYOUT ============================= */
+.shell{ display:grid; grid-template-columns:214px 1fr; gap:56px; padding-bottom:96px; }
+@media (max-width:940px){ .shell{ grid-template-columns:1fr; gap:0; } }
+
+.toc{ position:sticky; top:92px; align-self:start; }
+@media (max-width:940px){
+  .toc{ position:static; margin-bottom:40px; padding-bottom:28px; border-bottom:1px solid var(--border); }
+  .toc ol{ columns:2; }
+}
+.toc h2{ font-family:var(--font-body); font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 14px; font-weight:700; }
+.toc ol{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
+@media (max-width:940px){ .toc ol{ display:block; } }
+.toc a{
+  display:block; text-decoration:none; color:var(--muted);
+  font-size:.9rem; padding:5px 0 5px 12px; border-left:2px solid transparent;
+}
+.toc a:hover{ color:var(--ink); border-left-color:var(--border); }
+.toc a.on{ color:var(--iris); border-left-color:var(--iris); }
+
+/* ============================= FEATURE BLOCK ============================= */
+.feat{ padding:44px 0; border-top:1px solid var(--border); scroll-margin-top:86px; }
+.feat:first-of-type{ border-top:0; padding-top:0; }
+.feat-tag{
+  display:inline-block; font-family:var(--font-mono); font-size:.68rem;
+  letter-spacing:.1em; text-transform:uppercase; padding:4px 9px; border-radius:6px;
+  background:var(--iris-soft); color:var(--iris);
+}
+.feat-tag.act{ background:var(--amber-soft); color:var(--amber); }
+.feat h3{ font-size:1.62rem; margin:14px 0 12px; }
+.feat > p{ color:var(--muted); max-width:62ch; }
+
+.rows{ margin-top:26px; display:grid; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.row{ background:var(--surface); padding:20px 22px; display:grid; grid-template-columns:132px 1fr; gap:22px; align-items:start; }
+@media (max-width:640px){ .row{ grid-template-columns:1fr; gap:8px; } }
+.row .k{
+  font-family:var(--font-mono); font-size:.68rem; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted); padding-top:3px;
+}
+.row .v{ font-size:.95rem; color:var(--ink); }
+.row .v p + p{ margin-top:9px; }
+.row .v .muted{ color:var(--muted); }
+.row ul{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
+.row li{ color:var(--muted); font-size:.92rem; padding-left:18px; position:relative; }
+.row li::before{ content:"—"; position:absolute; left:0; color:var(--iris); }
+.row li b{ color:var(--ink); font-weight:600; }
+
+kbd{
+  font-family:var(--font-mono); font-size:.78rem; line-height:1;
+  padding:4px 7px; border-radius:5px; border:1px solid var(--border);
+  background:var(--surface-2); color:var(--ink); white-space:nowrap;
+  box-shadow:0 1px 0 var(--border);
+}
+code{
+  font-family:var(--font-mono); font-size:.85em;
+  background:var(--surface-2); padding:2px 6px; border-radius:5px;
+}
+
+/* ============================= TERMINAL ============================= */
+.term{
+  background:var(--term-bg); border-radius:10px; overflow:hidden;
+  font-family:var(--font-mono); font-size:.82rem; color:var(--term-ink);
+}
+.term-body{ padding:10px 0; }
+.term-line{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:5px 16px; }
+.term-cmd{ white-space:pre; overflow-x:auto; }
+.term-cmd .prompt{ color:#5FE38A; }
+.term-cmd .rem{ color:var(--term-muted); }
+.copy-btn{
+  flex:none; font-family:var(--font-mono); font-size:.68rem; letter-spacing:.03em;
+  color:var(--term-muted); background:transparent; border:1px solid rgba(255,255,255,.14);
+  border-radius:6px; padding:3px 8px; cursor:pointer;
+}
+.copy-btn:hover{ color:var(--term-ink); border-color:rgba(255,255,255,.3); }
+.copy-btn[data-copied="true"]{ color:#5FE38A; border-color:#5FE38A; }
+
+/* ============================= CALLOUT ============================= */
+.note{
+  margin-top:22px; padding:16px 18px; border-radius:10px;
+  background:var(--amber-soft); border:1px solid color-mix(in srgb, var(--amber) 26%, transparent);
+  font-size:.9rem; color:var(--ink);
+}
+.note b{ color:var(--amber); }
+
+/* ============================= CHEAT SHEET ============================= */
+.sheet{ background:var(--surface-2); border-top:1px solid var(--border); padding:80px 0; }
+.sheet h2{ font-size:clamp(1.8rem,3.2vw,2.3rem); margin:12px 0 10px; }
+.tablewrap{ margin-top:36px; overflow-x:auto; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+table{ border-collapse:collapse; width:100%; min-width:620px; }
+th,td{ text-align:left; padding:13px 18px; border-bottom:1px solid var(--border); font-size:.9rem; vertical-align:top; }
+th{ font-family:var(--font-mono); font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+tbody tr:last-child td{ border-bottom:0; }
+td:first-child{ font-family:var(--font-mono); font-size:.83rem; white-space:nowrap; color:var(--ink); }
+td:last-child{ color:var(--muted); }
+
+/* ============================= FOOTER ============================= */
+footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
+.foot-row{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:28px; align-items:flex-start; }
+.foot-brand{ font-family:var(--font-display); font-size:1.3rem; font-weight:600; }
+.foot-links{ display:flex; gap:28px; flex-wrap:wrap; font-size:.9rem; color:var(--muted); }
+.foot-links a{ text-decoration:none; }
+.foot-links a:hover{ color:var(--ink); }
+.foot-bottom{ margin-top:44px; padding-top:24px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-family:var(--font-mono); font-size:.78rem; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="./index.html"><img src="./icon.png" alt="" /> Argus</a>
+    <div class="navlinks">
+      <a href="./features.html" aria-current="page">Features</a>
+      <a href="./index.html#how">How it works</a>
+      <a href="./index.html#install">Install</a>
+      <a href="./index.html#safety">Safety</a>
+    </div>
+    <a class="nav-cta" href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">★ GitHub</a>
+  </div>
+</nav>
+
+<main id="top">
+
+  <header class="page-head">
+    <div class="wrap">
+      <p class="eyebrow">Reference</p>
+      <h1>Everything Argus does,<br>and <em>exactly</em> how to reach it.</h1>
+      <p class="lede">Argus has no settings window. Everything lives behind one hotkey and a handful of slash commands, so every feature below is three keystrokes away from wherever you already are.</p>
+      <div class="legend">
+        <span>Press <kbd>Alt</kbd> + <kbd>`</kbd> anywhere to open the bar</span>
+        <span>Type <kbd>/</kbd> for the command palette</span>
+        <span><kbd>Esc</kbd> closes it, and stops the agent</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="shell">
+
+      <!-- ============================= TOC ============================= -->
+      <aside class="toc">
+        <h2>On this page</h2>
+        <ol>
+          <li><a href="#talk">Talk Mode</a></li>
+          <li><a href="#agent">Agent Mode</a></li>
+          <li><a href="#teach">Teach Mode</a></li>
+          <li><a href="#voice">Voice</a></li>
+          <li><a href="#memory">Screen Memory</a></li>
+          <li><a href="#workflows">Saved Workflows</a></li>
+          <li><a href="#models">Choosing a model</a></li>
+          <li><a href="#keys">API keys</a></li>
+          <li><a href="#history">Chat history</a></li>
+          <li><a href="#hotkey">The hotkey</a></li>
+          <li><a href="#pace">Pointer pace</a></li>
+          <li><a href="#cheatsheet">Every command</a></li>
+        </ol>
+      </aside>
+
+      <div>
+
+        <!-- ============================= TALK ============================= -->
+        <section class="feat" id="talk">
+          <span class="feat-tag">Asks</span>
+          <h3>Talk Mode</h3>
+          <p>Ask a question about whatever is on your screen right now. Argus captures the display the instant you press the hotkey — before its own window appears — so it sees what you were looking at, not the bar you just opened.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <p>Press <kbd>Alt</kbd> + <kbd>`</kbd> and just type a question. It is the default — no prefix needed.</p>
+                <p class="muted">If a question reads like an order and gets routed to the agent by mistake, prefix it with <code>ask</code>.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Try it with</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> what is this error telling me?</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> summarise this page in three bullets</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> ask what does this graph actually show</div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Good for</div>
+              <div class="v"><ul>
+                <li><b>Errors you cannot parse.</b> A stack trace, a Windows error code, a red squiggle in an IDE — without retyping any of it into a chat window</li>
+                <li><b>Dense screens.</b> A spreadsheet, a dashboard, a legal PDF: "which of these numbers is the one that changed?"</li>
+                <li><b>Another language.</b> An interface, a document, a menu — it reads what is rendered, so nothing has to be selectable</li>
+                <li><b>Follow-ups.</b> The screenshot stays attached to the conversation, so "and the one below it?" works without re-capturing</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v"><p class="muted">The screenshot lives in RAM and is dropped when you dismiss the bar. Saved conversations keep the text, never the image.</p></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= AGENT ============================= -->
+        <section class="feat" id="agent">
+          <span class="feat-tag act">Acts</span>
+          <h3>Agent Mode</h3>
+          <p>Hand over the keyboard and mouse. Argus looks at the screen, takes one action, looks again, and repeats until the task is done — clicking and typing on your real desktop, in whatever apps you already have open.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <p>Type an instruction. Anything imperative is routed to the agent automatically — no magic word.</p>
+                <p class="muted">Click the <b>Talk</b> chip to force it, or prefix with <code>agent</code> when the wording is ambiguous.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Try it with</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> open notepad and write a shopping list</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> go to github.com and open my notifications</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> agent find the cheapest flight to Chennai tomorrow</div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Good for</div>
+              <div class="v"><ul>
+                <li><b>Fiddly sequences you know but hate.</b> Six clicks buried in a settings tree you have to rediscover every time</li>
+                <li><b>Apps with no API.</b> Legacy desktop software, an intranet portal, anything where scripting was never an option</li>
+                <li><b>Reading something out of a UI.</b> Ask it to check or summarise and the answer comes back — not a description of the clicking</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">Take over any time</div>
+              <div class="v">
+                <p>Click, type or scroll and the agent <b>stands down between steps</b> and gives you the machine back. Go quiet for three seconds and it resumes where it left off. The frame turns from amber to grey so you always know who is driving.</p>
+                <p class="muted">Hold <kbd>Esc</kbd> to stop it outright, mid-movement.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Where it stops</div>
+              <div class="v"><ul>
+                <li>Fourteen actions per task. A confused agent cannot grind forever</li>
+                <li>It notices when it is <b>going in circles</b> — the same action twice earns a correction, three times ends the task honestly rather than burning the remaining steps</li>
+                <li>Two minutes of you working abandons the task, because the screen it planned against is gone by then</li>
+                <li>Follow-ups work: the last few tasks and how each turned out are carried into the next one, so <i>"open it in Edge instead"</i> means something</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= TEACH ============================= -->
+        <section class="feat" id="teach">
+          <span class="feat-tag">Shows</span>
+          <h3>Teach Mode</h3>
+          <p>The inverse of Agent Mode: ask to be <em>taught</em> and it refuses to do it for you. A blue ghost cursor appears over the real control, captioned with what the step does and why — and then it waits. You click. It looks at the new screen and points at the next thing.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <p>Start your request with <code>teach me</code>, then click the chip to <b>Agent</b> so it points at your screen rather than writing out steps.</p>
+                <p class="muted">Left on <b>Talk</b>, the same words give you a numbered written walkthrough instead — useful when you want something you can keep.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Try it with</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> teach me how to change my display resolution</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> teach me how to export this as a PDF</div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Good for</div>
+              <div class="v"><ul>
+                <li><b>Learning software you will use again.</b> Being shown where a control is teaches you where it is; being done for teaches you nothing</li>
+                <li><b>Helping someone remotely.</b> They keep the mouse the whole time</li>
+                <li><b>Anyone wary of handing over control.</b> This is the mode to start with — the worst it can do is point at the wrong button</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v">
+                <p>Teach Mode <b>never touches your mouse or keyboard.</b> The ghost cursor is a drawing on a click-through overlay; every real click is yours. Nothing advances on a timer, so a step stays up for as long as you need.</p>
+                <p class="muted">Press <kbd>Space</kbd> or <kbd>Enter</kbd> to skip ahead a step, <kbd>Esc</kbd> to end the lesson.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= VOICE ============================= -->
+        <section class="feat" id="voice">
+          <span class="feat-tag">Input</span>
+          <h3>Voice</h3>
+          <p>Long instructions are miserable to type and effortless to speak, which is exactly what Agent Mode asks for. Click the mic, say it, click again.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v"><p>Click the microphone button in the bar. Click it again to stop. The bar turns red and the mic pulses while it is live.</p></div>
+            </div>
+            <div class="row">
+              <div class="k">What you get</div>
+              <div class="v">
+                <p><i>"um, open youtube and uh search for mister beast"</i> becomes <b>"Open YouTube and search for MrBeast"</b>.</p>
+                <p class="muted">Fillers, false starts and misheard brand names are cleaned up as part of transcribing, so you get what you meant rather than a literal transcript.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v"><ul>
+                <li><b>Never a wake word.</b> Nothing listens in the background — recording only ever starts from that click</li>
+                <li><kbd>Esc</kbd> discards a recording, and one stops itself after 60 seconds so a forgotten mic cannot stay open</li>
+                <li>Talk Mode sends straight away; Agent and Teach put the text in the box and wait for <kbd>Enter</kbd>, because speech misheard by one word should not move your mouse</li>
+                <li>Argus never speaks back. This is dictation, not a conversation</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= MEMORY ============================= -->
+        <section class="feat" id="memory">
+          <span class="feat-tag">Asks</span>
+          <h3>Screen Memory</h3>
+          <p>Ask about something that is <em>already gone</em>. Argus can keep a short rolling record of what has been on your screen — in RAM, never on disk — so a question does not have to be about what is in front of you right now.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /memory on            <span class="rem"># keep the last 10 minutes</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /memory on 30         <span class="rem"># or any number of minutes, up to 60</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /memory               <span class="rem"># what is held, and how far back</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /memory purge         <span class="rem"># forget everything, now</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /memory off           <span class="rem"># stop, and forget everything</span></div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Then ask</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /recall what was that error code</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> what was the price on that tab I closed</div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> what have I been doing for the last 10 minutes</div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+                <p class="muted" style="margin-top:12px;">You do not have to type <code>/recall</code>. While memory is on, a question that could only be about the past is answered from the timeline automatically.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Good for</div>
+              <div class="v"><ul>
+                <li><b>The dialog you dismissed too fast.</b> The single most common reason to want this</li>
+                <li><b>A tab you closed</b> — the price, the order number, the phone number you did not write down</li>
+                <li><b>Standup notes.</b> "What have I been doing" produces a short chronological list of apps and pages</li>
+                <li><b>Where did I see that?</b> When you know you read something in the last ten minutes but not where</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">How it answers</div>
+              <div class="v"><ul>
+                <li><b>Every frame is dated.</b> The answer says <i>when</i> it saw the thing — "3m ago, in the Chrome window" — so you can go back and check</li>
+                <li><b>It quotes, it does not paraphrase.</b> Error codes and prices come back character for character, and "it is not in the last 10 minutes" is a valid answer. A plausible invented error code is the one failure you could not detect</li>
+                <li>The live screen is always included, so <i>"is that still up"</i> and <i>"what changed"</i> have a now to compare against</li>
+              </ul></div>
+            </div>
+          </div>
+
+          <div class="note">
+            <b>This is the only feature that looks at your screen without you pressing anything</b> — so it is off until you turn it on, and it is meant to be obvious when it is not. A red <b>&#9679;&nbsp;10m</b> pill sits in the bar every time you open it, and the tray tooltip says so. Frames are JPEGs in one process and nowhere else: <code>/memory off</code>, <code>/memory purge</code> and quitting each drop them, nothing survives a restart, and recording stops entirely while Argus's own windows are up. Nothing is sent anywhere until you ask a question.
+          </div>
+        </section>
+
+        <!-- ============================= WORKFLOWS ============================= -->
+        <section class="feat" id="workflows">
+          <span class="feat-tag act">Acts</span>
+          <h3>Saved Workflows</h3>
+          <p>Agent Mode costs a model call per step and most of a minute per task, against a free tier of twenty calls a day. But the second time you ask for the same thing, the answer is already known — so save the run and replay it for nothing.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <p>Run an Agent task. When it succeeds, the result offers to keep it.</p>
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /save morning          <span class="rem"># keep the last successful run</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /workflows             <span class="rem"># list them, with step counts</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /workflows morning     <span class="rem"># every step, before you run it</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /run morning           <span class="rem"># replay - no model call at all</span></div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+                <p class="muted" style="margin-top:12px;">Typing the workflow's name on its own in Agent Mode replays it too.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Good for</div>
+              <div class="v"><ul>
+                <li><b>The same setup every morning.</b> Open the four apps, land on the right tab</li>
+                <li><b>Anything you have already watched succeed once.</b> A replay is a shortcut, not a scheduler</li>
+                <li><b>Staying inside the free tier.</b> A replay costs nothing and finishes in seconds instead of a minute</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">Where it stops</div>
+              <div class="v"><ul>
+                <li><b>It records the agent's actions, not yours.</b> Watching you would mean a keylogger running all day, in an app whose whole promise is that it is not watching</li>
+                <li>Only successful actions are kept, and a replay <b>stops at the first failure</b> rather than typing the rest into whatever is now on screen</li>
+                <li><b>It refuses to run on a differently shaped screen.</b> 1080p to 4K is fine; 16:9 to ultrawide moves every control, and a blind click would land on whatever now occupies that spot</li>
+              </ul></div>
+            </div>
+          </div>
+
+          <div class="note">
+            <b>A replay is deliberately blind.</b> A live agent looks before every action; a replay skips the screenshot and the model call, which is precisely what makes it free and quick. It clicks the coordinates that worked last time. Replay what you would be happy to watch happen.
+          </div>
+        </section>
+
+        <!-- ============================= MODELS ============================= -->
+        <section class="feat" id="models">
+          <span class="feat-tag">Setup</span>
+          <h3>Choosing a model</h3>
+          <p>Argus is bring-your-own-key, so which model answers is your call. <code>/aimodel</code> lists what can answer and you pick — Gemini's free tier is the default, so Argus is usable the minute you install it.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /aimodel               <span class="rem"># the menu, numbered</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /aimodel 3             <span class="rem"># pick by row number</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /aimodel claude sonnet <span class="rem"># or by name</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /model &lt;id&gt;            <span class="rem"># a raw id, for anything unlisted</span></div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">On the menu</div>
+              <div class="v"><ul>
+                <li><b>Gemini Flash</b> — free tier, 20 requests a day, no card. The default</li>
+                <li><b>Claude</b> Sonnet, Opus or Haiku — paid; reads cluttered screens and small text best</li>
+                <li><b>GPT-5</b> and GPT-5 mini — paid</li>
+                <li><b>Ollama</b> — free and offline, running on your own machine</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v"><ul>
+                <li>The menu marks which rows are <b>ready</b> and which <b>need a key</b> before you pick one, rather than letting you find out a request later</li>
+                <li>An ambiguous name is refused, not guessed. <code>/aimodel claude</code> is fine; <code>/aimodel flash</code> matches two models and says so</li>
+                <li>Agent and Teach Mode run on Gemini regardless: they make a dozen quick "which control next" calls per task, which is a different job from one answer worth waiting for</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= KEYS ============================= -->
+        <section class="feat" id="keys">
+          <span class="feat-tag">Setup</span>
+          <h3>API keys</h3>
+          <p>Your key stays on your machine. There is no Argus server — your screen goes to the model provider you chose, and nowhere else.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /key &lt;your-key&gt;        <span class="rem"># filed by its own format</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /keys                  <span class="rem"># the rotation, and which are resting</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /keys k1 k2 k3         <span class="rem"># load several at once</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /keys reset            <span class="rem"># clear cooldowns, retry everything</span></div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+                <p class="muted" style="margin-top:12px;">Get a free Gemini key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--iris);">aistudio.google.com/apikey</a> — no card required.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v"><ul>
+                <li><b>You never have to say which provider a key belongs to.</b> <code>sk-ant-…</code>, <code>sk-…</code> and <code>AIza…</code> each route themselves, and Talk Mode switches with them</li>
+                <li><b>Keys stack rather than replace.</b> One over quota hands off to the next automatically</li>
+                <li>Quota is per Google Cloud <i>project</i>, so a second key only buys headroom if it comes from a different project</li>
+                <li>Paste a bare key into the bar without <code>/key</code> and it is still recognised — never sent to the model, never written to the transcript</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= HISTORY ============================= -->
+        <section class="feat" id="history">
+          <span class="feat-tag">Setup</span>
+          <h3>Chat history</h3>
+          <p>Conversations persist across sessions, so you can pick up something you were asking about yesterday.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /history               <span class="rem"># browse and resume</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /new                   <span class="rem"># start fresh</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /forget                <span class="rem"># delete every saved chat</span></div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v"><ul>
+                <li><b>Text is saved; screenshots never are.</b> A resumed conversation remembers what was said about a screen, not the screen</li>
+                <li><code>/new</code> clears what the agent remembers too, so a follow-up cannot quietly continue a task you thought you had cleared away</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= HOTKEY ============================= -->
+        <section class="feat" id="hotkey">
+          <span class="feat-tag">Setup</span>
+          <h3>The hotkey</h3>
+          <p><kbd>Alt</kbd> + <kbd>`</kbd> by default, from anywhere in Windows. Press it again, or <kbd>Esc</kbd>, to dismiss.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to change it</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /hotkey Control+Alt+Space</div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+                <p class="muted" style="margin-top:12px;">If Windows refuses to give up the combination, Argus says so and keeps the one that works rather than leaving you with no way in.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Worth knowing</div>
+              <div class="v"><ul>
+                <li>The obvious pick, <kbd>Win</kbd> + <kbd>`</kbd>, is already Windows Terminal's — a hook can see the key without being able to stop the other app receiving it, so it would open a terminal too</li>
+                <li><kbd>Ctrl</kbd> + <kbd>Space</kbd> is avoided as well: it toggles IME language input and loses to the OS</li>
+                <li>Argus also lives in the system tray — click the icon to open the bar</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============================= PACE ============================= -->
+        <section class="feat" id="pace">
+          <span class="feat-tag act">Acts</span>
+          <h3>Pointer pace</h3>
+          <p>The pointer travels rather than teleporting — an eased glide with a halo and a click ring — so you can follow every move instead of watching things happen.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <div class="term"><div class="term-body">
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /cursor natural        <span class="rem"># the default - quick, still followable</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /cursor demo           <span class="rem"># slow and deliberate, for recording</span></div><button class="copy-btn" type="button">copy</button></div>
+                  <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /cursor instant        <span class="rem"># no show at all</span></div><button class="copy-btn" type="button">copy</button></div>
+                </div></div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Good for</div>
+              <div class="v"><ul>
+                <li><b>demo</b> when you are screen-recording, or showing someone what the agent is doing</li>
+                <li><b>instant</b> when you have stopped watching and just want the task finished</li>
+              </ul></div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================= CHEAT SHEET ============================= -->
+  <section class="sheet" id="cheatsheet">
+    <div class="wrap">
+      <p class="eyebrow">Cheat sheet</p>
+      <h2>Every command</h2>
+      <p class="lede">Type <kbd>/</kbd> in the bar and the palette filters as you go — <kbd>&uarr;</kbd><kbd>&darr;</kbd> to pick, <kbd>Enter</kbd> to run. <code>/help</code> prints this list in the bar itself.</p>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>/help</td><td>List every command, inside the bar</td></tr>
+            <tr><td>/aimodel</td><td>The model menu — Gemini (free), Claude, GPT, local Ollama</td></tr>
+            <tr><td>/aimodel &lt;n&gt;</td><td>Pick by row number, or by name: <code>/aimodel claude sonnet</code></td></tr>
+            <tr><td>/model &lt;id&gt;</td><td>Set a raw model id, for anything the menu does not list</td></tr>
+            <tr><td>/model agent &lt;id&gt;</td><td>Change the Agent and Teach model — the fast one</td></tr>
+            <tr><td>/key &lt;api-key&gt;</td><td>Add a key. Filed by its own format, whichever provider it is</td></tr>
+            <tr><td>/keys</td><td>The rotation, and whether each key is ready or resting</td></tr>
+            <tr><td>/keys &lt;k1&gt; &lt;k2&gt; …</td><td>Load several at once, in the order given</td></tr>
+            <tr><td>/keys reset</td><td>Clear cooldowns and try every key again</td></tr>
+            <tr><td>/keys clear</td><td>Remove every stored key</td></tr>
+            <tr><td>/memory on [minutes]</td><td>Start remembering the screen — 10 minutes by default, 60 max</td></tr>
+            <tr><td>/memory</td><td>Whether it is recording, how much is held, how far back</td></tr>
+            <tr><td>/recall &lt;question&gt;</td><td>Ask about something already gone</td></tr>
+            <tr><td>/memory purge</td><td>Forget everything held right now</td></tr>
+            <tr><td>/memory off</td><td>Stop recording, and forget everything</td></tr>
+            <tr><td>/save &lt;name&gt;</td><td>Keep the last successful Agent run as a workflow</td></tr>
+            <tr><td>/workflows</td><td>List saved workflows, with step counts and usage</td></tr>
+            <tr><td>/workflows &lt;name&gt;</td><td>Show a workflow's exact steps before running it</td></tr>
+            <tr><td>/workflows delete &lt;name&gt;</td><td>Remove one</td></tr>
+            <tr><td>/workflows clear</td><td>Remove them all</td></tr>
+            <tr><td>/run &lt;name&gt;</td><td>Replay a workflow — no model call</td></tr>
+            <tr><td>/history</td><td>Browse and resume past conversations</td></tr>
+            <tr><td>/new</td><td>Start a fresh chat</td></tr>
+            <tr><td>/forget</td><td>Delete all saved chats permanently</td></tr>
+            <tr><td>/hotkey &lt;combo&gt;</td><td>Rebind the activation hotkey</td></tr>
+            <tr><td>/cursor &lt;pace&gt;</td><td><code>natural</code>, <code>demo</code> or <code>instant</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tablewrap" style="margin-top:24px;">
+        <table>
+          <thead><tr><th>Keys and prefixes</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td>Alt + `</td><td>Open the bar from anywhere. Press again to dismiss</td></tr>
+            <tr><td>Esc</td><td>Close the bar. During a task, stop the agent</td></tr>
+            <tr><td>Enter</td><td>Send, or run the highlighted command</td></tr>
+            <tr><td>&uarr; &darr;</td><td>Move through the command palette</td></tr>
+            <tr><td>agent …</td><td>Force Agent Mode, whatever the wording looks like</td></tr>
+            <tr><td>ask … / talk …</td><td>Force Talk Mode — for when a question reads like an order</td></tr>
+            <tr><td>teach me …</td><td>Ask to be shown rather than have it done for you</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-row">
+      <div>
+        <div class="foot-brand">Argus</div>
+        <p class="lede" style="margin-top:8px; font-size:.92rem;">Named for Argus Panoptes, the hundred-eyed giant of Greek myth — always watching, never asleep. This one only opens its eye when you ask.</p>
+      </div>
+      <div class="foot-links">
+        <a href="./index.html">Home</a>
+        <a href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/nikeshsundar/argus/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+        <a href="https://github.com/nikeshsundar/argus/issues" target="_blank" rel="noopener">Report an issue</a>
+        <a href="./index.html#install">Install</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© 2026 nikeshsundar</span>
+      <span>Windows 10/11 · MIT licensed · no telemetry</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // Copy buttons. The comment markers are part of the shown text but not part
+  // of what anyone wants on their clipboard.
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var line = btn.closest('.term-line');
+      var cmd = line && line.querySelector('.term-cmd');
+      if (!cmd) return;
+
+      var clone = cmd.cloneNode(true);
+      clone.querySelectorAll('.prompt, .rem').forEach(function(el){ el.remove(); });
+      var text = clone.textContent.trim();
+
+      var done = function(){
+        btn.textContent = 'copied';
+        btn.dataset.copied = 'true';
+        setTimeout(function(){ btn.textContent = 'copy'; btn.dataset.copied = 'false'; }, 1400);
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function(){});
+      } else {
+        // Older engines, and any context where the async API is unavailable.
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  // Highlight the section being read. Falls back to doing nothing at all on
+  // engines without IntersectionObserver, which is the right failure: the
+  // contents list still works as links.
+  if (!('IntersectionObserver' in window)) return;
+
+  var links = {};
+  document.querySelectorAll('.toc a').forEach(function(a){
+    links[a.getAttribute('href').slice(1)] = a;
+  });
+
+  var seen = new Set();
+  var observer = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if (entry.isIntersecting) seen.add(entry.target.id); else seen.delete(entry.target.id);
+    });
+    var order = Object.keys(links);
+    var current = order.find(function(id){ return seen.has(id); });
+    order.forEach(function(id){ links[id].classList.toggle('on', id === current); });
+  }, { rootMargin: '-86px 0px -55% 0px' });
+
+  // The cheat sheet is in the contents list too, so it has to be watched as
+  // well or that one entry could never light up.
+  document.querySelectorAll('.feat, #cheatsheet').forEach(function(section){ observer.observe(section); });
+})();
+</script>
+
+</body>
+</html>
