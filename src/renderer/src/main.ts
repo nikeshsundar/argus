@@ -4,6 +4,13 @@ import { isRecallQuestion } from '../../shared/recall'
 import { startRecording, type Recorder } from './voice'
 import { parseTeachRequest } from '../../shared/teach'
 import { parseMode, type Mode } from '../../shared/types'
+import {
+  TUTORIAL,
+  clampPage,
+  isLastPage,
+  parseTutorialCommand,
+  tutorialFooter
+} from '../../shared/tutorial'
 import { filterOptions, type Option } from './options'
 
 const input = document.querySelector<HTMLInputElement>('#input')!
@@ -34,6 +41,14 @@ let activeAnswer: HTMLDivElement | null = null
  * what most requests want; an explicit choice outranks the guess.
  */
 let manualMode: Mode | null = null
+/**
+ * Which tutorial page is showing, or -1 when it is not running.
+ *
+ * The tutorial is renderer-only on purpose: it never calls a model, so it is
+ * the one thing that still works on a fresh install with no API key - which is
+ * exactly when someone needs to be told what this app is.
+ */
+let tutorialPage = -1
 /** Live microphone, while the button is held. */
 let recorder: Recorder | null = null
 let recordingStartedAt = 0
@@ -103,6 +118,74 @@ function appendExchange(question: string): HTMLDivElement {
 function clearThread(): void {
   thread.replaceChildren()
   activeAnswer = null
+}
+
+/** Paints one tutorial page into the transcript and remembers where we are. */
+function showTutorialPage(index: number): void {
+  const page = clampPage(index)
+  const content = TUTORIAL[page]!
+
+  tutorialPage = page
+  clearThread()
+
+  const node = appendExchange(content.title)
+  node.textContent = content.tip ? `${content.body}\n\n→ ${content.tip}` : content.body
+
+  input.value = ''
+  highlighted = -1
+  syncChip()
+  renderOptions()
+  setStatus(tutorialFooter(page))
+  input.focus()
+}
+
+/** Leaves the tutorial without dismissing the bar, so they can try something. */
+function endTutorial(message: string): void {
+  tutorialPage = -1
+  clearThread()
+  input.value = ''
+  highlighted = -1
+  syncChip()
+  renderOptions()
+  setStatus(message, 'done')
+  input.focus()
+}
+
+function runTutorialCommand(command: Exclude<ReturnType<typeof parseTutorialCommand>, { kind: 'none' }>): void {
+  switch (command.kind) {
+    case 'start':
+      showTutorialPage(0)
+      return
+    case 'jump':
+      showTutorialPage(command.index)
+      return
+    case 'back':
+      // Backing out of page one leaves the tutorial rather than sticking.
+      if (tutorialPage <= 0) {
+        endTutorial('Left the tutorial. "/tutorial" starts it again.')
+        return
+      }
+      showTutorialPage(tutorialPage - 1)
+      return
+    case 'next':
+      advanceTutorial()
+      return
+    case 'exit':
+      endTutorial('Left the tutorial. "/tutorial" starts it again.')
+  }
+}
+
+/** Enter on the last page finishes; anywhere else it turns the page. */
+function advanceTutorial(): void {
+  if (tutorialPage < 0) {
+    showTutorialPage(0)
+    return
+  }
+  if (isLastPage(tutorialPage)) {
+    endTutorial('That is the tour. Ask about your screen, or say what you want done.')
+    return
+  }
+  showTutorialPage(tutorialPage + 1)
 }
 
 /** Saved conversations, fetched on demand when the history list is asked for. */
@@ -233,6 +316,21 @@ function submit(text: string): void {
   // Typing over a live recording means they have changed their mind about it.
   if (recorder) cancelListening()
 
+  // The tutorial never leaves the renderer, so it works with no API key set.
+  const tutorial = parseTutorialCommand(trimmed)
+  if (tutorial.kind !== 'none') {
+    runTutorialCommand(tutorial)
+    return
+  }
+
+  // Anything else typed during the tutorial is a real request, so the lesson
+  // gets out of the way rather than fighting the transcript for the thread.
+  if (tutorialPage >= 0) {
+    tutorialPage = -1
+    clearThread()
+    setStatus('')
+  }
+
   // Thread management is a UI concern - it never reaches a model.
   if (/^\/history\b/i.test(trimmed)) {
     void refreshThreads()
@@ -336,6 +434,7 @@ window.argus.onOpened(({ capture, error, notice, memory }) => {
   input.value = ''
   input.disabled = false
   manualMode = null
+  tutorialPage = -1
   clearThread()
   syncChip()
   renderOptions()
@@ -586,6 +685,14 @@ input.addEventListener('keydown', (event) => {
     choose(visible[highlighted]!)
     return
   }
+
+  // Enter on an empty bar turns the page. Only while the tutorial is up: it is
+  // the one state where an empty bar means something other than "nothing yet".
+  if (tutorialPage >= 0 && !input.value.trim()) {
+    advanceTutorial()
+    return
+  }
+
   submit(input.value)
 })
 

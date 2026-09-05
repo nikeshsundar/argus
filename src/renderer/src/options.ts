@@ -16,6 +16,13 @@ export interface Option {
 
 export const OPTIONS: Option[] = [
   {
+    id: 'tutorial',
+    label: 'Learn what Argus can do',
+    hint: '/tutorial  ·  no API key needed',
+    insert: '/tutorial',
+    immediate: true
+  },
+  {
     id: 'history',
     label: 'Past chats',
     hint: '/history',

@@ -8,6 +8,25 @@
     />
     <title>Argus Agent</title>
     <style>
+      /*
+       * The overlay borrows the bar's surface language: near-white plates lit
+       * from above, pill geometry, and red for the one thing that matters here
+       * - that the machine is being driven by something other than the person
+       * in front of it.
+       */
+      :root {
+        --agent: rgba(228, 35, 28, 0.92);
+        --agent-solid: #e4231c;
+        --agent-deep: #b8140e;
+        --agent-gloss: linear-gradient(#ff7d72 0%, #e4231c 44%, #cc1810 100%);
+        --plate: rgba(250, 250, 251, 0.94);
+        --ink: #000;
+        --muted: #626262;
+        --edge: rgba(0, 0, 0, 0.12);
+        --hi: rgba(255, 255, 255, 0.85);
+        --teach: #1668d6;
+      }
+
       html,
       body {
         margin: 0;
@@ -15,6 +34,7 @@
         overflow: hidden;
         background: transparent;
         font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+        letter-spacing: -0.011em;
         -webkit-user-select: none;
         user-select: none;
       }
@@ -23,8 +43,8 @@
       .frame {
         position: fixed;
         inset: 0;
-        border: 3px solid rgba(245, 181, 86, 0.9);
-        box-shadow: inset 0 0 40px rgba(245, 181, 86, 0.18);
+        border: 3px solid var(--agent);
+        box-shadow: inset 0 0 40px rgba(228, 35, 28, 0.16);
         animation: pulse 2s ease-in-out infinite;
       }
 
@@ -47,12 +67,16 @@
         align-items: center;
         gap: 12px;
         padding: 10px 18px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
+        border: 1px solid var(--edge);
         border-radius: 999px;
-        background: rgba(16, 17, 26, 0.92);
-        color: #f1f3f8;
+        background: var(--plate);
+        backdrop-filter: blur(20px) saturate(180%);
+        color: var(--ink);
         font-size: 13px;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+        box-shadow:
+          0 12px 32px rgba(0, 0, 0, 0.3),
+          inset 0 1px 1px var(--hi),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.35);
         white-space: nowrap;
         max-width: 90vw;
         overflow: hidden;
@@ -63,19 +87,22 @@
         width: 8px;
         height: 8px;
         border-radius: 50%;
-        background: #f5b556;
+        background: var(--agent-solid);
+        box-shadow: 0 0 0 3px rgba(228, 35, 28, 0.16);
         flex: none;
       }
 
       .step {
-        color: #8a90a6;
+        color: var(--muted);
       }
 
       kbd {
         padding: 1px 6px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 4px;
-        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid var(--edge);
+        border-radius: 5px;
+        background: linear-gradient(#fff 0%, #e7e7e7 42%, #fbfbfb 100%);
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1), inset 0 1px 1px var(--hi);
+        color: var(--ink);
         font-family: inherit;
         font-size: 11px;
       }
@@ -99,16 +126,16 @@
         width: 38px;
         height: 38px;
         margin: -19px 0 0 -19px;
-        border: 2px solid rgba(245, 181, 86, 0.95);
+        border: 2px solid rgba(228, 35, 28, 0.95);
         background: radial-gradient(
           circle,
-          rgba(245, 181, 86, 0.28) 0%,
-          rgba(245, 181, 86, 0.06) 55%,
+          rgba(228, 35, 28, 0.28) 0%,
+          rgba(228, 35, 28, 0.06) 55%,
           transparent 70%
         );
         box-shadow:
-          0 0 18px rgba(245, 181, 86, 0.55),
-          inset 0 0 10px rgba(245, 181, 86, 0.35);
+          0 0 18px rgba(228, 35, 28, 0.55),
+          inset 0 0 10px rgba(228, 35, 28, 0.35);
         transition: opacity 260ms ease;
       }
 
@@ -121,7 +148,7 @@
         width: 10px;
         height: 10px;
         margin: -5px 0 0 -5px;
-        background: rgba(245, 181, 86, 0.5);
+        background: rgba(228, 35, 28, 0.5);
         transition:
           transform 90ms linear,
           opacity 260ms ease;
@@ -160,7 +187,7 @@
         height: 20px;
         margin: -10px 0 0 -10px;
         border-radius: 50%;
-        border: 2px solid rgba(245, 181, 86, 0.9);
+        border: 2px solid rgba(228, 35, 28, 0.9);
         pointer-events: none;
         animation: ripple 460ms cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
       }
@@ -179,19 +206,20 @@
       /*
        * Paused: the user reached for the mouse, so the agent stood aside.
        *
-       * Grey and still, deliberately. Amber pulsing means "this machine is
-       * being driven, keep your hands off"; the whole point of pausing is that
-       * the opposite is now true, and a frame that still looked alarming would
-       * be telling them not to do the thing they just did.
+       * Grey and still, deliberately. Red pulsing means "this machine is being
+       * driven, keep your hands off"; the whole point of pausing is that the
+       * opposite is now true, and a frame that still looked alarming would be
+       * telling them not to do the thing they just did.
        */
       body[data-paused='true'] .frame {
-        border-color: rgba(150, 158, 178, 0.75);
-        box-shadow: inset 0 0 40px rgba(150, 158, 178, 0.1);
+        border-color: rgba(120, 120, 126, 0.7);
+        box-shadow: inset 0 0 40px rgba(120, 120, 126, 0.1);
         animation: none;
       }
 
       body[data-paused='true'] .dot {
-        background: #969eb2;
+        background: #8a8a8e;
+        box-shadow: none;
         animation: none;
       }
 
@@ -203,18 +231,19 @@
       /* ---- Teach Mode ---------------------------------------------------- */
 
       /*
-       * Blue, not amber. Amber means the machine is driving itself; here it
-       * only points, and the learner keeps the mouse. Same frame, different
-       * promise - so it must not look the same.
+       * Blue, not red. Red means the machine is driving itself; here it only
+       * points, and the learner keeps the mouse. Same frame, different promise
+       * - so it must not look the same.
        */
       body[data-kind='teach'] .frame {
-        border-color: rgba(86, 160, 245, 0.9);
-        box-shadow: inset 0 0 40px rgba(86, 160, 245, 0.16);
+        border-color: rgba(22, 104, 214, 0.9);
+        box-shadow: inset 0 0 40px rgba(22, 104, 214, 0.14);
         animation: none;
       }
 
       body[data-kind='teach'] .dot {
-        background: #56a0f5;
+        background: var(--teach);
+        box-shadow: 0 0 0 3px rgba(22, 104, 214, 0.16);
       }
 
       /* The agent's own pointer decoration has no business in a lesson. */
@@ -244,7 +273,7 @@
         width: 52px;
         height: 52px;
         border-radius: 50%;
-        border: 2px solid rgba(86, 160, 245, 0.8);
+        border: 2px solid rgba(22, 104, 214, 0.8);
         animation: ghost-ping 1.8s ease-out infinite;
       }
 
@@ -264,7 +293,7 @@
         position: absolute;
         left: -3px;
         top: -3px;
-        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.55));
+        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.4));
       }
 
       .caption {
@@ -273,12 +302,15 @@
         top: 30px;
         width: max-content;
         max-width: 340px;
-        padding: 12px 14px;
-        border: 1px solid rgba(86, 160, 245, 0.45);
-        border-radius: 12px;
-        background: rgba(13, 20, 32, 0.96);
-        color: #eef3fb;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+        padding: 13px 15px;
+        border: 1px solid rgba(22, 104, 214, 0.32);
+        border-radius: 16px;
+        background: var(--plate);
+        backdrop-filter: blur(20px) saturate(180%);
+        color: var(--ink);
+        box-shadow:
+          0 16px 40px rgba(0, 0, 0, 0.3),
+          inset 0 1px 1px var(--hi);
       }
 
       /* Near an edge the caption would run off screen, so it swaps sides. */
@@ -295,9 +327,9 @@
       .caption-step {
         font-size: 10px;
         font-weight: 700;
-        letter-spacing: 0.09em;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: #56a0f5;
+        color: var(--teach);
       }
 
       .caption-title {
@@ -305,21 +337,22 @@
         font-size: 14px;
         font-weight: 600;
         line-height: 1.35;
+        letter-spacing: -0.018em;
       }
 
       .caption-detail {
         margin-top: 6px;
         font-size: 12.5px;
         line-height: 1.5;
-        color: #b9c4d6;
+        color: #3c3c3e;
       }
 
       .caption-hint {
         margin-top: 10px;
         padding-top: 8px;
-        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        border-top: 1px solid var(--edge);
         font-size: 11.5px;
-        color: #7e8ba3;
+        color: var(--muted);
       }
     </style>
   </head>
@@ -342,8 +375,8 @@
       <svg class="ghost-arrow" width="26" height="30" viewBox="0 0 26 30" aria-hidden="true">
         <path
           d="M2 1.5 L2 24 L8.2 18.4 L12.4 27.6 L16.6 25.6 L12.5 16.7 L21 16.2 Z"
-          fill="#56a0f5"
-          stroke="#eef3fb"
+          fill="#1668d6"
+          stroke="#ffffff"
           stroke-width="1.6"
           stroke-linejoin="round"
         />

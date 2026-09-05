@@ -81,11 +81,18 @@ describe('questions stay in Talk Mode', () => {
     }
   })
 
-  it('falls back to Talk for anything it does not recognise', () => {
-    // Being wrong towards Talk costs a turn; being wrong towards Agent hands
-    // over the mouse.
-    for (const text of ['instagram', 'the thing in the corner', 'zackdfilms subscribers']) {
-      expect(mode(text), text).toBe('talk')
+  it('falls back to Agent for anything it does not recognise', () => {
+    // Acting is the default: everything that looks like a question has already
+    // been checked by the time a request reaches the fallback.
+    for (const text of ['instagram', 'the thing in the corner', 'my downloads folder']) {
+      expect(mode(text), text).toBe('agent')
+    }
+  })
+
+  it('still acts on desktop verbs no list ever enumerated', () => {
+    // The point of defaulting to Agent: these never needed to be listed.
+    for (const text of ['defragment the disk', 'unzip that archive', 'star this repo']) {
+      expect(mode(text), text).toBe('agent')
     }
   })
 })
@@ -104,7 +111,10 @@ describe('explicit prefixes still win', () => {
   })
 
   it('does not mistake a word that merely starts with the trigger', () => {
-    expect(mode('agentic workflows explained')).toBe('talk')
-    expect(mode('asking about my screen')).toBe('talk')
+    // The mode no longer proves this either way - unrecognised wording is
+    // Agent regardless. What matters is that the word survives into the
+    // prompt: a stripped "agentic" would send "ic workflows explained".
+    expect(parseMode('agentic workflows explained').prompt).toBe('agentic workflows explained')
+    expect(parseMode('asking about my screen').prompt).toBe('asking about my screen')
   })
 })
