@@ -2,10 +2,17 @@ import { describe, expect, it } from 'vitest'
 import { parseMode } from '../src/shared/types'
 
 describe('parseMode', () => {
-  it('defaults to talk mode', () => {
+  it('reads a question as talk mode', () => {
     expect(parseMode('what is on my screen')).toEqual({
       mode: 'talk',
       prompt: 'what is on my screen'
+    })
+  })
+
+  it('defaults to agent mode when the wording decides nothing', () => {
+    expect(parseMode('the file i just downloaded')).toEqual({
+      mode: 'agent',
+      prompt: 'the file i just downloaded'
     })
   })
 
@@ -24,7 +31,12 @@ describe('parseMode', () => {
   )
 
   it('does not treat words merely starting with "agent" as the trigger', () => {
-    expect(parseMode('agentic workflows explained').mode).toBe('talk')
+    // Not the trigger, so the prompt keeps the word - and with no question
+    // signal in it, the default applies.
+    expect(parseMode('agentic workflows explained')).toEqual({
+      mode: 'agent',
+      prompt: 'agentic workflows explained'
+    })
   })
 
   it('returns an empty prompt when only the trigger is given', () => {

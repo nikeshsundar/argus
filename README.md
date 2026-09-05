@@ -87,7 +87,7 @@ Agent and Teach Mode still run on Gemini: they are a dozen quick "which control 
 Hand over the wheel and it does the task itself.
 - Clicks, types and navigates on your real desktop
 - **The pointer travels** — an eased glide with a halo and a click ring, so you can follow every move instead of watching things happen. Tuned for speed, not for show: `/cursor demo` slows it down for recording, `/cursor instant` removes it
-- No trigger word needed: *"open instagram"* is understood as an instruction
+- **Acting is the default.** No trigger word needed: *"open instagram"* is understood as an instruction, and so is anything else that isn't recognisably a question. The chip on the bar names the mode before you press Enter
 - **Follow-ups work.** *"open gmail and summarise my unread mail"* → *"open it in Edge instead"* continues the same job, rather than
   opening Edge and calling it done. The last few tasks and how each turned out are carried into the next one, for 15 minutes or until `/new`
 - **A question gets an answer, not a travelogue.** If the task was to read, check or find something, what comes back is the thing you asked for — not "I opened Gmail"
@@ -184,7 +184,7 @@ Hit <kbd>Alt</kbd>+<kbd>`</kbd> from anywhere in Windows. Argus grabs your scree
 
 Follow-ups understand what came before, so you don't have to re-explain yourself.
 
-**Agent Mode** — say what you want done and it operates the computer itself.
+**Agent Mode** — the default. Say what you want done and it operates the computer itself.
 
 > *"open notepad and type hello"* · *"open chrome and go to github"*
 
@@ -392,6 +392,8 @@ Type these into the bar to configure or control Argus:
 
 | Command | Description |
 | --- | --- |
+| `/tutorial` | The guided tour of every mode, read inside the bar. **Needs no API key** |
+| `/tutorial <n>` | Jump to a page. Also `next`, `back`, `exit` |
 | `/key <api-key>` | Add a Gemini API key (keys stack; they don't replace each other) |
 | `/keys` | List the keys in rotation, and whether each is ready or resting |
 | `/keys <k1> <k2> …` | Load several keys at once, in the order given |
@@ -418,6 +420,8 @@ Type these into the bar to configure or control Argus:
 | `/new` | Start a fresh chat |
 | `/forget` | Delete all saved chats permanently |
 | `/help` | List all commands |
+
+Brand new? `/tutorial` is the one command that works before a key is set — eleven short pages covering every mode, without a single model call.
 
 ### Two models, on purpose
 
@@ -482,7 +486,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [x] Persistent chat history (resumable conversations)
 - [x] Agent Mode with autonomous mouse & keyboard (Gemini)
 - [x] Visible pointer travel — eased glide, halo, click ring, three speeds
-- [x] Intent routing — instructions reach the agent without a trigger word
+- [x] Intent routing — instructions reach the agent without a trigger word; questions still stay in Talk
 - [x] Teach Mode — ghost cursor, captioned steps, waits for the learner
 - [x] Voice input — click to record, filler-cleaned transcription
 - [x] Saved workflows — replay a successful Agent run with no model call

@@ -1,48 +1,68 @@
 /*
  * Design tokens.
  *
- * Surfaces are a ladder, not a set of one-off colours: each step up is
- * lighter, so depth comes from a rule rather than from picking a shade each
- * time something needs to look raised. Hover and press are the same idea -
- * one opacity applied over whatever is underneath, so every control reacts
- * identically without each one carrying its own hover colour.
+ * The bar is a physical object: a near-white plate lit from above, sitting on
+ * top of whatever the user was doing. Depth comes from one rule rather than a
+ * shade picked per control - an outer drop shadow for the lift, and an inset
+ * white highlight along the top edge for the gloss. Every raised surface uses
+ * the same pair, so nothing has to invent its own.
+ *
+ * Red is the brand, and it is also the signal. Intensity carries the
+ * difference: a soft red tint for talk, where Argus only looks, and a solid
+ * red plate for agent, where it has the keyboard. Teach stays blue - it points
+ * rather than acts, and must not be mistaken for either.
  */
 :root {
-  /* Surfaces, deepest first. */
-  --bg: rgba(16, 17, 26, 0.92);
-  --surface-1: rgba(255, 255, 255, 0.035);
-  --surface-2: rgba(255, 255, 255, 0.06);
-  --surface-3: rgba(255, 255, 255, 0.09);
+  /* Surfaces. The bar itself is translucent; everything on it is opaque. */
+  --bar: rgba(250, 250, 251, 0.86);
+  --surface-1: rgba(0, 0, 0, 0.028);
+  --surface-2: rgba(0, 0, 0, 0.055);
+  --surface-3: rgba(0, 0, 0, 0.085);
+  --gloss: linear-gradient(#fff 0%, #e7e7e7 42%, #fbfbfb 100%);
 
-  --border: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --border: rgba(0, 0, 0, 0.12);
+  --border-strong: rgba(0, 0, 0, 0.22);
+  --hi: rgba(255, 255, 255, 0.8);
 
   /* Text, in three weights of attention. */
-  --text: #f1f3f8;
-  --muted: #8a90a6;
-  --faint: #676d80;
+  --text: #000000;
+  --muted: #626262;
+  --faint: #9a9a9e;
 
-  --talk: #56d3f5;
-  --agent: #f5b556;
-  --danger: #f5566a;
+  /* Modes. */
+  --talk: #c4160f;
+  --talk-soft: rgba(228, 35, 28, 0.1);
+  --agent: #e4231c;
+  --agent-deep: #b8140e;
+  --agent-gloss: linear-gradient(#ff7d72 0%, #e4231c 44%, #cc1810 100%);
+  --teach: #1668d6;
+  --teach-soft: rgba(22, 104, 214, 0.11);
+  --danger: #c4160f;
 
   /*
    * State layers, after Material Design 3: one translucent overlay at a fixed
-   * opacity rather than a bespoke colour per control. Contrast against the
-   * 0.92-alpha bar was checked for each - --muted on it is 4.7:1, --faint is
-   * 3.4:1 and so is only used for text that is decoration rather than
+   * opacity rather than a bespoke colour per control. Contrast on the light
+   * bar was checked for each - --muted is 6.4:1 against it and --faint is
+   * 2.9:1, so --faint is only used for text that is decoration rather than
    * information.
    */
-  --state-hover: 0.08;
-  --state-press: 0.12;
+  --state-hover: 0.055;
+  --state-press: 0.09;
+
+  /* Elevation, in two steps. */
+  --sh-1: 0 2px 2px rgba(0, 0, 0, 0.12), inset 0 1px 1px var(--hi);
+  --sh-2: 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 1px 1px var(--hi);
 
   /* Motion. Fast for feedback, normal for change, slow for arrival. */
   --fast: 120ms;
   --normal: 220ms;
   --slow: 380ms;
 
+  --radius: 20px;
+
   --font:
     'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
 }
 
 * {
@@ -62,15 +82,18 @@ body {
 
 .bar {
   margin: 14px;
-  padding: 18px 20px 14px;
+  padding: 16px 18px 12px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--bg);
-  backdrop-filter: blur(28px) saturate(150%);
+  border-radius: var(--radius);
+  background: var(--bar);
+  backdrop-filter: blur(28px) saturate(180%);
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    0 2px 8px rgba(0, 0, 0, 0.4);
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    0 2px 8px rgba(0, 0, 0, 0.14),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35);
   color: var(--text);
+  letter-spacing: -0.011em;
 }
 
 .row {
@@ -86,29 +109,32 @@ body {
   width: 14px;
   height: 22px;
   cursor: grab;
-  background-image: radial-gradient(circle, var(--muted) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--faint) 1px, transparent 1px);
   background-size: 5px 6px;
-  opacity: 0.5;
+  opacity: 0.7;
   -webkit-app-region: drag;
 }
 
 .grip:hover {
-  opacity: 0.9;
+  opacity: 1;
 }
 
 /* A button, not a label: this is how the user switches between asking and acting. */
 .chip {
   flex: none;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border: 1px solid transparent;
   border-radius: 999px;
   font-family: inherit;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition:
+    color var(--fast) ease,
+    background var(--fast) ease,
+    border-color var(--fast) ease,
+    box-shadow var(--fast) ease;
 }
 
 .chip:hover,
@@ -121,20 +147,30 @@ body {
   transform: scale(0.96);
 }
 
+/* Asking only. A tint, not a plate: nothing on the machine is being touched. */
 .chip[data-mode='talk'] {
   color: var(--talk);
-  background: rgba(86, 211, 245, 0.12);
+  background: var(--talk-soft);
+  border-color: rgba(228, 35, 28, 0.22);
 }
 
+/*
+ * Acting. The one control in the bar that is a solid red plate, because it is
+ * the one mode that can move the mouse. It has to outrank everything else on
+ * the bar at a glance.
+ */
 .chip[data-mode='agent'] {
-  color: var(--agent);
-  background: rgba(245, 181, 86, 0.14);
+  color: #fff;
+  background: var(--agent-gloss);
+  border-color: var(--agent-deep);
+  box-shadow: var(--sh-1);
 }
 
 /* Blue, matching the ghost cursor a lesson draws on screen. */
 .chip[data-mode='teach'] {
-  color: #6aaeff;
-  background: rgba(86, 160, 245, 0.14);
+  color: var(--teach);
+  background: var(--teach-soft);
+  border-color: rgba(22, 104, 214, 0.24);
 }
 
 #input {
@@ -146,6 +182,7 @@ body {
   color: var(--text);
   font-family: inherit;
   font-size: 19px;
+  letter-spacing: -0.02em;
   -webkit-user-select: text;
   user-select: text;
   -webkit-app-region: no-drag;
@@ -157,7 +194,7 @@ body {
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: 7px;
+  border-radius: 999px;
   background: transparent;
   color: var(--muted);
   font-size: 18px;
@@ -203,7 +240,7 @@ body {
 }
 
 #input::placeholder {
-  color: var(--muted);
+  color: var(--faint);
 }
 
 #input:disabled {
@@ -222,7 +259,7 @@ body {
 }
 
 .status[data-state='error'] {
-  color: #f58c8c;
+  color: var(--danger);
 }
 
 .status[data-state='busy'] {
@@ -250,25 +287,27 @@ body {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 8px 10px;
-  border-radius: 9px;
+  padding: 8px 12px;
+  border-radius: 999px;
   cursor: pointer;
 }
 
 .option[data-selected='true'] {
-  background: var(--surface-3);
+  background: var(--talk-soft);
+  box-shadow: inset 0 0 0 1px rgba(228, 35, 28, 0.2);
 }
 
 .option-label {
   color: var(--text);
   font-size: 14px;
+  letter-spacing: -0.015em;
 }
 
 .option-hint {
   margin-left: auto;
   color: var(--muted);
   font-size: 11px;
-  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .hints {
@@ -285,10 +324,12 @@ body {
 }
 
 kbd {
-  padding: 1px 5px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: var(--surface-2);
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--gloss);
+  box-shadow: var(--sh-1);
+  color: var(--text);
   font-family: inherit;
   font-size: 10px;
 }
@@ -308,13 +349,17 @@ kbd {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+  transition:
+    color var(--fast) ease,
+    background var(--fast) ease,
+    border-color var(--fast) ease;
 }
 
 .mic:hover,
 .mic:focus-visible {
   color: var(--text);
   border-color: var(--border-strong);
+  background: var(--surface-1);
   outline: none;
 }
 
@@ -324,9 +369,9 @@ kbd {
  * microphone.
  */
 .mic[data-state='recording'] {
-  color: #ff5f57;
-  border-color: rgba(255, 95, 87, 0.65);
-  background: rgba(255, 95, 87, 0.16);
+  color: #fff;
+  border-color: var(--agent-deep);
+  background: var(--agent-gloss);
   animation: recording 1.4s ease-in-out infinite;
 }
 
@@ -338,23 +383,26 @@ kbd {
 @keyframes recording {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 95, 87, 0.45);
+    box-shadow: 0 0 0 0 rgba(228, 35, 28, 0.45);
   }
   50% {
-    box-shadow: 0 0 0 5px rgba(255, 95, 87, 0);
+    box-shadow: 0 0 0 5px rgba(228, 35, 28, 0);
   }
 }
 
-/* Opening the stream. Deliberately not red: nothing is being captured yet. */
+/* Opening the stream. Deliberately not the solid plate: nothing is being
+   captured yet. */
 .mic[data-state='starting'] {
-  color: var(--agent);
-  border-color: rgba(245, 181, 86, 0.45);
+  color: var(--talk);
+  border-color: rgba(228, 35, 28, 0.35);
+  background: var(--talk-soft);
   animation: pulse 1s ease-in-out infinite;
 }
 
 .mic[data-state='thinking'] {
-  color: var(--talk);
-  border-color: rgba(86, 211, 245, 0.4);
+  color: var(--muted);
+  border-color: var(--border-strong);
+  background: var(--surface-1);
 }
 
 /* Scales with the loudness the mic is actually hearing, so a dead or muted
@@ -363,10 +411,12 @@ kbd {
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 95, 87, 0.55);
+  border: 2px solid rgba(228, 35, 28, 0.55);
   opacity: 0;
   transform: scale(0.7);
-  transition: transform 90ms linear, opacity 160ms ease;
+  transition:
+    transform 90ms linear,
+    opacity 160ms ease;
   pointer-events: none;
 }
 
@@ -385,8 +435,11 @@ kbd {
 }
 
 .bar[data-listening='true'] {
-  border-color: rgba(255, 95, 87, 0.45);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 95, 87, 0.25) inset;
+  border-color: rgba(228, 35, 28, 0.4);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    0 0 0 4px rgba(228, 35, 28, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9);
 }
 
 /*
@@ -400,18 +453,18 @@ kbd {
 .rec {
   flex: none;
   font-family: inherit;
-  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 9px 3px 7px;
-  border: 1px solid rgba(245, 86, 106, 0.35);
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--agent-deep);
   border-radius: 999px;
-  background: rgba(245, 86, 106, 0.12);
-  color: #f5566a;
+  background: var(--agent-gloss);
+  box-shadow: var(--sh-1);
+  color: #fff;
   font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: -0.005em;
   cursor: default;
 }
 
@@ -432,8 +485,8 @@ kbd {
 
 .rec:hover,
 .rec:focus-visible {
-  border-color: rgba(245, 86, 106, 0.85);
-  background: rgba(245, 86, 106, 0.2);
+  filter: brightness(1.07);
+  cursor: pointer;
   outline: none;
 }
 

@@ -19,99 +19,136 @@
 <meta name="description" content="Every mode and command in Argus: what it is for, the exact keys to get there, and where it stops." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,440;0,9..144,560;0,9..144,650;1,9..144,440&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#f2f2f3" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)" />
 
 <style>
-/* ============================= TOKENS ============================= */
-/* Same set as the home page, so the two never drift apart visually. */
+/* =====================================================================
+   TOKENS
+   The same set as the home page, so the two never drift apart visually.
+   ===================================================================== */
 :root{
-  --bg:#EEF1F7;
-  --ink:#10121B;
-  --muted:#5B6178;
-  --surface:#FFFFFF;
-  --surface-2:#E6E9F1;
-  --border:rgba(16,18,27,.11);
-  --iris:#1094B8;
-  --iris-soft:rgba(16,148,184,.12);
-  --amber:#A66313;
-  --amber-soft:rgba(166,99,19,.12);
-  --term-bg:#0A0B12;
-  --term-ink:#E7EAF3;
-  --term-muted:#7C8299;
-  --shadow:0 24px 60px rgba(16,18,27,.10);
+  --paper:#f2f2f3;
+  --paper-2:#e9e9ea;
+  --surface:#ffffff;
+  --surface-2:#fbfbfb;
+  --gloss:linear-gradient(#fff 0%,#e7e7e7 42%,#fbfbfb 100%);
+  --gloss-soft:linear-gradient(#ffffff 0%,#f3f3f3 42%,#fbfbfb 100%);
 
-  --font-display:"Fraunces",ui-serif,Georgia,serif;
-  --font-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --font-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --ink:#000000;
+  --ink-2:#1c1c1e;
+  --muted:#626262;
+  --faint:#b3b3b3;
 
-  color-scheme: light;
+  --edge:#0000001f;
+  --edge-2:#00000014;
+  --edge-3:#0000002e;
+  --hi:#fffc;
+  --hi-2:#ffffff40;
+
+  --red:#e4231c;
+  --red-deep:#b8140e;
+  --red-ink:#c4160f;
+  --red-soft:#ffecea;
+  --red-line:#e4231c33;
+  --gloss-red:linear-gradient(#ff7d72 0%,#e4231c 44%,#cc1810 100%);
+
+  --term-bg:#0e0e10;
+  --term-ink:#ededed;
+  --term-muted:#8a8a8e;
+  --term-green:#4ade80;
+
+  --sh-1:0 2px 2px #0000001f, inset 0 1px 1px var(--hi);
+  --sh-2:0 4px 12px #00000014, inset 0 1px 1px var(--hi);
+  --sh-3:0 10px 24px #0000001f, inset 0 1px 1px var(--hi), inset 0 0 0 1px var(--hi-2);
+  --sh-red:0 10px 24px #e4231c40, inset 0 1px 1px #ffffff8c, inset 0 -10px 8px -8px #00000026;
+
+  --font-sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --font-serif:"Instrument Serif",ui-serif,Georgia,"Times New Roman",serif;
+  --font-mono:"Geist Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+
+  --r-pill:999px;
+  --r-lg:24px;
+  --r-md:16px;
+  --r-sm:8px;
+
+  color-scheme:light;
 }
+
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#0A0B12;
-    --ink:#EDEFF7;
-    --muted:#8A90A6;
-    --surface:#12141F;
-    --surface-2:#181B29;
-    --border:rgba(255,255,255,.09);
-    --iris:#56D3F5;
-    --iris-soft:rgba(86,211,245,.12);
-    --amber:#F5B556;
-    --amber-soft:rgba(245,181,86,.13);
-    --shadow:0 24px 60px rgba(0,0,0,.45);
-    color-scheme: dark;
+    --paper:#0b0b0d;
+    --paper-2:#18181b;
+    --surface:#161618;
+    --surface-2:#131315;
+    --gloss:linear-gradient(#242427 0%,#171719 42%,#141416 100%);
+    --gloss-soft:linear-gradient(#1e1e21 0%,#161618 42%,#141416 100%);
+
+    --ink:#ffffff;
+    --ink-2:#ededed;
+    --muted:#9a9a9f;
+    --faint:#5a5a5f;
+
+    --edge:#ffffff1f;
+    --edge-2:#ffffff14;
+    --edge-3:#ffffff2e;
+    --hi:#ffffff1f;
+    --hi-2:#ffffff14;
+
+    --red:#ff4d43;
+    --red-deep:#c9190f;
+    --red-ink:#ff6b61;
+    --red-soft:#ff4d431f;
+    --red-line:#ff4d4340;
+    --gloss-red:linear-gradient(#ff8b82 0%,#ec2a20 44%,#c9190f 100%);
+
+    --sh-1:0 2px 2px #00000059, inset 0 1px 1px var(--hi);
+    --sh-2:0 4px 12px #00000059, inset 0 1px 1px var(--hi);
+    --sh-3:0 12px 28px #00000073, inset 0 1px 1px var(--hi), inset 0 0 0 1px var(--hi-2);
+    --sh-red:0 12px 28px #00000073, inset 0 1px 1px #ffffff59;
+
+    --term-bg:#000000;
+    color-scheme:dark;
   }
-}
-:root[data-theme="dark"]{
-  --bg:#0A0B12;
-  --ink:#EDEFF7;
-  --muted:#8A90A6;
-  --surface:#12141F;
-  --surface-2:#181B29;
-  --border:rgba(255,255,255,.09);
-  --iris:#56D3F5;
-  --iris-soft:rgba(86,211,245,.12);
-  --amber:#F5B556;
-  --amber-soft:rgba(245,181,86,.13);
-  --shadow:0 24px 60px rgba(0,0,0,.45);
-  color-scheme: dark;
 }
 
 /* ============================= RESET / BASE ============================= */
 *{ box-sizing:border-box; }
-html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; scroll-padding-top:86px; }
+html{ -webkit-text-size-adjust:100%; scroll-behavior:smooth; scroll-padding-top:100px; }
 body{
   margin:0;
-  background:var(--bg);
+  background:var(--paper);
   color:var(--ink);
-  font-family:var(--font-body);
+  font-family:var(--font-sans);
   font-size:16px;
-  line-height:1.6;
+  line-height:1.55;
+  letter-spacing:-0.011em;
   -webkit-font-smoothing:antialiased;
 }
 img{ max-width:100%; }
-h1,h2,h3{
-  font-family:var(--font-display);
-  font-weight:560;
-  line-height:1.08;
-  text-wrap:balance;
-  margin:0;
-  color:var(--ink);
-}
+h1,h2,h3{ margin:0; font-weight:600; letter-spacing:-0.035em; line-height:1.04; text-wrap:balance; color:var(--ink); }
 p{ margin:0; }
-a{ color:inherit; }
-::selection{ background:var(--iris-soft); color:var(--ink); }
-:focus-visible{ outline:2px solid var(--iris); outline-offset:3px; border-radius:4px; }
+a{ color:inherit; text-decoration:none; }
+em{ font-family:var(--font-serif); font-style:italic; font-weight:400; letter-spacing:-0.01em; }
+::selection{ background:var(--red); color:#fff; }
+:focus-visible{ outline:2px solid var(--red); outline-offset:3px; border-radius:6px; }
 
-.wrap{ max-width:1180px; margin:0 auto; padding:0 28px; }
+.wrap{ max-width:1140px; margin:0 auto; padding:0 24px; }
+.lede{ font-size:1.06rem; color:var(--muted); max-width:58ch; letter-spacing:-0.014em; }
+
+/* the little lowercase label that opens a section */
 .eyebrow{
-  font-family:var(--font-mono);
-  font-size:12px;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  color:var(--muted);
+  display:inline-flex; align-items:center; gap:7px;
+  font-family:var(--font-mono); font-size:.72rem; font-weight:500;
+  text-transform:lowercase; color:var(--muted);
+  background:var(--surface); border:1px solid var(--edge);
+  border-radius:var(--r-pill); padding:5px 12px; box-shadow:var(--sh-1);
 }
-.lede{ font-size:1.1rem; color:var(--muted); max-width:56ch; }
+.eyebrow::before{
+  content:""; width:6px; height:6px; border-radius:50%;
+  background:var(--red); box-shadow:0 0 0 3px var(--red-soft);
+}
 
 @media (prefers-reduced-motion: reduce){
   html{ scroll-behavior:auto; }
@@ -119,157 +156,198 @@ a{ color:inherit; }
 }
 
 /* ============================= NAV ============================= */
-.nav{
-  position:sticky; top:0; z-index:40;
-  backdrop-filter:blur(14px) saturate(140%);
-  background:color-mix(in srgb, var(--bg) 78%, transparent);
-  border-bottom:1px solid var(--border);
+.nav{ position:sticky; top:0; z-index:60; padding:14px 0; }
+.nav .wrap{
+  display:flex; align-items:center; gap:10px;
 }
-.nav .wrap{ display:flex; align-items:center; gap:28px; height:66px; }
-.brand{ display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:650; font-size:1.15rem; text-decoration:none; margin-right:auto; }
-.brand img{ width:26px; height:26px; border-radius:7px; display:block; }
-.navlinks{ display:flex; gap:26px; font-size:.92rem; color:var(--muted); }
-.navlinks a{ text-decoration:none; }
-.navlinks a:hover{ color:var(--ink); }
-.navlinks a[aria-current="page"]{ color:var(--ink); font-weight:600; }
+.nav-inner{
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:color-mix(in srgb, var(--surface) 74%, transparent);
+  -webkit-backdrop-filter:blur(12px) saturate(1.4);
+  backdrop-filter:blur(12px) saturate(1.4);
+  border:1px solid var(--edge); border-radius:var(--r-pill);
+  box-shadow:var(--sh-2); padding:8px 8px 8px 16px;
+}
+.brand{
+  display:flex; align-items:center; gap:9px; margin-right:auto;
+  font-weight:600; font-size:1.02rem; letter-spacing:-0.03em; text-transform:lowercase;
+}
+.brand img{ width:24px; height:24px; border-radius:7px; display:block; }
+.navlinks{ display:flex; gap:4px; }
+.navlinks a{
+  font-size:.88rem; color:var(--muted); padding:7px 13px;
+  border-radius:var(--r-pill); letter-spacing:-0.02em; text-transform:lowercase;
+}
+.navlinks a:hover{ color:var(--ink); background:var(--paper-2); }
+.navlinks a[aria-current="page"]{ color:var(--ink); background:var(--paper-2); font-weight:500; }
 .nav-cta{
-  font-family:var(--font-mono); font-size:.82rem; font-weight:500;
-  padding:9px 16px; border-radius:8px; border:1px solid var(--border);
-  text-decoration:none; color:var(--ink); white-space:nowrap;
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:var(--font-sans); font-size:.86rem; font-weight:500; letter-spacing:-0.02em;
+  padding:9px 17px; border-radius:var(--r-pill); border:1px solid var(--edge);
+  color:var(--ink); white-space:nowrap; text-transform:lowercase;
+  background:var(--gloss); box-shadow:var(--sh-2);
+  transition:transform .14s ease, box-shadow .14s ease;
 }
-.nav-cta:hover{ border-color:var(--iris); }
-@media (max-width:760px){ .navlinks{ display:none; } }
+.nav-cta:hover{ transform:translateY(-1px); box-shadow:var(--sh-3); }
+.nav-cta:active{ transform:translateY(1px); box-shadow:var(--sh-1); }
+@media (max-width:820px){ .navlinks{ display:none; } }
 
 /* ============================= PAGE HEAD ============================= */
-.page-head{ padding:72px 0 48px; }
-.page-head h1{ font-size:clamp(2.3rem,4.6vw,3.2rem); margin:14px 0 20px; }
-.page-head h1 em{ font-style:italic; color:var(--iris); }
+.page-head{ padding:52px 0 44px; }
+.page-head h1{ font-size:clamp(2.3rem,5vw,3.4rem); margin:18px 0 20px; max-width:18ch; text-transform:lowercase; }
+.page-head h1 em{ color:var(--red); text-transform:none; }
 
-.legend{
-  display:flex; flex-wrap:wrap; gap:10px; margin-top:28px;
-}
+.legend{ display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; }
 .legend span{
-  font-family:var(--font-mono); font-size:.74rem; letter-spacing:.03em;
-  padding:6px 11px; border-radius:999px; border:1px solid var(--border);
-  color:var(--muted); background:var(--surface);
+  font-family:var(--font-mono); font-size:.74rem; color:var(--muted);
+  padding:7px 14px; border-radius:var(--r-pill); border:1px solid var(--edge);
+  background:var(--gloss); box-shadow:var(--sh-1);
 }
 
 /* ============================= LAYOUT ============================= */
-.shell{ display:grid; grid-template-columns:214px 1fr; gap:56px; padding-bottom:96px; }
+.shell{ display:grid; grid-template-columns:220px 1fr; gap:52px; padding-bottom:96px; }
 @media (max-width:940px){ .shell{ grid-template-columns:1fr; gap:0; } }
 
-.toc{ position:sticky; top:92px; align-self:start; }
+.toc{ position:sticky; top:100px; align-self:start; }
 @media (max-width:940px){
-  .toc{ position:static; margin-bottom:40px; padding-bottom:28px; border-bottom:1px solid var(--border); }
+  .toc{ position:static; margin-bottom:40px; }
   .toc ol{ columns:2; }
 }
-.toc h2{ font-family:var(--font-body); font-size:.78rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 14px; font-weight:700; }
+.toc h2{
+  font-family:var(--font-mono); font-size:.7rem; font-weight:500; letter-spacing:0;
+  text-transform:lowercase; color:var(--muted); margin:0 0 12px; padding-left:14px;
+}
 .toc ol{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:2px; }
 @media (max-width:940px){ .toc ol{ display:block; } }
 .toc a{
-  display:block; text-decoration:none; color:var(--muted);
-  font-size:.9rem; padding:5px 0 5px 12px; border-left:2px solid transparent;
+  display:block; color:var(--muted); text-transform:lowercase;
+  font-size:.9rem; padding:6px 12px; border-radius:var(--r-pill); letter-spacing:-0.02em;
 }
-.toc a:hover{ color:var(--ink); border-left-color:var(--border); }
-.toc a.on{ color:var(--iris); border-left-color:var(--iris); }
+.toc a:hover{ color:var(--ink); background:var(--paper-2); }
+.toc a.on{
+  color:var(--ink); font-weight:500;
+  background:var(--surface); border:1px solid var(--red-line); box-shadow:var(--sh-1);
+  padding:5px 11px;
+}
 
 /* ============================= FEATURE BLOCK ============================= */
-.feat{ padding:44px 0; border-top:1px solid var(--border); scroll-margin-top:86px; }
-.feat:first-of-type{ border-top:0; padding-top:0; }
+.feat{ padding:40px 0; scroll-margin-top:100px; }
+.feat + .feat{ border-top:1px solid var(--edge-2); }
+.feat:first-of-type{ padding-top:0; }
 .feat-tag{
-  display:inline-block; font-family:var(--font-mono); font-size:.68rem;
-  letter-spacing:.1em; text-transform:uppercase; padding:4px 9px; border-radius:6px;
-  background:var(--iris-soft); color:var(--iris);
+  display:inline-flex; align-items:center; font-family:var(--font-mono); font-size:.66rem;
+  font-weight:500; text-transform:lowercase; padding:4px 11px; border-radius:var(--r-pill);
+  background:var(--paper-2); color:var(--muted); border:1px solid var(--edge-2);
 }
-.feat-tag.act{ background:var(--amber-soft); color:var(--amber); }
-.feat h3{ font-size:1.62rem; margin:14px 0 12px; }
-.feat > p{ color:var(--muted); max-width:62ch; }
+.feat-tag.act{ background:var(--gloss-red); color:#fff; border-color:var(--red-deep); box-shadow:var(--sh-1); }
+.feat h3{ font-size:clamp(1.4rem,2.4vw,1.85rem); margin:14px 0 12px; text-transform:lowercase; }
+.feat > p{ color:var(--muted); max-width:62ch; letter-spacing:-0.014em; }
 
-.rows{ margin-top:26px; display:grid; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-.row{ background:var(--surface); padding:20px 22px; display:grid; grid-template-columns:132px 1fr; gap:22px; align-items:start; }
-@media (max-width:640px){ .row{ grid-template-columns:1fr; gap:8px; } }
-.row .k{
-  font-family:var(--font-mono); font-size:.68rem; letter-spacing:.08em;
-  text-transform:uppercase; color:var(--muted); padding-top:3px;
+.rows{
+  margin-top:26px; display:flex; flex-direction:column;
+  border:1px solid var(--edge); border-radius:var(--r-md);
+  background:var(--surface); box-shadow:var(--sh-2); overflow:hidden;
 }
-.row .v{ font-size:.95rem; color:var(--ink); }
+.row{ padding:20px 22px; display:grid; grid-template-columns:136px 1fr; gap:22px; align-items:start; }
+.row + .row{ border-top:1px solid var(--edge-2); }
+@media (max-width:640px){ .row{ grid-template-columns:1fr; gap:8px; } }
+.row .k{ font-family:var(--font-mono); font-size:.68rem; text-transform:lowercase; color:var(--muted); padding-top:4px; }
+.row .v{ font-size:.95rem; color:var(--ink-2); }
 .row .v p + p{ margin-top:9px; }
 .row .v .muted{ color:var(--muted); }
-.row ul{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:8px; }
-.row li{ color:var(--muted); font-size:.92rem; padding-left:18px; position:relative; }
-.row li::before{ content:"—"; position:absolute; left:0; color:var(--iris); }
+.row .v a{ color:var(--red-ink); text-decoration:underline; text-underline-offset:3px; }
+.row ul{ margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px; }
+.row li{ color:var(--muted); font-size:.92rem; padding-left:20px; position:relative; }
+.row li::before{
+  content:""; position:absolute; left:0; top:.55em; width:7px; height:7px; border-radius:50%;
+  background:var(--gloss-red); box-shadow:inset 0 1px 1px #ffffff8c;
+}
 .row li b{ color:var(--ink); font-weight:600; }
 
 kbd{
-  font-family:var(--font-mono); font-size:.78rem; line-height:1;
-  padding:4px 7px; border-radius:5px; border:1px solid var(--border);
-  background:var(--surface-2); color:var(--ink); white-space:nowrap;
-  box-shadow:0 1px 0 var(--border);
+  display:inline-block; font-family:var(--font-mono); font-size:.78rem; line-height:1.35;
+  padding:2px 7px; border-radius:6px; border:1px solid var(--edge);
+  background:var(--gloss); color:var(--ink); white-space:nowrap; box-shadow:var(--sh-1);
 }
 code{
-  font-family:var(--font-mono); font-size:.85em;
-  background:var(--surface-2); padding:2px 6px; border-radius:5px;
+  font-family:var(--font-mono); font-size:.85em; letter-spacing:-0.02em;
+  background:var(--paper-2); border:1px solid var(--edge-2); padding:1px 6px; border-radius:6px;
 }
 
 /* ============================= TERMINAL ============================= */
 .term{
-  background:var(--term-bg); border-radius:10px; overflow:hidden;
+  background:var(--term-bg); border:1px solid var(--edge-3); border-radius:var(--r-sm);
+  overflow:hidden; box-shadow:var(--sh-1);
   font-family:var(--font-mono); font-size:.82rem; color:var(--term-ink);
 }
-.term-body{ padding:10px 0; }
-.term-line{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:5px 16px; }
+.term-body{ padding:9px 0; }
+.term-line{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:5px 15px; }
 .term-cmd{ white-space:pre; overflow-x:auto; }
-.term-cmd .prompt{ color:#5FE38A; }
+.term-cmd .prompt{ color:var(--term-green); }
 .term-cmd .rem{ color:var(--term-muted); }
 .copy-btn{
-  flex:none; font-family:var(--font-mono); font-size:.68rem; letter-spacing:.03em;
-  color:var(--term-muted); background:transparent; border:1px solid rgba(255,255,255,.14);
-  border-radius:6px; padding:3px 8px; cursor:pointer;
+  flex:none; font-family:var(--font-mono); font-size:.68rem;
+  color:var(--term-muted); background:#ffffff0a; border:1px solid #ffffff1f;
+  border-radius:var(--r-pill); padding:3px 10px; cursor:pointer;
 }
-.copy-btn:hover{ color:var(--term-ink); border-color:rgba(255,255,255,.3); }
-.copy-btn[data-copied="true"]{ color:#5FE38A; border-color:#5FE38A; }
+.copy-btn:hover{ color:var(--term-ink); border-color:#ffffff40; }
+.copy-btn[data-copied="true"]{ color:var(--term-green); border-color:var(--term-green); }
 
 /* ============================= CALLOUT ============================= */
 .note{
-  margin-top:22px; padding:16px 18px; border-radius:10px;
-  background:var(--amber-soft); border:1px solid color-mix(in srgb, var(--amber) 26%, transparent);
-  font-size:.9rem; color:var(--ink);
+  margin-top:22px; padding:15px 18px; border-radius:var(--r-sm);
+  background:var(--red-soft); border:1px solid var(--red-line);
+  font-size:.9rem; color:var(--ink-2);
 }
-.note b{ color:var(--amber); }
+.note b{ color:var(--red-ink); }
 
 /* ============================= CHEAT SHEET ============================= */
-.sheet{ background:var(--surface-2); border-top:1px solid var(--border); padding:80px 0; }
-.sheet h2{ font-size:clamp(1.8rem,3.2vw,2.3rem); margin:12px 0 10px; }
-.tablewrap{ margin-top:36px; overflow-x:auto; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.sheet{ padding:80px 0; }
+.sheet .eyebrow{ margin-bottom:14px; }
+.sheet h2{ font-size:clamp(1.8rem,3.4vw,2.5rem); margin:0 0 10px; text-transform:lowercase; }
+.tablewrap{
+  margin-top:34px; overflow-x:auto; border:1px solid var(--edge);
+  border-radius:var(--r-md); background:var(--surface); box-shadow:var(--sh-2);
+}
 table{ border-collapse:collapse; width:100%; min-width:620px; }
-th,td{ text-align:left; padding:13px 18px; border-bottom:1px solid var(--border); font-size:.9rem; vertical-align:top; }
-th{ font-family:var(--font-mono); font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+th,td{ text-align:left; padding:13px 20px; border-bottom:1px solid var(--edge-2); font-size:.9rem; vertical-align:top; }
+th{ font-family:var(--font-mono); font-size:.7rem; text-transform:lowercase; color:var(--muted); font-weight:500; }
 tbody tr:last-child td{ border-bottom:0; }
-td:first-child{ font-family:var(--font-mono); font-size:.83rem; white-space:nowrap; color:var(--ink); }
+td:first-child{ font-family:var(--font-mono); font-size:.82rem; white-space:nowrap; color:var(--red-ink); }
 td:last-child{ color:var(--muted); }
 
 /* ============================= FOOTER ============================= */
-footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
+footer{ padding:64px 0 44px; border-top:1px solid var(--edge-2); }
 .foot-row{ display:flex; flex-wrap:wrap; justify-content:space-between; gap:28px; align-items:flex-start; }
-.foot-brand{ font-family:var(--font-display); font-size:1.3rem; font-weight:600; }
-.foot-links{ display:flex; gap:28px; flex-wrap:wrap; font-size:.9rem; color:var(--muted); }
-.foot-links a{ text-decoration:none; }
-.foot-links a:hover{ color:var(--ink); }
-.foot-bottom{ margin-top:44px; padding-top:24px; border-top:1px solid var(--border); display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px; font-family:var(--font-mono); font-size:.78rem; color:var(--muted); }
+.foot-brand{ font-weight:600; font-size:1.05rem; letter-spacing:-0.03em; text-transform:lowercase; }
+.foot-links{ display:flex; gap:8px; flex-wrap:wrap; }
+.foot-links a{
+  font-size:.88rem; color:var(--muted); text-transform:lowercase;
+  padding:6px 13px; border-radius:var(--r-pill);
+}
+.foot-links a:hover{ color:var(--ink); background:var(--paper-2); }
+.foot-bottom{
+  margin-top:44px; padding-top:22px; border-top:1px solid var(--edge-2);
+  display:flex; flex-wrap:wrap; justify-content:space-between; gap:12px;
+  font-family:var(--font-mono); font-size:.72rem; color:var(--faint);
+}
 </style>
 </head>
 <body>
 
 <nav class="nav">
   <div class="wrap">
-    <a class="brand" href="./index.html"><img src="./icon.png" alt="" /> Argus</a>
-    <div class="navlinks">
-      <a href="./features.html" aria-current="page">Features</a>
-      <a href="./index.html#how">How it works</a>
-      <a href="./index.html#install">Install</a>
-      <a href="./index.html#safety">Safety</a>
+    <div class="nav-inner">
+      <a class="brand" href="./index.html"><img src="./icon.png" alt="" /> Argus</a>
+      <div class="navlinks">
+        <a href="./features.html" aria-current="page">Features</a>
+        <a href="./index.html#how">How it works</a>
+        <a href="./index.html#cost">What it costs</a>
+        <a href="./index.html#install">Install</a>
+        <a href="./index.html#faq">FAQ</a>
+      </div>
+      <a class="nav-cta" href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">★ Star on GitHub</a>
     </div>
-    <a class="nav-cta" href="https://github.com/nikeshsundar/argus" target="_blank" rel="noopener">★ GitHub</a>
   </div>
 </nav>
 
@@ -295,6 +373,7 @@ footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
       <aside class="toc">
         <h2>On this page</h2>
         <ol>
+          <li><a href="#tutorial">Tutorial</a></li>
           <li><a href="#talk">Talk Mode</a></li>
           <li><a href="#agent">Agent Mode</a></li>
           <li><a href="#teach">Teach Mode</a></li>
@@ -313,6 +392,46 @@ footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
       <div>
 
         <!-- ============================= TALK ============================= -->
+        <!-- ============================= TUTORIAL ============================= -->
+        <section class="feat" id="tutorial">
+          <span class="feat-tag">Teaches</span>
+          <h3>Tutorial</h3>
+          <p>Argus has no window, no menu and no settings screen. That is the point, and it is also the problem: a new install is a blank bar and no clue what it does. <code>/tutorial</code> is the answer to that — eleven short pages covering every mode, read inside the bar itself.</p>
+
+          <div class="rows">
+            <div class="row">
+              <div class="k">How to get there</div>
+              <div class="v">
+                <p>Type <code>/tutorial</code> and press <kbd>Enter</kbd>. It is the first entry in the palette, so <kbd>/</kbd> then <kbd>Enter</kbd> also gets you there.</p>
+                <p class="muted">It is offered automatically the first time Argus runs, before any key has been set.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Getting around</div>
+              <div class="v"><ul>
+                <li><b><kbd>Enter</kbd> on the empty bar</b> turns the page — the only place an empty bar means anything</li>
+                <li><b><code>/tutorial back</code></b> goes back one; from page one it leaves</li>
+                <li><b><code>/tutorial 7</code></b> jumps straight to a page</li>
+                <li><b><code>/tutorial exit</code></b> leaves without closing the bar, so you can try something</li>
+              </ul></div>
+            </div>
+            <div class="row">
+              <div class="k">Why it needs no key</div>
+              <div class="v">
+                <p>The tutorial never calls a model. It runs entirely in the bar, which means it works at the one moment it matters most — a fresh install, no API key, someone wondering what they just installed.</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="k">Where it stops</div>
+              <div class="v">
+                <p>It only ever <i>describes</i>. Nothing in the tutorial moves your mouse or types for you — demonstrating Agent Mode by taking control would be doing the exact thing the reader has not yet agreed to.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="note"><b>Typing anything else leaves.</b> Ask a real question mid-tutorial and the lesson gets out of the way rather than fighting your transcript for the thread.</div>
+        </section>
+
         <section class="feat" id="talk">
           <span class="feat-tag">Asks</span>
           <h3>Talk Mode</h3>
@@ -322,7 +441,7 @@ footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
             <div class="row">
               <div class="k">How to get there</div>
               <div class="v">
-                <p>Press <kbd>Alt</kbd> + <kbd>`</kbd> and just type a question. It is the default — no prefix needed.</p>
+                <p>Press <kbd>Alt</kbd> + <kbd>`</kbd> and just type a question. Anything that reads like one — a question mark, an opening question word, or a verb aimed at Argus rather than the machine — is answered rather than performed.</p>
                 <p class="muted">The bar opens beside your pointer, where you are already looking. Near an edge it flips to the other side of the cursor rather than covering the thing you asked about. Drag it anywhere and it stays put.</p>
                 <p class="muted">If a question reads like an order and gets routed to the agent by mistake, prefix it with <code>ask</code>.</p>
               </div>
@@ -363,7 +482,7 @@ footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
             <div class="row">
               <div class="k">How to get there</div>
               <div class="v">
-                <p>Type an instruction. Anything imperative is routed to the agent automatically — no magic word.</p>
+                <p>Type what you want done. Acting is the default: anything that is not recognisably a question goes to the agent, so there is no magic word to remember.</p>
                 <p class="muted">Click the <b>Talk</b> chip to force it, or prefix with <code>agent</code> when the wording is ambiguous.</p>
               </div>
             </div>
@@ -626,7 +745,7 @@ footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
                   <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /keys k1 k2 k3         <span class="rem"># load several at once</span></div><button class="copy-btn" type="button">copy</button></div>
                   <div class="term-line"><div class="term-cmd"><span class="prompt">&gt;</span> /keys reset            <span class="rem"># clear cooldowns, retry everything</span></div><button class="copy-btn" type="button">copy</button></div>
                 </div></div>
-                <p class="muted" style="margin-top:12px;">Get a free Gemini key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--iris);">aistudio.google.com/apikey</a> — no card required.</p>
+                <p class="muted" style="margin-top:12px;">Get a free Gemini key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--red-ink);">aistudio.google.com/apikey</a> — no card required.</p>
               </div>
             </div>
             <div class="row">
@@ -737,6 +856,8 @@ footer{ padding:64px 0 48px; border-top:1px solid var(--border); }
         <table>
           <thead><tr><th>Command</th><th>What it does</th></tr></thead>
           <tbody>
+            <tr><td>/tutorial</td><td>The guided tour of every mode — works with no API key</td></tr>
+            <tr><td>/tutorial &lt;n&gt;</td><td>Jump to a page · <code>next</code> · <code>back</code> · <code>exit</code></td></tr>
             <tr><td>/help</td><td>List every command, inside the bar</td></tr>
             <tr><td>/aimodel</td><td>The model menu — Gemini (free), Claude, GPT, local Ollama</td></tr>
             <tr><td>/aimodel &lt;n&gt;</td><td>Pick by row number, or by name: <code>/aimodel claude sonnet</code></td></tr>

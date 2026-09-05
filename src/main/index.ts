@@ -524,6 +524,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
   if (/^\/help$/i.test(text)) {
     return ok(
       [
+        '/tutorial             the guided tour — no key needed',
         '/aimodel              pick the model that answers (Gemini is free)',
         `/key <api-key>        add a key for ${settings.talkProvider}`,
         '/keys                 list keys and rotation status',
@@ -1226,9 +1227,12 @@ if (!app.requestSingleInstanceLock()) {
     // never started. Also the only place the active hotkey gets announced.
     if (!isProviderConfigured()) {
       void openRequestBar(
+        // "/tutorial" comes first deliberately: it is the one thing that works
+        // before a key exists, so it is the only useful answer to "what is
+        // this?" at the exact moment someone is asking it.
         hotkey
-          ? `Argus is running. Press ${hotkey} anywhere to open this.\nAdd a key to start: /key <your-key>   (or /provider gemini first)`
-          : 'Argus is running, but no hotkey could be registered. Open it from the tray icon, or set one with "/hotkey <combo>".'
+          ? `Argus is running. Press ${hotkey} anywhere to open this.\nNew here? Type /tutorial for the two-minute tour.\nAdd a key to start: /key <your-key>`
+          : 'Argus is running, but no hotkey could be registered. Open it from the tray icon, or set one with "/hotkey <combo>".\nNew here? Type /tutorial for the two-minute tour.'
       )
     }
   })

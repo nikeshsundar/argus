@@ -124,29 +124,13 @@ const TALK_VERBS = new Set([
 ])
 
 /**
- * Verbs that only make sense as something done to the computer.
+ * Openers that make a sentence a question even without a question mark.
  *
- * Deliberately narrow. Anything ambiguous is left out: the cost of missing one
- * is a description the user has to redo with "agent", while the cost of a false
- * positive is the machine grabbing the mouse when nobody asked it to.
+ * This list and TALK_VERBS are now the whole of the Talk side: acting is the
+ * default, so these are what a request has to look like to be answered instead
+ * of performed. Anything worth adding belongs here rather than in a list of
+ * action verbs, which no longer exists - it could only ever repeat the default.
  */
-const ACTION_VERBS = new Set([
-  'open', 'launch', 'start', 'run', 'execute', 'close', 'quit', 'exit', 'kill',
-  'minimise', 'minimize', 'maximise', 'maximize', 'restore', 'resize', 'move',
-  'snap', 'pin', 'unpin', 'focus', 'click', 'doubleclick', 'rightclick',
-  'press', 'tap', 'type', 'scroll', 'drag', 'select', 'highlight',
-  'search', 'google', 'browse', 'navigate', 'visit', 'goto', 'go',
-  'play', 'pause', 'resume', 'stop', 'skip', 'mute', 'unmute',
-  'download', 'install', 'uninstall', 'copy', 'paste', 'cut', 'rename',
-  'delete', 'send', 'post', 'tweet', 'message', 'email', 'reply', 'forward',
-  'share', 'upload', 'attach', 'submit', 'sign', 'login', 'logout', 'signin',
-  'signout', 'turn', 'enable', 'disable', 'toggle', 'switch', 'refresh',
-  'reload', 'bookmark', 'print', 'screenshot', 'capture', 'lock', 'unlock',
-  'restart', 'shutdown', 'connect', 'disconnect', 'join', 'leave', 'zoom',
-  'buy', 'order', 'book', 'checkout', 'clear', 'empty', 'set'
-])
-
-/** Openers that make a sentence a question even without a question mark. */
 const QUESTION_WORDS = new Set([
   'what', "what's", 'whats', 'why', 'how', 'who', "who's", 'whos', 'when',
   'where', "where's", 'wheres', 'which', 'whose', 'is', 'are', 'was', 'were',
@@ -168,9 +152,16 @@ function firstWord(text: string): string {
  * own, because having to remember a magic word to make the thing act is the
  * kind of friction that stops people using it at all.
  *
- * Everything unrecognised falls through to Talk. Answering a question that was
- * meant as a command wastes a turn; taking control of a machine that only asked
- * a question is a much worse way to be wrong.
+ * Acting is the default, so everything unrecognised falls through to Agent.
+ * Every signal that a request is a question is still checked first and still
+ * wins - a question mark, an opening question word, a verb aimed at the model
+ * rather than the machine. What reaches the fallback is genuinely ambiguous,
+ * and this app is for doing things.
+ *
+ * That trade is not free: a fragment the classifier cannot place now reaches
+ * for the mouse instead of answering. Three things make it survivable - the
+ * chip names the mode before Enter is pressed, the overlay is impossible to
+ * miss once it starts, and Escape stops it from anywhere.
  */
 export function parseMode(text: string): { mode: Mode; prompt: string } {
   const forcedAgent = AGENT_PREFIX.exec(text)
@@ -192,7 +183,6 @@ export function parseMode(text: string): { mode: Mode; prompt: string } {
 
   const opener = firstWord(prompt)
   if (TALK_VERBS.has(opener) || QUESTION_WORDS.has(opener)) return talk
-  if (ACTION_VERBS.has(opener)) return { mode: 'agent', prompt }
 
-  return talk
+  return { mode: 'agent', prompt }
 }
