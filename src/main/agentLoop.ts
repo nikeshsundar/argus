@@ -11,8 +11,11 @@ import { captureActiveDisplay } from './screenshot'
 import { asAgent, watchUser } from './userPresence'
 import { createYielding } from './yield'
 
-/** Hard ceiling on actions per task, so a confused model can't grind forever. */
-const MAX_STEPS = 14
+/**
+ * Safety ceiling, not the task length. The model calls task_done when the SOP
+ * is complete; this only prevents a confused model from running forever.
+ */
+const MAX_STEPS = 50
 /**
  * Extra pause after an action before looking again.
  *
@@ -21,7 +24,7 @@ const MAX_STEPS = 14
  * settle before the model sees it. The old 500 was stacked on top of that and
  * bought nothing but a slower agent - a dozen steps of it is six seconds.
  */
-const SETTLE_MS = 150
+const SETTLE_MS = 60
 
 export interface AgentRunOptions {
   task: string
@@ -157,7 +160,7 @@ ${stoodAside}` : action.summary,
 
     return {
       ok: false,
-      summary: `Hit the ${MAX_STEPS}-step limit without finishing. Try a smaller task.`,
+      summary: `Reached the ${MAX_STEPS}-step safety limit without finishing. The SOP may need a smaller task or a clearer stopping condition.`,
       actions: performed
     }
   } finally {

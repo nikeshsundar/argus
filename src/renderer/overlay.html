@@ -139,6 +139,23 @@
         transition: opacity 260ms ease;
       }
 
+      /* A second cursor for the agent; the real Windows cursor still acts. */
+      .agent-hand {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 38px;
+        height: 44px;
+        margin: -39px 0 0 -14px;
+        color: #000;
+        font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
+        font-size: 42px;
+        line-height: 1;
+        pointer-events: none;
+        filter: drop-shadow(0 2px 3px rgba(255, 255, 255, 0.85));
+        transition: opacity 260ms ease;
+      }
+
       /*
        * Each dot chases the same point with a longer transition than the one
        * before it, so the lag alone draws the tail. Nothing is created or
@@ -175,7 +192,8 @@
       }
 
       .pointer.idle .halo,
-      .pointer.idle .trail {
+      .pointer.idle .trail,
+      .pointer.idle .agent-hand {
         opacity: 0.25;
       }
 
@@ -291,8 +309,14 @@
 
       .ghost-arrow {
         position: absolute;
-        left: -3px;
-        top: -3px;
+        left: -12px;
+        top: -18px;
+        width: 42px;
+        height: 48px;
+        color: #000;
+        font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
+        font-size: 46px;
+        line-height: 1;
         filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.4));
       }
 
@@ -369,18 +393,11 @@
       <div class="trail t2"></div>
       <div class="trail t1"></div>
       <div class="halo"></div>
+      <div class="agent-hand" aria-hidden="true">☝</div>
     </div>
     <div class="ghost" id="ghost" hidden>
       <div class="ghost-ping"></div>
-      <svg class="ghost-arrow" width="26" height="30" viewBox="0 0 26 30" aria-hidden="true">
-        <path
-          d="M2 1.5 L2 24 L8.2 18.4 L12.4 27.6 L16.6 25.6 L12.5 16.7 L21 16.2 Z"
-          fill="#1668d6"
-          stroke="#ffffff"
-          stroke-width="1.6"
-          stroke-linejoin="round"
-        />
-      </svg>
+      <div class="ghost-arrow" aria-hidden="true">☝</div>
       <div class="caption">
         <div class="caption-step" id="caption-step"></div>
         <div class="caption-title" id="caption-title"></div>

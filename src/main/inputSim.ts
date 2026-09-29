@@ -74,13 +74,13 @@ export async function executeAction(
       // Programs take a moment to paint their first window. The screen grab
       // before the next decision adds ~400ms of its own, so this only has to
       // cover the rest.
-      await new Promise((resolve) => setTimeout(resolve, 900))
+      await new Promise((resolve) => setTimeout(resolve, 450))
       return `launched ${launched}`
     }
 
     case 'openUrl': {
       await shell.openExternal(action.url)
-      await new Promise((resolve) => setTimeout(resolve, 900))
+      await new Promise((resolve) => setTimeout(resolve, 450))
       return `opened ${action.url}`
     }
 
@@ -146,7 +146,7 @@ export async function executeAction(
 
         // Submitting usually navigates. Without this the next screenshot
         // catches a blank page mid-load, and the model plans against nothing.
-        await new Promise((resolve) => setTimeout(resolve, 700))
+        await new Promise((resolve) => setTimeout(resolve, 350))
       }
       return 'ok'
     }

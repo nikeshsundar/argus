@@ -4,6 +4,9 @@ import type { TeachStep } from '../shared/teach'
 import type { AgentCursorEvent, AgentStepEvent, OverlayKind, TeachStepEvent } from '../shared/types'
 
 let win: BrowserWindow | null = null
+let overlayReady = false
+let overlayRequested = false
+let overlayKind: OverlayKind = 'agent'
 
 /**
  * Where the overlay currently sits, and at what DPI. Pointer coordinates arrive
@@ -40,6 +43,12 @@ function ensureOverlay(): BrowserWindow {
   // Never intercept the user's clicks - they must stay in control of the machine.
   win.setIgnoreMouseEvents(true)
 
+  win.webContents.once('did-finish-load', () => {
+    overlayReady = true
+    win?.webContents.send('argus:overlay-kind', overlayKind)
+    if (overlayRequested && win && !win.isDestroyed()) win.showInactive()
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/overlay.html`)
   } else {
@@ -56,12 +65,16 @@ function ensureOverlay(): BrowserWindow {
  */
 export function showOverlay(kind: OverlayKind = 'agent'): void {
   const overlay = ensureOverlay()
+  overlayKind = kind
+  overlayRequested = true
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   origin = { x: display.bounds.x, y: display.bounds.y }
   scaleFactor = display.scaleFactor
   overlay.setBounds(display.bounds)
-  overlay.webContents.send('argus:overlay-kind', kind)
-  overlay.showInactive()
+  if (overlayReady) {
+    overlay.webContents.send('argus:overlay-kind', kind)
+    overlay.showInactive()
+  }
 }
 
 /** Places the ghost cursor and its caption. `target` is in physical pixels. */
@@ -81,7 +94,7 @@ export function clearTeachStep(): void {
 }
 
 export function updateOverlay(event: AgentStepEvent): void {
-  if (win && !win.isDestroyed()) win.webContents.send('argus:agent-step', event)
+  if (overlayReady && win && !win.isDestroyed()) win.webContents.send('argus:agent-step', event)
 }
 
 /**
@@ -91,7 +104,7 @@ export function updateOverlay(event: AgentStepEvent): void {
  * being taken, keeping our own decoration out of what the model reads.
  */
 export function reportCursor(x: number, y: number, phase: AgentCursorEvent['phase']): void {
-  if (!win || win.isDestroyed() || !win.isVisible()) return
+  if (!overlayReady || !win || win.isDestroyed() || !win.isVisible()) return
   win.webContents.send('argus:agent-cursor', {
     x: x / scaleFactor - origin.x,
     y: y / scaleFactor - origin.y,
@@ -107,10 +120,11 @@ export function reportCursor(x: number, y: number, phase: AgentCursorEvent['phas
  * telling someone whether their next click will collide with the agent's.
  */
 export function setOverlayPaused(text: string | null): void {
-  if (win && !win.isDestroyed()) win.webContents.send('argus:overlay-paused', text)
+  if (overlayReady && win && !win.isDestroyed()) win.webContents.send('argus:overlay-paused', text)
 }
 
 export function hideOverlay(): void {
+  overlayRequested = false
   if (win && !win.isDestroyed() && win.isVisible()) win.hide()
 }
 

@@ -75,7 +75,7 @@ const DEFAULTS: Settings = {
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
   geminiModel: DEFAULT_MODEL_ID,
-  agentModel: 'gemini-3.5-flash-lite',
+  agentModel: 'gemini-2.5-flash-lite',
   geminiApiKey: '',
   geminiApiKeys: [],
   geminiKeyCooldowns: {},
@@ -127,6 +127,15 @@ export function loadSettings(): Settings {
 function healModelNames(settings: Settings): Settings {
   if (inferProviderFromKey(settings.geminiModel)) settings.geminiModel = DEFAULTS.geminiModel
   if (inferProviderFromKey(settings.agentModel)) settings.agentModel = DEFAULTS.agentModel
+  // This preview id was used by an earlier build and is now commonly slow or
+  // unavailable. Move existing installs to the current fast Agent model.
+  if (
+    settings.agentModel === 'gemini-3-flash-preview' ||
+    settings.agentModel === 'gemini-3.5-flash-lite' ||
+    settings.agentModel === 'gemini-3.6-flash'
+  ) {
+    settings.agentModel = DEFAULTS.agentModel
+  }
   if (inferProviderFromKey(settings.claudeModel)) settings.claudeModel = DEFAULTS.claudeModel
   if (inferProviderFromKey(settings.openaiModel)) settings.openaiModel = DEFAULTS.openaiModel
   return settings

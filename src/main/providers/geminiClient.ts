@@ -102,12 +102,14 @@ const REQUEST_TIMEOUT_MS = 25_000
  * a dozen times a task. Waiting 25 seconds on each of those is its own
  * failure, so they set their own, shorter deadline.
  */
-export const STEP_TIMEOUT_MS = 12_000
+export const STEP_TIMEOUT_MS = 7_000
 
 /** When each model is worth trying again. Keyed by model id. */
 const restingUntil = new Map<string, number>()
 /** How long the last rest was, so the next one can be longer. */
 const restLength = new Map<string, number>()
+/** Models returned by Google's model list, cached briefly per API key. */
+const discoveredModels = new Map<string, { expires: number; models: string[] }>()
 
 /**
  * Puts models that are known to be up ahead of ones that just refused.
@@ -182,6 +184,20 @@ export async function callGemini(options: {
   noteAvailability(candidates[0]!, response.status)
   if (response.ok) options.onModelChosen?.(candidates[0]!)
 
+  // Model ids change and access varies by API key. If every configured id is
+  // rejected as unknown, ask Google what this key can actually use instead of
+  // making the user guess another model name.
+  if (response.status === 404 && !options.signal?.aborted) {
+    const available = await listAvailableModels(options.apiKey, options.signal)
+    const replacement = available.find((model) => !candidates.includes(model))
+    if (replacement) {
+      response = await attempt(replacement, { ...options, hasAlternatives: false })
+      noteAvailability(replacement, response.status)
+      if (response.ok) options.onModelChosen?.(replacement)
+      if (response.ok || response.status !== 404) return response
+    }
+  }
+
   for (let next = 1; response.status === 503 && next < candidates.length; next++) {
     if (options.signal?.aborted) return response
     response = await attempt(candidates[next]!, {
@@ -192,6 +208,39 @@ export async function callGemini(options: {
     if (response.ok) options.onModelChosen?.(candidates[next]!)
   }
   return response
+}
+
+async function listAvailableModels(apiKey: string, signal?: AbortSignal): Promise<string[]> {
+  const cached = discoveredModels.get(apiKey)
+  if (cached && cached.expires > Date.now()) return cached.models
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 4_000)
+  const requestSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal
+
+  try {
+    const response = await fetch(GEMINI_ENDPOINT, {
+      headers: { 'x-goog-api-key': apiKey },
+      signal: requestSignal
+    })
+    if (!response.ok) return []
+
+    const payload = (await response.json()) as {
+      models?: { name?: string; supportedGenerationMethods?: string[] }[]
+    }
+    const models = (payload.models ?? [])
+      .filter((model) => model.supportedGenerationMethods?.includes('generateContent'))
+      .map((model) => model.name?.replace(/^models\//, '') ?? '')
+      .filter(Boolean)
+    discoveredModels.set(apiKey, { expires: Date.now() + 10 * 60_000, models })
+    return models
+  } catch {
+    return []
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** Remembers which models are refusing, so the next call skips them. */
@@ -275,7 +324,15 @@ async function attempt(
     } catch (error) {
       // A user pressing Escape is a real abort and must propagate.
       if (options.signal?.aborted) throw error
-      if (!deadline.signal.aborted) throw error
+      if (!deadline.signal.aborted) {
+        // Node's fetch rejects before Gemini can return an HTTP response for
+        // offline, DNS, TLS and proxy failures. Keep that distinct from a
+        // model overload so the user gets useful recovery advice.
+        return new Response(null, {
+          status: 503,
+          headers: { 'x-argus-network-error': '1' }
+        })
+      }
 
       // Our own deadline. A model that will not answer is unavailable, which
       // is what 503 means - so it takes the same path and the next model in
@@ -403,6 +460,12 @@ export async function describeGeminiFailure(response: Response, model: string): 
       'A busy model is at Google end, not yours. Try again in a minute, or pick another with "/aimodel".'
     )
   }
+  if (response.headers.get('x-argus-network-error')) {
+    return (
+      'Could not reach Gemini. Check your internet connection, VPN or proxy, then try again. ' +
+      'If other apps also cannot connect, fix the network before changing your API key.'
+    )
+  }
   if (response.status === 503) {
     // Already retried three times by the time this is written, so "try again"
     // on its own would be poor advice - name the way out as well. Talk and the
@@ -422,14 +485,14 @@ export async function describeGeminiFailure(response: Response, model: string): 
  * Shared by every text-producing caller here, so a reasoning part leaking into
  * a visible answer is a bug that can only exist in one place.
  */
-export function extractText(payload: unknown): string {
+export function extractText(payload: unknown, trim = true): string {
   const response = payload as GeminiResponse
   if (response.error?.message) throw new Error(`Gemini: ${response.error.message}`)
-  return (response.candidates?.[0]?.content?.parts ?? [])
+  const text = (response.candidates?.[0]?.content?.parts ?? [])
     .filter((part) => !part.thought && part.text) // reasoning parts stay internal
     .map((part) => part.text)
     .join('')
-    .trim()
+  return trim ? text.trim() : text
 }
 
 /** Reads a streamed answer, reporting each chunk as it lands. */
@@ -439,7 +502,9 @@ export async function consumeStream(
 ): Promise<string> {
   let answer = ''
   for await (const event of readServerSentEvents(body)) {
-    const text = extractText(JSON.parse(event))
+    // Preserve whitespace between deltas; only trim once the full answer is
+    // assembled.
+    const text = extractText(JSON.parse(event), false)
     if (!text) continue
     answer += text
     onDelta(text)
@@ -466,6 +531,15 @@ async function* readServerSentEvents(body: ReadableStream<Uint8Array>): AsyncGen
       for (const line of event.split('\n')) {
         if (line.startsWith('data:')) yield line.slice(5).trim()
       }
+    }
+  }
+
+  // Flush a partial UTF-8 sequence and accept the final event even when the
+  // stream closes without the optional trailing blank line.
+  buffer += decoder.decode().replace(/\r/g, '')
+  if (buffer) {
+    for (const line of buffer.split('\n')) {
+      if (line.startsWith('data:')) yield line.slice(5).trim()
     }
   }
 }

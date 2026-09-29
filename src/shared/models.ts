@@ -31,13 +31,13 @@ export interface ModelChoice {
 export const CATALOGUE: ModelChoice[] = [
   {
     provider: 'gemini',
-    id: 'gemini-3.6-flash',
+    id: 'gemini-2.5-flash',
     label: 'Gemini Flash',
     note: 'free tier - 20 requests a day, no card. The default.'
   },
   {
     provider: 'gemini',
-    id: 'gemini-3.5-flash-lite',
+    id: 'gemini-2.5-flash-lite',
     label: 'Gemini Flash Lite',
     note: 'free tier, its own daily allowance. Faster, less careful.'
   },
@@ -80,7 +80,7 @@ export const CATALOGUE: ModelChoice[] = [
 ]
 
 /** No key, no card, no signup wall. */
-export const DEFAULT_MODEL_ID = 'gemini-3.6-flash'
+export const DEFAULT_MODEL_ID = 'gemini-2.5-flash'
 
 export function defaultChoice(): ModelChoice {
   return CATALOGUE.find((one) => one.id === DEFAULT_MODEL_ID) ?? CATALOGUE[0]!
@@ -257,8 +257,6 @@ export function renderCatalogue(options: {
  * useless model at the front of this list.
  */
 export const OVERLOAD_FALLBACKS = [
-  'gemini-3-flash-preview',
-  'gemini-3.1-flash-lite',
-  'gemini-flash-lite-latest',
-  'gemini-flash-latest'
+  'gemini-2.5-flash-lite',
+  'gemini-2.5-flash'
 ]

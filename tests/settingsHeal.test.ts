@@ -29,7 +29,7 @@ describe('inferProviderFromKey as a model-name guard', () => {
 
   it('leaves real model names alone, including the shipped defaults', () => {
     for (const model of [
-      'gemini-3.6-flash',
+      'gemini-2.5-flash',
       'gemini-2.5-pro',
       'claude-opus-5',
       'claude-sonnet-5',
