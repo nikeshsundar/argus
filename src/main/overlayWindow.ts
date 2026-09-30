@@ -7,8 +7,11 @@ import type {
   ApprovalDecision,
   ApprovalRequest,
   OverlayKind,
-  TeachStepEvent
+  TeachStepEvent,
+  TodoItem
 } from '../shared/types'
+import { setOverlayInteractiveState } from './overlayState'
+import { agentIsActing } from './userPresence'
 
 let win: BrowserWindow | null = null
 let overlayReady = false
@@ -47,8 +50,10 @@ function ensureOverlay(): BrowserWindow {
   })
 
   win.setAlwaysOnTop(true, 'screen-saver')
-  // Never intercept the user's clicks - they must stay in control of the machine.
-  win.setIgnoreMouseEvents(true)
+  // Never intercept the user's clicks - they must stay in control of the
+  // machine. `forward` still delivers mouse moves, which is how the to-do
+  // pill and the approval card know the pointer has come onto them.
+  win.setIgnoreMouseEvents(true, { forward: true })
 
   win.webContents.once('did-finish-load', () => {
     overlayReady = true
@@ -137,6 +142,10 @@ export function setOverlayPaused(text: string | null): void {
 
 export function hideOverlay(): void {
   overlayRequested = false
+  // A hidden overlay must come back click-through, whatever the pointer was
+  // over when it went.
+  setOverlayInteractiveState(false)
+  if (win && !win.isDestroyed()) win.setIgnoreMouseEvents(true, { forward: true })
   if (win && !win.isDestroyed() && win.isVisible()) win.hide()
 }
 
@@ -181,9 +190,22 @@ function releaseFocus(): void {
 // which is how the card knows the pointer has come onto it.
 ipcMain.on('argus:overlay-interactive', (_event, interactive: boolean) => {
   if (!win || win.isDestroyed()) return
-  if (interactive && pendingApproval) win.setIgnoreMouseEvents(false)
+  // Never while the agent's own input is in flight: its pointer passing over
+  // the to-do pill on the way to a click must not turn that click into a
+  // click on the pill. An approval card is the exception - the agent is
+  // waiting on it, so nothing of its own can be in flight.
+  const allow = interactive && (pendingApproval !== null || !agentIsActing())
+  setOverlayInteractiveState(allow)
+  if (allow) win.setIgnoreMouseEvents(false)
   else win.setIgnoreMouseEvents(true, { forward: true })
 })
+
+/**
+ * Shows the run's to-do list in the banner - or clears it with null.
+ */
+export function updateTodos(items: TodoItem[] | null): void {
+  if (overlayReady && win && !win.isDestroyed()) win.webContents.send('argus:todos', items)
+}
 
 function settleApproval(decision: ApprovalDecision): void {
   const pending = pendingApproval
@@ -192,7 +214,8 @@ function settleApproval(decision: ApprovalDecision): void {
   if (win && !win.isDestroyed()) {
     win.webContents.send('argus:approval', null)
     releaseFocus()
-    win.setIgnoreMouseEvents(true)
+    setOverlayInteractiveState(false)
+    win.setIgnoreMouseEvents(true, { forward: true })
   }
   pending.resolve(decision)
 }

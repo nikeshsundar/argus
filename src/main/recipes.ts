@@ -521,6 +521,8 @@ async function mail(
   const result = await runAgentTask({
     task: `Send the email to ${to} with the subject "${subject}". It is already fully written in the open Gmail compose window - do not change anything. Click the Send button.`,
     signal: run.signal,
+    // One click: a planned list would be a single line that cost a request.
+    plan: false,
     ...(onStep ? { onStep } : {})
   })
   return {
@@ -609,6 +611,8 @@ async function meet(
       `${guests.length ? `, guests ${guests.join(', ')}` : ''}. Do not change anything. Click Save. ` +
       'If Google then asks whether to send invitation emails to the guests, click Send.',
     signal: run.signal,
+    // One click: a planned list would be a single line that cost a request.
+    plan: false,
     ...(onStep ? { onStep } : {})
   })
   return {

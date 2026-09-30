@@ -236,6 +236,18 @@ export function parseSafetyCommand(input: string): SafetyCommand {
   return { kind: 'bad', raw: arg }
 }
 
+/** A few words for the overlay banner, which has room for no more. */
+export function safetyBadge(mode: ApprovalMode): string {
+  switch (mode) {
+    case 'sensitive':
+      return 'Safety on'
+    case 'every':
+      return 'Safety: strict'
+    case 'off':
+      return 'Safety OFF'
+  }
+}
+
 export function describeSafety(mode: ApprovalMode): string {
   switch (mode) {
     case 'sensitive':

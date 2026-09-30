@@ -62,6 +62,14 @@ export interface AgentStepEvent {
   description: string
   index: number
   max: number
+  /** How far through the task's to-do list the agent is, when it has one. */
+  todo?: { done: number; total: number }
+}
+
+/** One item of an agent run's to-do list, as the overlay shows it. */
+export interface TodoItem {
+  text: string
+  state: 'done' | 'active' | 'pending'
 }
 
 /** A step waiting for the user's OK, shown as a card under the overlay banner. */

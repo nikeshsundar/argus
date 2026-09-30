@@ -96,6 +96,233 @@
         color: var(--muted);
       }
 
+      /* Long actions shorten; the to-do pill and the Esc hint never do. */
+      #action {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ---- To-do list ---------------------------------------------------- */
+
+      /*
+       * The pill replaces "step 7/50": how far through THIS task's own to-do
+       * list the agent is. It is the one thing on the banner that takes a
+       * click - opening the list underneath.
+       */
+      .todo-pill {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 9px 3px 7px;
+        border: 1px solid rgba(228, 35, 28, 0.35);
+        border-radius: 999px;
+        background: rgba(228, 35, 28, 0.07);
+        color: var(--agent-deep);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        cursor: pointer;
+        transition:
+          background 120ms ease,
+          transform 120ms ease;
+      }
+
+      .todo-pill[hidden],
+      .todo-card[hidden] {
+        display: none;
+      }
+
+      .todo-pill:hover {
+        background: rgba(228, 35, 28, 0.14);
+      }
+
+      .todo-pill-box {
+        position: relative;
+        width: 11px;
+        height: 11px;
+        box-sizing: border-box;
+        border: 1.5px solid currentColor;
+        border-radius: 3px;
+      }
+
+      .todo-pill.all-done .todo-pill-box {
+        border-color: var(--agent-solid);
+        background: var(--agent-solid);
+      }
+
+      .todo-pill.all-done .todo-pill-box::after {
+        content: '✓';
+        position: absolute;
+        inset: -3px 0 0 0;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .todo-chev {
+        font-size: 9px;
+        transition: transform 160ms ease;
+      }
+
+      .todo-pill.open .todo-chev {
+        transform: rotate(180deg);
+      }
+
+      /* A to-do just got ticked: the pill gives a small nudge. */
+      .todo-pill.bump {
+        animation: bump 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+
+      @keyframes bump {
+        30% {
+          transform: scale(1.14);
+        }
+      }
+
+      .todo-card {
+        position: fixed;
+        top: 66px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(360px, 90vw);
+        box-sizing: border-box;
+        padding: 14px 16px 8px;
+        border: 1px solid var(--edge);
+        border-radius: 18px;
+        background: var(--plate);
+        backdrop-filter: blur(20px) saturate(180%);
+        color: var(--ink);
+        box-shadow:
+          0 18px 44px rgba(0, 0, 0, 0.28),
+          inset 0 1px 1px var(--hi);
+        animation: approval-in 200ms cubic-bezier(0.2, 0.8, 0.25, 1);
+      }
+
+      /* An approval question outranks the list - it gets the space. */
+      body[data-approval='true'] .todo-card,
+      body[data-kind='teach'] .todo-card,
+      body[data-kind='teach'] .todo-pill {
+        display: none;
+      }
+
+      .todo-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--agent-deep);
+      }
+
+      .todo-summary {
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0;
+        text-transform: none;
+        color: var(--muted);
+      }
+
+      .todo-bar {
+        margin-top: 9px;
+        height: 4px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+      }
+
+      .todo-bar-fill {
+        width: 0;
+        height: 100%;
+        border-radius: 999px;
+        background: var(--agent-gloss);
+        transition: width 380ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .todo-list {
+        margin: 8px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .todo {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 7px 0;
+        font-size: 13.5px;
+        line-height: 1.35;
+      }
+
+      .todo + .todo {
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+      }
+
+      .todo-box {
+        flex: none;
+        display: grid;
+        place-items: center;
+        width: 18px;
+        height: 18px;
+        box-sizing: border-box;
+        border: 1.5px solid #c4c4c9;
+        border-radius: 6px;
+        background: #fff;
+      }
+
+      /* The one being worked on: a red box with a breathing square in it. */
+      .todo.active .todo-box {
+        border-color: var(--agent-solid);
+      }
+
+      .todo.active .todo-box::after {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 3px;
+        background: var(--agent-solid);
+        animation: pulse 1.4s ease-in-out infinite;
+      }
+
+      .todo.active .todo-text {
+        font-weight: 600;
+      }
+
+      .todo.done .todo-box {
+        border-color: var(--agent-deep);
+        background: var(--agent-gloss);
+      }
+
+      .todo.done .todo-box::after {
+        content: '✓';
+        color: #fff;
+        font-size: 12px;
+        font-weight: 800;
+        line-height: 1;
+      }
+
+      .todo.done .todo-text {
+        color: var(--muted);
+        text-decoration: line-through;
+        text-decoration-color: rgba(0, 0, 0, 0.25);
+      }
+
+      /* Ticked this moment: the check pops in. */
+      .todo.just-done .todo-box {
+        animation: tick-pop 420ms cubic-bezier(0.3, 1.6, 0.5, 1);
+      }
+
+      @keyframes tick-pop {
+        from {
+          transform: scale(0.55);
+        }
+      }
+
       kbd {
         padding: 1px 6px;
         border: 1px solid var(--edge);
@@ -703,9 +930,22 @@
     <div class="frame"></div>
     <div class="banner">
       <span class="dot"></span>
+      <button class="todo-pill" id="todo-pill" type="button" hidden aria-expanded="false" title="Show the to-do list">
+        <span class="todo-pill-box" aria-hidden="true"></span>
+        <span id="todo-count">0/0</span>
+        <span class="todo-chev" aria-hidden="true">▾</span>
+      </button>
       <span id="action">Argus is controlling your PC</span>
       <span class="step" id="step"></span>
       <span class="step">— hold <kbd>Esc</kbd> to stop</span>
+    </div>
+    <div class="todo-card" id="todo-card" hidden>
+      <div class="todo-head">
+        <span>To-do</span>
+        <span class="todo-summary" id="todo-summary"></span>
+      </div>
+      <div class="todo-bar"><div class="todo-bar-fill" id="todo-bar-fill"></div></div>
+      <ol class="todo-list" id="todo-list"></ol>
     </div>
     <div class="approval" id="approval" hidden>
       <div class="approval-label"><span class="dot"></span>Needs your OK</div>

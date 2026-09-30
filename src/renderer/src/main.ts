@@ -469,11 +469,14 @@ window.argus.onDelta((delta) => {
 })
 
 window.argus.onAgentStep((event) => {
-  // Notes (planning, writers finishing) carry no step count.
-  setStatus(
-    event.max > 0 ? `${event.description} (step ${event.index}/${event.max})` : event.description,
-    'busy'
-  )
+  // Agent runs report their to-do list; replays count their fixed steps;
+  // notes (planning, writers finishing) carry neither.
+  const progress = event.todo
+    ? ` · ${event.todo.done}/${event.todo.total} to-dos done`
+    : event.max > 0
+      ? ` (step ${event.index}/${event.max})`
+      : ''
+  setStatus(`${event.description}${progress}`, 'busy')
 })
 
 // The bar is one line, and a single-line input drops line breaks on paste -

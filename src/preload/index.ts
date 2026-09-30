@@ -10,6 +10,7 @@ import type {
   SubmitResult,
   TeachStepEvent,
   ThreadSummary,
+  TodoItem,
   Turn
 } from '../shared/types'
 
@@ -90,6 +91,14 @@ const api = {
       callback(text)
     ipcRenderer.on('argus:overlay-paused', listener)
     return () => ipcRenderer.off('argus:overlay-paused', listener)
+  },
+
+  /** Fires with the run's to-do list as it progresses, or null to clear it. */
+  onTodos: (callback: (items: TodoItem[] | null) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, items: TodoItem[] | null): void =>
+      callback(items)
+    ipcRenderer.on('argus:todos', listener)
+    return () => ipcRenderer.off('argus:todos', listener)
   },
 
   /** Fires when a step needs the user's OK, and with null once it is answered. */

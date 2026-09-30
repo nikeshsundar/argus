@@ -18,7 +18,12 @@ export interface Intent {
  * user's resolution - the same convention Gemini uses for pointing. They are
  * converted to physical pixels by `toScreenPoint` at execution time.
  */
-export type AgentAction =
+export type AgentAction = AgentActionKind & {
+  /** Which item of the run's to-do list this action is for (1-based). */
+  todo?: number
+}
+
+type AgentActionKind =
   | { type: 'launch'; name: string }
   | { type: 'openUrl'; url: string }
   | ({ type: 'click'; x: number; y: number; button: 'left' | 'right'; double: boolean } & Intent)

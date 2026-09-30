@@ -120,6 +120,74 @@ function ripple(x: number, y: number): void {
   document.body.append(ring)
 }
 
+// ---- To-do list ------------------------------------------------------------
+
+const todoPill = document.querySelector<HTMLButtonElement>('#todo-pill')!
+const todoCount = document.querySelector<HTMLSpanElement>('#todo-count')!
+const todoCard = document.querySelector<HTMLDivElement>('#todo-card')!
+const todoList = document.querySelector<HTMLOListElement>('#todo-list')!
+const todoSummary = document.querySelector<HTMLSpanElement>('#todo-summary')!
+const todoBarFill = document.querySelector<HTMLDivElement>('#todo-bar-fill')!
+/** Stays as the user left it, run to run: open means they want to watch it. */
+let todoOpen = false
+/** Each item's state last time, so a fresh tick can be animated. */
+let lastStates: string[] = []
+
+window.argus.onTodos((items) => {
+  if (!items || items.length === 0) {
+    todoPill.hidden = true
+    todoCard.hidden = true
+    lastStates = []
+    return
+  }
+
+  const done = items.filter((item) => item.state === 'done').length
+  const doneBefore = lastStates.filter((state) => state === 'done').length
+  todoCount.textContent = `${done}/${items.length}`
+  todoPill.classList.toggle('all-done', done === items.length)
+  todoPill.hidden = false
+  if (lastStates.length > 0 && done > doneBefore) {
+    todoPill.classList.remove('bump')
+    void todoPill.offsetWidth // restart the animation
+    todoPill.classList.add('bump')
+  }
+
+  todoSummary.textContent = done === items.length ? 'All done' : `${done} of ${items.length} done`
+  todoBarFill.style.width = `${(done / items.length) * 100}%`
+  todoList.replaceChildren(
+    ...items.map((item, index) => {
+      const row = document.createElement('li')
+      row.className = `todo ${item.state}`
+      if (item.state === 'done' && lastStates[index] && lastStates[index] !== 'done') {
+        row.classList.add('just-done')
+      }
+      const box = document.createElement('span')
+      box.className = 'todo-box'
+      const text = document.createElement('span')
+      text.className = 'todo-text'
+      text.textContent = item.text
+      row.append(box, text)
+      return row
+    })
+  )
+  lastStates = items.map((item) => item.state)
+  todoCard.hidden = !todoOpen
+})
+
+todoPill.addEventListener('click', () => {
+  todoOpen = !todoOpen
+  todoCard.hidden = !todoOpen
+  todoPill.classList.toggle('open', todoOpen)
+  todoPill.setAttribute('aria-expanded', String(todoOpen))
+})
+
+// Clicks pass through the overlay everywhere except these two, so the pill
+// and the list take the pointer only while it is actually on them.
+for (const control of [todoPill, todoCard]) {
+  control.addEventListener('mouseenter', () => window.argus.setOverlayInteractive(true))
+  control.addEventListener('mouseleave', () => window.argus.setOverlayInteractive(false))
+}
+
 // ---- Approval card ---------------------------------------------------------
 
 const approval = document.querySelector<HTMLDivElement>('#approval')!

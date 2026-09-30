@@ -213,6 +213,28 @@ const FUNCTION_DECLARATIONS = [
   }
 ]
 
+/**
+ * Every action says which to-do item it is for, which is how the list in the
+ * overlay ticks off as the agent works. Optional: a run without a list, or a
+ * model that forgets, just shows less progress.
+ */
+function withTodo<T extends { name: string; parameters: { properties: object } }>(declaration: T): T {
+  if (declaration.name === 'task_done') return declaration
+  return {
+    ...declaration,
+    parameters: {
+      ...declaration.parameters,
+      properties: {
+        ...declaration.parameters.properties,
+        todo: {
+          type: 'NUMBER',
+          description: 'Which item of your to-do list this step is for, counting from 1.'
+        }
+      }
+    }
+  }
+}
+
 /** Offered only when an SOP writer has prepared text for this task. */
 const PASTE_BLOCK_DECLARATION = {
   name: 'paste_block',
@@ -261,9 +283,9 @@ export function createGeminiAgentProvider(options: {
       const contents: Content[] = []
       // paste_block exists only when there is something to paste, so a normal
       // task never sees a tool it cannot use.
-      const declarations = blocks.length
-        ? [...FUNCTION_DECLARATIONS, PASTE_BLOCK_DECLARATION]
-        : FUNCTION_DECLARATIONS
+      const declarations = (
+        blocks.length ? [...FUNCTION_DECLARATIONS, PASTE_BLOCK_DECLARATION] : FUNCTION_DECLARATIONS
+      ).map(withTodo)
       const blockList = blocks.length
         ? `\n\nPrepared text blocks - already written for this task. To insert one, click where it goes, then call paste_block with its id. Never retype or rewrite them:\n${blocks
             .map(
@@ -389,6 +411,16 @@ export function createGeminiAgentProvider(options: {
 }
 
 function toAction(
+  name: string,
+  args: Record<string, unknown>,
+  blocks: PreparedBlock[] = []
+): AgentAction {
+  const action = toActionKind(name, args, blocks)
+  const todo = typeof args['todo'] === 'number' && Number.isFinite(args['todo']) ? Math.round(args['todo']) : 0
+  return todo >= 1 && action.type !== 'done' ? { ...action, todo } : action
+}
+
+function toActionKind(
   name: string,
   args: Record<string, unknown>,
   blocks: PreparedBlock[] = []

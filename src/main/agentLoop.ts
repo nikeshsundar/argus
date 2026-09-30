@@ -7,11 +7,26 @@ import { loadAppIndex } from './appIndex'
 import { watchEscape } from './hotkey'
 import { executeAction } from './inputSim'
 import { gateAction } from './approval'
-import { describeSafety, riskOf } from '../shared/safety'
-import { checkLimits, hasLimits, limitsForModel, limitsLine } from '../shared/limits'
+import { riskOf, safetyBadge } from '../shared/safety'
+import { checkLimits, hasLimits, limitsForModel } from '../shared/limits'
+import {
+  advanceTodos,
+  finishTodos,
+  startTodos,
+  todoCount,
+  todoItems,
+  todosForModel
+} from '../shared/todos'
 import { activeWindowTitle } from './activeWindow'
 import { loadSettings } from './settingsStore'
-import { hideOverlay, noteOverlay, showOverlay, updateOverlay } from './overlayWindow'
+import {
+  hideOverlay,
+  noteOverlay,
+  showOverlay,
+  updateOverlay,
+  updateTodos
+} from './overlayWindow'
+import { planTodos } from './providers/geminiPlan'
 import { createAgentProvider } from './providers'
 import { captureActiveDisplay } from './screenshot'
 import { asAgent, watchUser } from './userPresence'
@@ -48,6 +63,11 @@ export interface AgentRunOptions {
   history?: AgentRunRecord[]
   /** Text an SOP writer already prepared, pasted by reference. */
   blocks?: PreparedBlock[]
+  /**
+   * Plan a to-do list first (default). Off for one-step runs, where a list
+   * would be a single line that cost a request to write.
+   */
+  plan?: boolean
 }
 
 export interface AgentRunResult {
@@ -74,21 +94,15 @@ export async function runAgentTask({
   signal,
   onStep,
   history = [],
-  blocks = []
+  blocks = [],
+  plan = true
 }: AgentRunOptions): Promise<AgentRunResult> {
   const provider = createAgentProvider()
   const installedApps = (await loadAppIndex()).map((entry) => entry.name).slice(0, 200)
   // Read once: limits changed mid-run would move the fence under a task that
   // was planned inside it.
-  const limits = loadSettings().limits
-  const session = provider.startTask(
-    task,
-    signal,
-    installedApps,
-    history,
-    limitsForModel(limits),
-    blocks
-  )
+  const settings = loadSettings()
+  const limits = settings.limits
   const startedAt = Date.now()
   /** Steps the limits refused. Past a few, the task cannot be done inside them. */
   let blockedCount = 0
@@ -108,17 +122,57 @@ export async function runAgentTask({
 
   showOverlay()
   void presentGhost()
+
+  // The run's to-do list, and how far through it the agent is. The banner
+  // shows this instead of "step 7/50" - fifty is a safety ceiling, not the
+  // length of the task, so a count against it told the user nothing.
+  let todos: string[] = []
+  let progress = startTodos(todos)
+  const emit = (description: string): void => {
+    const event: AgentStepEvent = {
+      description,
+      index: 0,
+      max: 0,
+      ...(todos.length ? { todo: todoCount(progress) } : {})
+    }
+    updateOverlay(event)
+    onStep?.(event)
+  }
+  const showTodos = (): void => updateTodos(todos.length ? todoItems(progress) : null)
+
   // Said up front, every run, so the user can see the protection is live
   // before the agent touches anything - not discover it was off afterwards.
-  const safetyNotice: AgentStepEvent = {
-    description: hasLimits(limits)
-      ? `${describeSafety(loadSettings().approvalMode)} ${limitsLine(limits)}`
-      : describeSafety(loadSettings().approvalMode),
-    index: 0,
-    max: MAX_STEPS
+  const badge = hasLimits(limits)
+    ? `${safetyBadge(settings.approvalMode)} · limits on`
+    : safetyBadge(settings.approvalMode)
+  updateTodos(null)
+
+  if (plan) {
+    emit(`${badge} — planning the steps…`)
+    const key = configuredKeys()[0]
+    todos = key
+      ? ((await planTodos({
+          task,
+          apiKey: key,
+          fallbackModels: ['gemini-flash-lite-latest', settings.agentModel],
+          signal: control.signal
+        })) ?? [])
+      : []
+    progress = startTodos(todos)
+    showTodos()
   }
-  updateOverlay(safetyNotice)
-  onStep?.(safetyNotice)
+  emit(todos.length ? `${badge} — ${todos.length} to-do${todos.length === 1 ? '' : 's'}: ${todos[0]}` : badge)
+
+  // The list goes to the agent too, so the plan it is measured against is
+  // the plan it follows.
+  const session = provider.startTask(
+    todos.length ? `${task}\n\n${todosForModel(todos)}` : task,
+    signal,
+    installedApps,
+    history,
+    limitsForModel(limits),
+    blocks
+  )
   const performed: AgentAction[] = []
   /** Corrections the user made from approval cards, shown on later cards. */
   const changes: string[] = []
@@ -173,9 +227,7 @@ export async function runAgentTask({
         if (verdict && !verdict.complete) {
           rejections++
           if (rejections <= MAX_REJECTIONS) {
-            const note = `Not done yet — ${verdict.problem}`
-            updateOverlay({ description: note, index: step, max: MAX_STEPS })
-            onStep?.({ description: note, index: step, max: MAX_STEPS })
+            emit(`Not done yet — ${verdict.problem}`)
             lastResults = [
               `task_done was REJECTED by an independent check of the screenshot: ${verdict.problem}. ` +
                 'The task is NOT finished. Look at the screen, fix what is wrong, and only call task_done when the screen itself proves it.'
@@ -193,9 +245,12 @@ Not confirmed: ${verdict.problem}. Please check the screen.`,
           }
         }
 
-        const event: AgentStepEvent = { description: finish.summary, index: step, max: MAX_STEPS }
-        updateOverlay(event)
-        onStep?.(event)
+        // Confirmed, so every item is done - ticked on screen for a moment
+        // before the overlay goes, so the list is seen to complete.
+        progress = finishTodos(progress)
+        showTodos()
+        emit(finish.summary)
+        if (todos.length) await new Promise((resolve) => setTimeout(resolve, 900))
         const stoodAside = yielding.summary()
         return {
           ok: true,
@@ -209,16 +264,16 @@ Not confirmed: ${verdict.problem}. Please check the screen.`,
           return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
         }
 
-        const event: AgentStepEvent = {
-          description:
-            batch.length > 1
-              ? `${describeAction(action)} (${index + 1}/${batch.length})`
-              : describeAction(action),
-          index: step,
-          max: MAX_STEPS
-        }
-        updateOverlay(event)
-        onStep?.(event)
+        // The agent says which to-do this action is for; anything before it
+        // is done. Only ever forward - revisiting an item is tidying up.
+        const before = progress.reached
+        progress = advanceTodos(progress, action.todo)
+        if (progress.reached !== before) showTodos()
+        emit(
+          batch.length > 1
+            ? `${describeAction(action)} (${index + 1}/${batch.length})`
+            : describeAction(action)
+        )
 
         // Budgets first: a task over its limit stops before doing anything more.
         if (limits.maxSteps !== null && attempted.length >= limits.maxSteps) {
@@ -242,8 +297,7 @@ Not confirmed: ${verdict.problem}. Please check the screen.`,
         const outside = checkLimits(action, limits, { windowTitle: await activeWindowTitle() })
         if (outside) {
           blockedCount++
-          updateOverlay({ description: `Blocked: ${outside}`, index: step, max: MAX_STEPS })
-          onStep?.({ description: `Blocked: ${outside}`, index: step, max: MAX_STEPS })
+          emit(`Blocked: ${outside}`)
           if (blockedCount >= 3) {
             return {
               ok: false,
@@ -325,6 +379,7 @@ Not confirmed: ${verdict.problem}. Please check the screen.`,
     unwatch()
     unwatchUser()
     signal.removeEventListener('abort', abort)
+    updateTodos(null)
     hideOverlay()
   }
 }

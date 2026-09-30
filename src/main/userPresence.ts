@@ -1,5 +1,6 @@
 import { uIOhook, UiohookKey } from 'uiohook-napi'
 import { startInputHook } from './hotkey'
+import { isOverlayInteractive } from './overlayState'
 
 /**
  * Notices when the person is using their own machine.
@@ -31,7 +32,15 @@ let attached = false
 
 function note(): void {
   if (suppressing > 0 || releaseTimer !== null) return
+  // Opening the to-do list is looking at Argus, not taking the machine back.
+  // Pausing the agent for it would stop the very work being checked on.
+  if (isOverlayInteractive()) return
   lastInput = Date.now()
+}
+
+/** True while the agent's own synthetic input is in flight. */
+export function agentIsActing(): boolean {
+  return suppressing > 0 || releaseTimer !== null
 }
 
 const onMouseDown = (): void => note()
