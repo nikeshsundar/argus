@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type {
   AgentCursorEvent,
+  ApprovalDecision,
+  ApprovalRequest,
   AgentStepEvent,
   Mode,
   OverlayKind,
@@ -89,6 +91,31 @@ const api = {
     ipcRenderer.on('argus:overlay-paused', listener)
     return () => ipcRenderer.off('argus:overlay-paused', listener)
   },
+
+  /** Fires when a step needs the user's OK, and with null once it is answered. */
+  onApproval: (callback: (request: ApprovalRequest | null) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: ApprovalRequest | null): void =>
+      callback(payload)
+    ipcRenderer.on('argus:approval', listener)
+    return () => ipcRenderer.off('argus:approval', listener)
+  },
+
+  /** The user's answer to an approval card. */
+  answerApproval: (id: number, decision: ApprovalDecision): void =>
+    ipcRenderer.send('argus:approval-answer', id, decision),
+
+  /**
+   * The overlay is never focusable, so it cannot steal the keyboard from the
+   * app being worked in. The one exception is typing a change request.
+   */
+  setOverlayFocus: (focused: boolean): void => ipcRenderer.send('argus:overlay-focus', focused),
+
+  /**
+   * The overlay lets clicks through to the desktop everywhere except the
+   * approval card. The card reports the pointer entering and leaving it.
+   */
+  setOverlayInteractive: (interactive: boolean): void =>
+    ipcRenderer.send('argus:overlay-interactive', interactive),
 
   /** Fires with each Teach Mode step, or null to clear the ghost cursor. */
   onTeachStep: (callback: (event: TeachStepEvent | null) => void): (() => void) => {

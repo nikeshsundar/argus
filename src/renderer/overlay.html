@@ -309,15 +309,8 @@
 
       .ghost-arrow {
         position: absolute;
-        left: -12px;
-        top: -18px;
-        width: 42px;
-        height: 48px;
-        color: #000;
-        font-family: 'Segoe UI Symbol', 'Noto Sans Symbols 2', sans-serif;
-        font-size: 46px;
-        line-height: 1;
-        filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.4));
+        left: -2px;
+        top: -2px;
       }
 
       .caption {
@@ -378,6 +371,287 @@
         font-size: 11.5px;
         color: var(--muted);
       }
+
+      /* ---- Agent cursor (macOS style) ---------------------------------- */
+
+      /*
+       * The agent's own pointer. The user's real cursor stays where they left
+       * it; this one does the travelling, and the real one only visits the
+       * target for the instant of a click. Its tip is its hotspot, so the
+       * element is offset by the tip's position in the drawing.
+       */
+      .pointer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        z-index: 5;
+        will-change: transform;
+        /* Frames arrive every ~12ms; a short glide between them hides jitter. */
+        transition: transform 34ms linear;
+      }
+
+      .cursor-body {
+        position: absolute;
+        left: -2px;
+        top: -2px;
+        transform-origin: 2px 2px;
+        transition: transform 140ms cubic-bezier(0.3, 1.6, 0.5, 1);
+        animation: cursor-in 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+      }
+
+      @keyframes cursor-in {
+        from {
+          opacity: 0;
+          transform: scale(0.4);
+        }
+      }
+
+      .mac-arrow {
+        display: block;
+        width: 22px;
+        height: 30px;
+        overflow: visible;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
+      }
+
+      /* Pressed: the arrow dips, like a finger going down on a trackpad. */
+      .pointer.press .cursor-body {
+        transform: scale(0.82);
+      }
+
+      .cursor-tag {
+        position: absolute;
+        left: 14px;
+        top: 20px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: var(--agent-gloss);
+        color: #fff;
+        font-size: 11.5px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+        box-shadow:
+          0 4px 12px rgba(228, 35, 28, 0.35),
+          inset 0 1px 1px rgba(255, 255, 255, 0.45);
+      }
+
+      .cursor-state:empty {
+        display: none;
+      }
+
+      .cursor-state {
+        font-weight: 500;
+        opacity: 0.9;
+      }
+
+      .cursor-state::before {
+        content: '·';
+        margin-right: 5px;
+      }
+
+      /* Typing: the note breathes, so it reads as busy rather than stuck. */
+      .pointer.typing .cursor-state {
+        animation: busy 900ms ease-in-out infinite;
+      }
+
+      @keyframes busy {
+        50% {
+          opacity: 0.45;
+        }
+      }
+
+      body[data-paused='true'] .cursor-tag {
+        background: #8a8a8e;
+        box-shadow: none;
+      }
+
+      /* ---- Approval card ------------------------------------------------ */
+
+      /*
+       * Sits directly under the banner, in the same plate-and-pill language,
+       * because it is the banner's question: the agent has stopped and is
+       * waiting on one decision. Nothing else on the overlay takes clicks.
+       */
+      .approval {
+        position: fixed;
+        top: 66px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(460px, 90vw);
+        padding: 16px 18px 14px;
+        border: 1px solid rgba(228, 35, 28, 0.35);
+        border-radius: 18px;
+        background: var(--plate);
+        backdrop-filter: blur(20px) saturate(180%);
+        color: var(--ink);
+        box-shadow:
+          0 18px 44px rgba(0, 0, 0, 0.32),
+          0 0 0 4px rgba(228, 35, 28, 0.1),
+          inset 0 1px 1px var(--hi);
+        animation: approval-in 220ms cubic-bezier(0.2, 0.8, 0.25, 1);
+        user-select: text;
+        -webkit-user-select: text;
+      }
+
+      .approval[hidden] {
+        display: none;
+      }
+
+      @keyframes approval-in {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -8px) scale(0.98);
+        }
+      }
+
+      .approval-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: var(--agent-deep);
+      }
+
+      .approval-title {
+        margin-top: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+      }
+
+      .approval-task {
+        margin-top: 4px;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+
+      .approval-text {
+        margin-top: 10px;
+        max-height: 150px;
+        overflow: auto;
+        padding: 10px 12px;
+        border: 1px solid var(--edge);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.8);
+        font-size: 12.5px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .approval-text[hidden] {
+        display: none;
+      }
+
+      .approval-change {
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        margin-top: 12px;
+        padding: 9px 14px;
+        border: 1px solid var(--edge);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--ink);
+        font: inherit;
+        font-size: 13px;
+        outline: none;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+        transition:
+          border-color 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .approval-change:focus {
+        border-color: rgba(228, 35, 28, 0.55);
+        box-shadow:
+          inset 0 1px 2px rgba(0, 0, 0, 0.06),
+          0 0 0 3px rgba(228, 35, 28, 0.12);
+      }
+
+      .approval-change[hidden],
+      .approval .change[hidden] {
+        display: none;
+      }
+
+      .approval .change {
+        border: 1px solid rgba(228, 35, 28, 0.45);
+        background: linear-gradient(#fff 0%, #fbeeee 100%);
+        color: var(--agent-deep);
+        box-shadow: inset 0 1px 1px var(--hi);
+      }
+
+      .approval .change:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      .approval-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .approval-hint {
+        margin-right: auto;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+
+      .approval button {
+        padding: 7px 16px;
+        border-radius: 999px;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          transform 120ms ease,
+          filter 120ms ease;
+      }
+
+      .approval button:active {
+        transform: scale(0.97);
+      }
+
+      .approval .stop {
+        border: 1px solid var(--edge);
+        background: linear-gradient(#fff 0%, #ededed 100%);
+        color: var(--ink);
+        box-shadow: inset 0 1px 1px var(--hi);
+      }
+
+      .approval .allow {
+        border: 1px solid var(--agent-deep);
+        background: var(--agent-gloss);
+        color: #fff;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+        box-shadow:
+          0 4px 12px rgba(228, 35, 28, 0.35),
+          inset 0 1px 1px rgba(255, 255, 255, 0.45);
+      }
+
+      .approval .allow:hover,
+      .approval .stop:hover {
+        filter: brightness(1.05);
+      }
+
+      /* While waiting, the frame stops pulsing: nothing is moving. */
+      body[data-approval='true'] .frame {
+        animation: none;
+      }
     </style>
   </head>
   <body>
@@ -388,16 +662,53 @@
       <span class="step" id="step"></span>
       <span class="step">— hold <kbd>Esc</kbd> to stop</span>
     </div>
+    <div class="approval" id="approval" hidden>
+      <div class="approval-label"><span class="dot"></span>Needs your OK</div>
+      <div class="approval-title" id="approval-title"></div>
+      <div class="approval-task" id="approval-task"></div>
+      <div class="approval-text" id="approval-text" hidden></div>
+      <input
+        class="approval-change"
+        id="approval-note"
+        type="text"
+        placeholder="Change something first? e.g. make the subject &quot;Today's top 5 news&quot;"
+        autocomplete="off"
+        spellcheck="true"
+      />
+      <div class="approval-actions">
+        <span class="approval-hint">Nothing happens until you choose</span>
+        <button class="stop" id="approval-stop" type="button">Stop task</button>
+        <button class="change" id="approval-change" type="button" disabled>Change</button>
+        <button class="allow" id="approval-allow" type="button">Allow</button>
+      </div>
+    </div>
     <div class="pointer" id="pointer" hidden>
-      <div class="trail t3"></div>
-      <div class="trail t2"></div>
-      <div class="trail t1"></div>
-      <div class="halo"></div>
-      <div class="agent-hand" aria-hidden="true">☝</div>
+      <div class="cursor-body">
+        <svg class="mac-arrow" viewBox="0 0 22 30" aria-hidden="true">
+          <path
+            d="M2 2 V24.5 L7.4 19.3 L11.2 27.9 L14.9 26.3 L11.2 17.8 L18.6 17.8 Z"
+            fill="#0b0b0c"
+            stroke="#fff"
+            stroke-width="1.7"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <span class="cursor-tag"><span class="cursor-name">Argus</span><span class="cursor-state" id="cursor-state"></span></span>
+      </div>
     </div>
     <div class="ghost" id="ghost" hidden>
       <div class="ghost-ping"></div>
-      <div class="ghost-arrow" aria-hidden="true">☝</div>
+      <div class="ghost-arrow">
+        <svg class="mac-arrow" viewBox="0 0 22 30" aria-hidden="true">
+          <path
+            d="M2 2 V24.5 L7.4 19.3 L11.2 27.9 L14.9 26.3 L11.2 17.8 L18.6 17.8 Z"
+            fill="#0b0b0c"
+            stroke="#fff"
+            stroke-width="1.7"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </div>
       <div class="caption">
         <div class="caption-step" id="caption-step"></div>
         <div class="caption-title" id="caption-title"></div>

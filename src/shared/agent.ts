@@ -1,3 +1,16 @@
+import { riskOf } from './safety'
+
+/**
+ * What the model says an action is for. Read by the safety check, which asks
+ * the user before anything irreversible - see `shared/safety.ts`.
+ */
+export interface Intent {
+  /** In the user's terms: "Click Send", "Delete the selected file". */
+  purpose?: string
+  /** Raised by the model for anything that sends, pays, deletes or installs. */
+  sensitive?: boolean
+}
+
 /**
  * Actions the model may take while driving the computer.
  *
@@ -8,9 +21,9 @@
 export type AgentAction =
   | { type: 'launch'; name: string }
   | { type: 'openUrl'; url: string }
-  | { type: 'click'; x: number; y: number; button: 'left' | 'right'; double: boolean }
+  | ({ type: 'click'; x: number; y: number; button: 'left' | 'right'; double: boolean } & Intent)
   | { type: 'move'; x: number; y: number }
-  | { type: 'type'; text: string }
+  | ({ type: 'type'; text: string } & Intent)
   /**
    * Click a field, type into it, optionally submit - in one turn.
    *
@@ -19,11 +32,82 @@ export type AgentAction =
    * free tier capped at 20 requests a day, collapsing that to one is the
    * difference between finishing a task and running out halfway.
    */
-  | { type: 'typeInto'; x: number; y: number; text: string; submit: boolean }
-  | { type: 'keys'; keys: string[] }
+  | ({ type: 'typeInto'; x: number; y: number; text: string; submit: boolean } & Intent)
+  | ({ type: 'keys'; keys: string[] } & Intent)
   | { type: 'scroll'; direction: 'up' | 'down'; clicks: number }
   | { type: 'wait'; seconds: number }
-  | { type: 'done'; summary: string }
+  /**
+   * `evidence` is what the model says it can see that proves the task is
+   * done - checked independently before the run is allowed to end.
+   */
+  | { type: 'done'; summary: string; evidence?: string }
+
+/** Most actions run from one screenshot before the agent must look again. */
+export const MAX_BATCH = 6
+
+/**
+ * Decides which of a turn's function calls actually run.
+ *
+ * Batching is what makes the agent quick - a click and the text that follows
+ * it do not need two round trips. But two things in a batch are unsafe, and
+ * both are what made the agent report work it had never checked:
+ *
+ * - task_done alongside other actions. That is claiming success for a result
+ *   nobody has looked at yet. It is refused, and the model is told to look.
+ * - Anything after an action that changes the screen wholesale (opening an
+ *   app, loading a page, submitting). Its coordinates were read off a screen
+ *   that is about to be gone.
+ *
+ * `presets` is aligned with the input: a string for each call that was not
+ * run, saying why, so the model gets an honest answer for every call it made.
+ */
+export function planBatch(calls: AgentAction[]): {
+  actions: AgentAction[]
+  presets: (string | undefined)[]
+} {
+  if (calls.length === 1) return { actions: calls, presets: [undefined] }
+
+  const onlyDone = calls.find((call) => call.type === 'done')
+  if (onlyDone && calls.every((call) => call.type === 'done')) {
+    return { actions: [onlyDone], presets: calls.map(() => undefined) }
+  }
+
+  const actions: AgentAction[] = []
+  const presets: (string | undefined)[] = []
+  let blocked: string | null = null
+
+  for (const call of calls) {
+    if (call.type === 'done') {
+      presets.push(
+        'not accepted: task_done must be called on its own, after you have checked the result in the next screenshot'
+      )
+    } else if (blocked) {
+      presets.push(blocked)
+    } else if (actions.length >= MAX_BATCH) {
+      presets.push(`skipped - at most ${MAX_BATCH} actions per turn; do it next turn if still needed`)
+    } else {
+      actions.push(call)
+      presets.push(undefined)
+      if (changesScreen(call)) {
+        blocked = 'skipped - an earlier action in the batch changed the screen; look at the new screenshot first'
+      } else if (riskOf(call)) {
+        // Whatever follows a send or a delete was planned before anyone
+        // approved it, against a screen it is about to change.
+        blocked = 'skipped - an earlier action in the batch needed approval; look at the new screenshot first'
+      }
+    }
+  }
+  return { actions, presets }
+}
+
+/** True for actions after which the old screenshot no longer describes the screen. */
+export function changesScreen(action: AgentAction): boolean {
+  return (
+    action.type === 'launch' ||
+    action.type === 'openUrl' ||
+    (action.type === 'typeInto' && action.submit)
+  )
+}
 
 export interface ScreenSize {
   width: number
@@ -51,6 +135,7 @@ export function describeAction(action: AgentAction): string {
     case 'openUrl':
       return `Open ${action.url}`
     case 'click':
+      if (action.purpose) return action.purpose
       return `${action.double ? 'Double-click' : action.button === 'right' ? 'Right-click' : 'Click'} at ${action.x},${action.y}`
     case 'move':
       return `Move to ${action.x},${action.y}`
@@ -61,7 +146,9 @@ export function describeAction(action: AgentAction): string {
       return `Type "${shown}" at ${action.x},${action.y}${action.submit ? ' and press Enter' : ''}`
     }
     case 'keys':
-      return `Press ${action.keys.join('+')}`
+      return action.purpose
+        ? `${action.purpose} (${action.keys.join('+')})`
+        : `Press ${action.keys.join('+')}`
     case 'scroll':
       return `Scroll ${action.direction}`
     case 'wait':
@@ -69,4 +156,46 @@ export function describeAction(action: AgentAction): string {
     case 'done':
       return action.summary
   }
+}
+
+/**
+ * Turns a literal backslash-n into a line break.
+ *
+ * Models sometimes escape newlines twice in function arguments, and the email
+ * went out reading "Hi,\n\nI am Argus". Only when the text has no real line
+ * breaks at all - text that already has them is taken as meant, so code that
+ * genuinely contains "\n" survives.
+ */
+export function realLineBreaks(text: string): string {
+  if (text.includes('\n')) return text
+  return text.replace(/\\r\\n|\\n/g, '\n').replace(/\\t/g, '\t')
+}
+
+/** Endings that make a bare word a web address - and not a file name. */
+const WEB_ENDINGS = new Set(
+  (
+    'com org net io ai tech dev app co in me gov edu xyz info site online store shop ' +
+    'uk us ca au de fr jp cn ru br it es nl se no ch be at dk fi ie nz sg hk kr ' +
+    'tv gg ly so to fm sh cc biz pro page link blog news live cloud digital agency ' +
+    'studio design space website world today academy school global media network ' +
+    'systems solutions software tools group team life new'
+  ).split(' ')
+)
+
+/**
+ * A bare domain, given the scheme that makes a browser open it.
+ *
+ * "nivonto.tech" typed into an address bar is a search query in every modern
+ * browser - it landed the agent on Google's results for the name, which it then
+ * reported as having opened the site. The prompt already said to include
+ * https:// and the model did not; this does not depend on it listening.
+ *
+ * Null for anything that is not unmistakably a web address.
+ */
+export function asWebAddress(text: string): string | null {
+  const trimmed = text.trim()
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) return null
+  const match = /^((?:[a-z0-9-]+\.)+([a-z]{2,24}))(?::\d+)?(\/\S*)?$/i.exec(trimmed)
+  if (!match || trimmed.includes('@')) return null
+  return WEB_ENDINGS.has(match[2]!.toLowerCase()) ? `https://${trimmed}` : null
 }

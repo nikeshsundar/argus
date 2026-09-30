@@ -1,13 +1,7 @@
 import type { TeachAction, TeachStep } from '../../shared/teach'
 import { MODEL_IMAGE_MIME } from '../screenshot'
-import {
-  callGemini,
-  STEP_TIMEOUT_MS,
-  describeGeminiFailure,
-  dropStaleImages,
-  type GeminiPart,
-  type GeminiResponse
-} from './geminiClient'
+import { requestStep, STEP_TIMEOUT_MS, dropStaleImages, type GeminiPart } from './geminiClient'
+import { noteOverlay } from '../overlayWindow'
 import { ProviderUnavailableError } from './types'
 
 const SYSTEM_PROMPT = `You are Argus in Teach Mode. A person wants to learn how to do something on their own Windows PC, and you are standing behind them pointing at the screen.
@@ -152,16 +146,16 @@ export function createGeminiTeachProvider(options: TeachProviderOptions): {
           // the older ones grew every request and burned the rate limit.
           dropStaleImages(contents)
 
-          const response = await callGemini({
+          const payload = await requestStep({
             apiKey: options.apiKey,
             model: options.model,
             // A task should not fail because the quick model is busy;
             // the Talk model is slower at this but it answers.
             fallbackModels: options.fallbackModels ?? [],
             timeoutMs: STEP_TIMEOUT_MS,
-            method: 'generateContent',
             signal,
             thinking: 'low',
+            onRetry: (attempt, of) => noteOverlay(`Gemini is slow right now — retrying (${attempt}/${of})…`),
             body: {
               systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
               contents,
@@ -171,10 +165,6 @@ export function createGeminiTeachProvider(options: TeachProviderOptions): {
             }
           })
 
-          if (!response.ok) throw new Error(await describeGeminiFailure(response, options.model))
-
-          const payload = (await response.json()) as GeminiResponse
-          if (payload.error?.message) throw new Error(`Gemini: ${payload.error.message}`)
 
           const parts = payload.candidates?.[0]?.content?.parts ?? []
           const call = parts.find((part: GeminiPart) => part.functionCall)?.functionCall

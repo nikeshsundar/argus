@@ -1,7 +1,14 @@
-import { BrowserWindow, screen } from 'electron'
+import { BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'node:path'
 import type { TeachStep } from '../shared/teach'
-import type { AgentCursorEvent, AgentStepEvent, OverlayKind, TeachStepEvent } from '../shared/types'
+import type {
+  AgentCursorEvent,
+  AgentStepEvent,
+  ApprovalDecision,
+  ApprovalRequest,
+  OverlayKind,
+  TeachStepEvent
+} from '../shared/types'
 
 let win: BrowserWindow | null = null
 let overlayReady = false
@@ -93,6 +100,11 @@ export function clearTeachStep(): void {
   win.webContents.send('argus:teach-step', null)
 }
 
+/** A passing note in the banner - "retrying" and the like - with no step count. */
+export function noteOverlay(text: string): void {
+  updateOverlay({ description: text, index: 0, max: 0 })
+}
+
 export function updateOverlay(event: AgentStepEvent): void {
   if (overlayReady && win && !win.isDestroyed()) win.webContents.send('argus:agent-step', event)
 }
@@ -131,4 +143,94 @@ export function hideOverlay(): void {
 /** True while the frame is on screen - used to keep it out of screenshots. */
 export function isOverlayVisible(): boolean {
   return Boolean(win && !win.isDestroyed() && win.isVisible())
+}
+
+/** The approval card on screen, if any, and how to settle it. */
+let pendingApproval: { id: number; resolve: (decision: ApprovalDecision) => void } | null = null
+let nextApprovalId = 1
+
+ipcMain.on('argus:approval-answer', (_event, id: number, decision: ApprovalDecision) => {
+  if (pendingApproval?.id !== id) return
+  if (decision?.kind === 'allow') settleApproval({ kind: 'allow' })
+  else if (decision?.kind === 'change' && typeof decision.note === 'string' && decision.note.trim()) {
+    settleApproval({ kind: 'change', note: decision.note.trim().slice(0, 2000) })
+  } else settleApproval({ kind: 'stop' })
+})
+
+// Only for typing a change request. Given back the moment the card closes, so
+// the agent's next keystrokes reach the app, not this window.
+ipcMain.on('argus:overlay-focus', (_event, focused: boolean) => {
+  if (!win || win.isDestroyed()) return
+  if (focused && pendingApproval) {
+    win.setFocusable(true)
+    win.setIgnoreMouseEvents(false)
+    win.focus()
+  } else {
+    releaseFocus()
+  }
+})
+
+function releaseFocus(): void {
+  if (!win || win.isDestroyed() || !win.isFocusable()) return
+  win.blur()
+  win.setFocusable(false)
+}
+
+// Clicks pass through the overlay to the desktop everywhere except over the
+// card. `forward` keeps mouse-move events arriving while clicks pass through,
+// which is how the card knows the pointer has come onto it.
+ipcMain.on('argus:overlay-interactive', (_event, interactive: boolean) => {
+  if (!win || win.isDestroyed()) return
+  if (interactive && pendingApproval) win.setIgnoreMouseEvents(false)
+  else win.setIgnoreMouseEvents(true, { forward: true })
+})
+
+function settleApproval(decision: ApprovalDecision): void {
+  const pending = pendingApproval
+  if (!pending) return
+  pendingApproval = null
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('argus:approval', null)
+    releaseFocus()
+    win.setIgnoreMouseEvents(true)
+  }
+  pending.resolve(decision)
+}
+
+/** True once the overlay can show an approval card. */
+export function canAskInOverlay(): boolean {
+  return overlayReady && Boolean(win && !win.isDestroyed())
+}
+
+/**
+ * Shows an approval card under the banner and waits for an answer.
+ *
+ * The overlay is never focusable, so answering does not move keyboard focus
+ * away from the app the agent is working in - a Ctrl+Enter approved in
+ * Gmail still lands in Gmail. Resolves false if `signal` aborts, which is
+ * what Escape does.
+ */
+export function requestApproval(
+  request: Omit<ApprovalRequest, 'id'>,
+  signal?: AbortSignal
+): Promise<ApprovalDecision> {
+  settleApproval({ kind: 'stop' })
+  const overlay = ensureOverlay()
+  showOverlay(overlayKind)
+
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve({ kind: 'stop' })
+    const id = nextApprovalId++
+    const onAbort = (): void => settleApproval({ kind: 'stop' })
+    signal?.addEventListener('abort', onAbort, { once: true })
+    pendingApproval = {
+      id,
+      resolve: (decision) => {
+        signal?.removeEventListener('abort', onAbort)
+        resolve(decision)
+      }
+    }
+    overlay.setIgnoreMouseEvents(true, { forward: true })
+    overlay.webContents.send('argus:approval', { ...request, id } satisfies ApprovalRequest)
+  })
 }

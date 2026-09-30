@@ -33,14 +33,30 @@ export type ThinkingLevel = 'low' | 'high'
  */
 const thinkingSupport = new Map<string, boolean>()
 
+/**
+ * The thinking hint in the dialect this model speaks.
+ *
+ * Gemini 3 takes `thinkingLevel`; the 2.5 family only understands
+ * `thinkingBudget` and rejects the other with a 400. Sending the wrong one cost
+ * a failed request per model and left 2.5 Flash thinking at full depth on every
+ * agent step. 2.5 Pro cannot switch thinking off, so its floor is 128.
+ */
+export function thinkingConfigFor(model: string, level: ThinkingLevel): Record<string, unknown> {
+  if (/gemini-2\.5/i.test(model)) {
+    if (level === 'high') return { thinkingBudget: -1 }
+    return { thinkingBudget: /pro/i.test(model) ? 128 : 0 }
+  }
+  return { thinkingLevel: level }
+}
+
 /** Merges a thinking hint into the request without disturbing the rest of it. */
-function withThinking(body: unknown, level: ThinkingLevel): unknown {
+function withThinking(body: unknown, model: string, level: ThinkingLevel): unknown {
   const request = body as { generationConfig?: Record<string, unknown> }
   return {
     ...(request as object),
     generationConfig: {
       ...(request.generationConfig ?? {}),
-      thinkingConfig: { thinkingLevel: level }
+      thinkingConfig: thinkingConfigFor(model, level)
     }
   }
 }
@@ -101,8 +117,12 @@ const REQUEST_TIMEOUT_MS = 25_000
  * Agent and Teach steps send one small screenshot and ask one small question,
  * a dozen times a task. Waiting 25 seconds on each of those is its own
  * failure, so they set their own, shorter deadline.
+ *
+ * Not too short, though: generateContent only sends headers once the whole
+ * answer is written, so this covers the screenshot upload plus the reply. At
+ * seven seconds a slow network timed out every model in the chain in turn.
  */
-export const STEP_TIMEOUT_MS = 7_000
+export const STEP_TIMEOUT_MS = 15_000
 
 /** When each model is worth trying again. Keyed by model id. */
 const restingUntil = new Map<string, number>()
@@ -184,21 +204,10 @@ export async function callGemini(options: {
   noteAvailability(candidates[0]!, response.status)
   if (response.ok) options.onModelChosen?.(candidates[0]!)
 
-  // Model ids change and access varies by API key. If every configured id is
-  // rejected as unknown, ask Google what this key can actually use instead of
-  // making the user guess another model name.
-  if (response.status === 404 && !options.signal?.aborted) {
-    const available = await listAvailableModels(options.apiKey, options.signal)
-    const replacement = available.find((model) => !candidates.includes(model))
-    if (replacement) {
-      response = await attempt(replacement, { ...options, hasAlternatives: false })
-      noteAvailability(replacement, response.status)
-      if (response.ok) options.onModelChosen?.(replacement)
-      if (response.ok || response.status !== 404) return response
-    }
-  }
-
-  for (let next = 1; response.status === 503 && next < candidates.length; next++) {
+  // Move down the chain on anything another model could fix: busy (503), an
+  // id this key cannot use (404), or this model's daily quota spent (429 -
+  // free-tier quota is per model, so the next one has its own allowance).
+  for (let next = 1; shouldTryAnotherModel(response.status) && next < candidates.length; next++) {
     if (options.signal?.aborted) return response
     response = await attempt(candidates[next]!, {
       ...options,
@@ -207,7 +216,47 @@ export async function callGemini(options: {
     noteAvailability(candidates[next]!, response.status)
     if (response.ok) options.onModelChosen?.(candidates[next]!)
   }
+
+  // Model ids change and access varies by API key. If every configured id is
+  // rejected as unknown, ask Google what this key can actually use instead of
+  // making the user guess another model name.
+  if (response.status === 404 && !options.signal?.aborted) {
+    const available = await listAvailableModels(options.apiKey, options.signal)
+    const replacement = pickReplacement(available, candidates)
+    if (replacement) {
+      const retried = await attempt(replacement, { ...options, hasAlternatives: false })
+      noteAvailability(replacement, retried.status)
+      if (retried.ok) options.onModelChosen?.(replacement)
+      if (retried.ok || retried.status !== 404) return retried
+    }
+  }
   return response
+}
+
+function shouldTryAnotherModel(status: number): boolean {
+  return status === 503 || status === 404 || status === 429
+}
+
+/**
+ * The best stand-in from Google's model list.
+ *
+ * The list includes TTS, image-generation, live-audio and embedding variants
+ * that accept generateContent but cannot read a screenshot. Taking the first
+ * entry blindly could land on one of those.
+ */
+export function pickReplacement(available: string[], exclude: string[]): string | null {
+  const usable = available.filter(
+    (model) =>
+      !exclude.includes(model) &&
+      /^gemini-/i.test(model) &&
+      !/tts|image|live|audio|embedding|thinking-exp|robotics|computer-use/i.test(model)
+  )
+  return (
+    usable.find((model) => /flash/i.test(model) && !/preview|exp/i.test(model)) ??
+    usable.find((model) => /flash/i.test(model)) ??
+    usable[0] ??
+    null
+  )
 }
 
 async function listAvailableModels(apiKey: string, signal?: AbortSignal): Promise<string[]> {
@@ -363,7 +412,7 @@ async function attempt(
   }
 
   const wantsThinking = Boolean(options.thinking) && thinkingSupport.get(model) !== false
-  const body = wantsThinking ? withThinking(options.body, options.thinking!) : options.body
+  const body = wantsThinking ? withThinking(options.body, model, options.thinking!) : options.body
 
   // One attempt per key. A refused key is rested and the next one picked up,
   // so a quota that runs out mid-task does not end the task.
@@ -379,6 +428,17 @@ async function attempt(
       restAfterRefusal(key, detail, response.status)
       if (hasReadyKey()) continue
       return response
+    }
+
+    // Gemini rejects a bad key with 400 API_KEY_INVALID, not 401. Treated the
+    // same way, so one mistyped key does not fail every request in the pool.
+    if (response.status === 400) {
+      const detail = await peek(response)
+      if (/API_KEY_INVALID|api key not valid/i.test(detail)) {
+        restAfterRefusal(key, detail, 401)
+        if (hasReadyKey()) continue
+        return response
+      }
     }
 
     // thinkingConfig is not understood by every model. It is a speed hint, so
@@ -456,8 +516,8 @@ export async function describeGeminiFailure(response: Response, model: string): 
   }
   if (response.headers.get('x-argus-timeout')) {
     return (
-      `"${model}" stopped responding — every model I tried was either overloaded or silent. ` +
-      'A busy model is at Google end, not yours. Try again in a minute, or pick another with "/aimodel".'
+      'Gemini is responding slowly right now, on Google’s side - I retried and tried backup models. ' +
+      'I stopped where I was. Give it a few seconds and ask again.'
     )
   }
   if (response.headers.get('x-argus-network-error')) {
@@ -472,8 +532,8 @@ export async function describeGeminiFailure(response: Response, model: string): 
     // Agent/Teach/voice model are set by different commands, and pointing at
     // the wrong one is how someone changes a setting that was never involved.
     return (
-      `Gemini says "${model}" is overloaded — I tried ${OVERLOAD_RETRIES + 1} times. ` +
-      'Give it a minute, or switch model: "/aimodel" for Talk, "/model agent <id>" for Agent, Teach and voice.'
+      `Google’s Gemini servers are busy right now ("${model}" and its backups) - I retried several times. ` +
+      'Give it a few seconds and ask again, or switch model with "/aimodel".'
     )
   }
   return `Gemini API error ${response.status}${detail ? `: ${detail}` : ''}`
@@ -493,6 +553,106 @@ export function extractText(payload: unknown, trim = true): string {
     .map((part) => part.text)
     .join('')
   return trim ? text.trim() : text
+}
+
+/** Longest a single agent or teach step may take, start to finish. */
+const STEP_TOTAL_MS = 90_000
+/** Waits before retrying a step that failed for a reason that passes. */
+const STEP_RETRY_WAITS_MS = [1500, 3500]
+
+/** Failures that are about the moment, not the request - worth one more go. */
+function isTransient(message: string): boolean {
+  return /overloaded|unavailable|internal|deadline|timeout|timed out|terminated|fetch failed|network|socket|ECONN|503|500|slowly|busy/i.test(
+    message
+  )
+}
+
+/**
+ * One agent or teach step: streamed, capped, and retried.
+ *
+ * A step failing because Google had a slow second should not end a task the
+ * user is watching. Transient failures are retried twice, with a pause, after
+ * `callGemini` has already walked the fallback models. Anything that another
+ * try cannot fix - a bad key, a spent quota, a malformed request - is
+ * reported at once.
+ */
+export async function requestStep(
+  options: Omit<Parameters<typeof callGemini>[0], 'method'> & {
+    /** Told before each retry, so the overlay can say what is happening. */
+    onRetry?: (attempt: number, of: number) => void
+  }
+): Promise<GeminiResponse> {
+  const { onRetry, ...request } = options
+
+  for (let attempt = 0; ; attempt++) {
+    const cap = new AbortController()
+    const timer = setTimeout(() => cap.abort(), STEP_TOTAL_MS)
+    const signal = request.signal ? AbortSignal.any([request.signal, cap.signal]) : cap.signal
+
+    let failure: string
+    let transient: boolean
+    try {
+      const response = await callGemini({ ...request, method: 'streamGenerateContent', signal })
+      if (response.ok && response.body) return await collectStream(response.body)
+      failure = await describeGeminiFailure(response, request.model)
+      transient = response.status === 503
+    } catch (error) {
+      if (request.signal?.aborted) throw error
+      failure = cap.signal.aborted
+        ? 'Gemini took too long to answer this step.'
+        : error instanceof Error
+          ? error.message
+          : String(error)
+      transient = cap.signal.aborted || isTransient(failure)
+    } finally {
+      clearTimeout(timer)
+    }
+
+    if (!transient || attempt >= STEP_RETRY_WAITS_MS.length) throw new Error(failure)
+    onRetry?.(attempt + 1, STEP_RETRY_WAITS_MS.length)
+    await pause(STEP_RETRY_WAITS_MS[attempt]!, request.signal)
+    if (request.signal?.aborted) throw new Error('Stopped.')
+  }
+}
+
+/**
+ * Reads a whole streamed response back into the shape `generateContent` gives.
+ *
+ * Why agent and teach steps stream at all: the plain call sends no headers
+ * until the answer is finished, so its deadline had to cover the entire
+ * answer. That was fine for "click at 400,300" and fatal for a step that
+ * writes a whole email in one go - every model in the chain timed out on the
+ * same long answer and the task died with "every model was silent". Streamed,
+ * the deadline only has to cover the model starting to answer.
+ *
+ * Parts are kept as returned (a function call and its thoughtSignature must be
+ * echoed back verbatim); only consecutive plain text fragments are joined.
+ */
+export async function collectStream(body: ReadableStream<Uint8Array>): Promise<GeminiResponse> {
+  const parts: (GeminiPart & Record<string, unknown>)[] = []
+  let finishReason: string | undefined
+
+  for await (const event of readServerSentEvents(body)) {
+    if (!event) continue
+    const payload = JSON.parse(event) as GeminiResponse
+    if (payload.error?.message) throw new Error(`Gemini: ${payload.error.message}`)
+
+    const candidate = payload.candidates?.[0]
+    for (const part of (candidate?.content?.parts ?? []) as (GeminiPart & Record<string, unknown>)[]) {
+      const last = parts[parts.length - 1]
+      const plainText = (one: GeminiPart & Record<string, unknown>): boolean =>
+        typeof one.text === 'string' && !one.functionCall && !('thoughtSignature' in one)
+      if (last && plainText(part) && typeof last.text === 'string' && !last.functionCall &&
+        Boolean(last.thought) === Boolean(part.thought)) {
+        last.text += part.text!
+        continue
+      }
+      parts.push({ ...part })
+    }
+    finishReason = candidate?.finishReason ?? finishReason
+  }
+
+  return { candidates: [{ content: { parts }, ...(finishReason ? { finishReason } : {}) }] }
 }
 
 /** Reads a streamed answer, reporting each chunk as it lands. */

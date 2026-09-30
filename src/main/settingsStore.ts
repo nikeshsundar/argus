@@ -3,6 +3,8 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import type { CursorPace } from '../shared/cursorPath'
+import { DEFAULT_APPROVAL_MODE, type ApprovalMode } from '../shared/safety'
+import { healLimits, NO_LIMITS, type Limits } from '../shared/limits'
 import { DEFAULT_MODEL_ID } from '../shared/models'
 import { DEFAULT_MINUTES } from '../shared/recall'
 import { inferProviderFromKey } from '../shared/keys'
@@ -61,6 +63,10 @@ export interface Settings {
   memoryEnabled: boolean
   /** How many minutes of screen to keep while it is on. */
   memoryMinutes: number
+  /** When Agent Mode stops to ask before acting. See `shared/safety.ts`. */
+  approvalMode: ApprovalMode
+  /** What the agent may ever do, set in advance. See `shared/limits.ts`. */
+  limits: Limits
 }
 
 /**
@@ -75,7 +81,7 @@ const DEFAULTS: Settings = {
   claudeModel: 'claude-opus-5',
   claudeApiKey: '',
   geminiModel: DEFAULT_MODEL_ID,
-  agentModel: 'gemini-2.5-flash-lite',
+  agentModel: 'gemini-2.5-flash',
   geminiApiKey: '',
   geminiApiKeys: [],
   geminiKeyCooldowns: {},
@@ -84,7 +90,9 @@ const DEFAULTS: Settings = {
   ollamaHost: 'http://127.0.0.1:11434',
   cursorPace: 'natural',
   memoryEnabled: false,
-  memoryMinutes: DEFAULT_MINUTES
+  memoryMinutes: DEFAULT_MINUTES,
+  approvalMode: DEFAULT_APPROVAL_MODE,
+  limits: NO_LIMITS
 }
 
 let cache: Settings | null = null
@@ -104,6 +112,10 @@ export function loadSettings(): Settings {
     // Move users off a previous default rather than stranding them on it.
     if (SUPERSEDED_HOTKEYS.includes(stored.hotkey)) stored.hotkey = DEFAULTS.hotkey
     if (!Array.isArray(stored.geminiApiKeys)) stored.geminiApiKeys = []
+    stored.limits = healLimits(stored.limits)
+    if (!['sensitive', 'every', 'off'].includes(stored.approvalMode)) {
+      stored.approvalMode = DEFAULTS.approvalMode
+    }
     if (!stored.geminiKeyCooldowns || typeof stored.geminiKeyCooldowns !== 'object') {
       stored.geminiKeyCooldowns = {}
     }
@@ -132,7 +144,10 @@ function healModelNames(settings: Settings): Settings {
   if (
     settings.agentModel === 'gemini-3-flash-preview' ||
     settings.agentModel === 'gemini-3.5-flash-lite' ||
-    settings.agentModel === 'gemini-3.6-flash'
+    settings.agentModel === 'gemini-3.6-flash' ||
+    // The old default. Flash Lite misread screens and reported work it had not
+    // checked; it stays in the fallback chain for when Flash is out of quota.
+    settings.agentModel === 'gemini-2.5-flash-lite'
   ) {
     settings.agentModel = DEFAULTS.agentModel
   }

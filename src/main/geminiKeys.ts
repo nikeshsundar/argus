@@ -26,7 +26,9 @@ let signature = ''
 export function configuredKeys(): string[] {
   const settings = loadSettings()
   const env = process.env['GEMINI_API_KEY']
-  return [...settings.geminiApiKeys, settings.geminiApiKey, env ?? ''].filter(Boolean)
+  // The primary key first: "/key" puts a freshly added key there precisely so
+  // it is tried before the ones that already ran out.
+  return [settings.geminiApiKey, ...settings.geminiApiKeys, env ?? ''].filter(Boolean)
 }
 
 function syncStates(): KeyState[] {

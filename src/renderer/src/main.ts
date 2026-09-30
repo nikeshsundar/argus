@@ -389,7 +389,7 @@ function submit(text: string): void {
     })
     .catch((error: unknown) => {
       activeAnswer?.remove()
-      setStatus(error instanceof Error ? error.message : 'Something went wrong.', 'error')
+      setStatus(errorText(error, 'Something went wrong.'), 'error')
     })
     .finally(() => {
       awaitingAnswer = false
@@ -623,7 +623,7 @@ async function stopListening(): Promise<void> {
     }
   } catch (error) {
     resetMic()
-    setStatus(error instanceof Error ? error.message : 'Could not transcribe that.', 'error')
+    setStatus(errorText(error, 'Could not transcribe that.'), 'error')
   }
 }
 
@@ -714,3 +714,15 @@ new ResizeObserver(syncHeight).observe(bar)
 
 syncChip()
 renderOptions()
+
+/**
+ * The message a failed IPC call carries, without Electron's wrapper.
+ *
+ * A rejection from the main process arrives as "Error invoking remote method
+ * 'argus:transcribe': Error: <the actual message>", which buries the one line
+ * the user needs behind plumbing they do not.
+ */
+function errorText(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback
+  return error.message.replace(/^Error invoking remote method '[^']*':\s*(?:\w*Error:\s*)?/, '') || fallback
+}

@@ -5,11 +5,20 @@ import type { AgentStepEvent } from '../shared/types'
 import { loadAppIndex } from './appIndex'
 import { watchEscape } from './hotkey'
 import { executeAction } from './inputSim'
-import { hideOverlay, showOverlay, updateOverlay } from './overlayWindow'
+import { gateAction } from './approval'
+import { describeSafety, riskOf } from '../shared/safety'
+import { checkLimits, hasLimits, limitsForModel, limitsLine } from '../shared/limits'
+import { activeWindowTitle } from './activeWindow'
+import { loadSettings } from './settingsStore'
+import { hideOverlay, noteOverlay, showOverlay, updateOverlay } from './overlayWindow'
 import { createAgentProvider } from './providers'
 import { captureActiveDisplay } from './screenshot'
 import { asAgent, watchUser } from './userPresence'
 import { createYielding } from './yield'
+import { presentGhost } from './cursor'
+import { configuredKeys } from './geminiKeys'
+import { verifyCompletion } from './providers/geminiVerify'
+import { MAX_REJECTIONS, type Verdict } from '../shared/verify'
 
 /**
  * Safety ceiling, not the task length. The model calls task_done when the SOP
@@ -65,7 +74,15 @@ export async function runAgentTask({
 }: AgentRunOptions): Promise<AgentRunResult> {
   const provider = createAgentProvider()
   const installedApps = (await loadAppIndex()).map((entry) => entry.name).slice(0, 200)
-  const session = provider.startTask(task, signal, installedApps, history)
+  // Read once: limits changed mid-run would move the fence under a task that
+  // was planned inside it.
+  const limits = loadSettings().limits
+  const session = provider.startTask(task, signal, installedApps, history, limitsForModel(limits))
+  const startedAt = Date.now()
+  /** Steps the limits refused. Past a few, the task cannot be done inside them. */
+  let blockedCount = 0
+  /** Times a finish was sent back by the checker. */
+  let rejections = 0
 
   let stoppedByUser = false
   // A glide can be a second long at demo pace, so Escape has to reach into the
@@ -79,7 +96,23 @@ export async function runAgentTask({
   })
 
   showOverlay()
+  void presentGhost()
+  // Said up front, every run, so the user can see the protection is live
+  // before the agent touches anything - not discover it was off afterwards.
+  const safetyNotice: AgentStepEvent = {
+    description: hasLimits(limits)
+      ? `${describeSafety(loadSettings().approvalMode)} ${limitsLine(limits)}`
+      : describeSafety(loadSettings().approvalMode),
+    index: 0,
+    max: MAX_STEPS
+  }
+  updateOverlay(safetyNotice)
+  onStep?.(safetyNotice)
   const performed: AgentAction[] = []
+  /** Corrections the user made from approval cards, shown on later cards. */
+  const changes: string[] = []
+  const describedTask = (): string =>
+    changes.length ? `${task} — then: ${changes.join('; ')}` : task
   /**
    * Everything tried, working or not. `performed` holds only what succeeded,
    * and a loop is made of actions that succeed perfectly while achieving
@@ -93,7 +126,7 @@ export async function runAgentTask({
   const yielding = createYielding(control.signal)
 
   try {
-    let lastResult: string | undefined
+    let lastResults: string[] = []
 
     for (let step = 1; step <= MAX_STEPS; step++) {
       if (stoppedByUser || signal.aborted) {
@@ -115,46 +148,160 @@ export async function runAgentTask({
       const capture = await captureActiveDisplay()
       showOverlay()
 
-      const action = await session.next(capture.model.png, lastResult)
+      const batch = await session.next(capture.model.png, lastResults)
+      lastResults = []
 
-      const event: AgentStepEvent = {
-        description: describeAction(action),
-        index: step,
-        max: MAX_STEPS
-      }
-      updateOverlay(event)
-      onStep?.(event)
+      // The provider only ever returns task_done on its own, so a finish is
+      // always a verdict on a screen the model has actually looked at.
+      const finish = batch.length === 1 && batch[0]!.type === 'done' ? batch[0]! : null
+      if (finish && finish.type === 'done') {
+        // Not taken on the agent's word. An independent check looks at the
+        // same screen the agent just did and asks whether it proves the claim.
+        noteOverlay('Double-checking the result…')
+        const verdict = await checkFinish(task, finish.summary, finish.evidence, capture.model.png, control.signal)
+        if (verdict && !verdict.complete) {
+          rejections++
+          if (rejections <= MAX_REJECTIONS) {
+            const note = `Not done yet — ${verdict.problem}`
+            updateOverlay({ description: note, index: step, max: MAX_STEPS })
+            onStep?.({ description: note, index: step, max: MAX_STEPS })
+            lastResults = [
+              `task_done was REJECTED by an independent check of the screenshot: ${verdict.problem}. ` +
+                'The task is NOT finished. Look at the screen, fix what is wrong, and only call task_done when the screen itself proves it.'
+            ]
+            continue
+          }
+          // Still unconvinced after the agent's retries. Say so plainly,
+          // rather than hand the user a success the screen does not show.
+          return {
+            ok: false,
+            summary: `${finish.summary}
 
-      if (action.type === 'done') {
+Not confirmed: ${verdict.problem}. Please check the screen.`,
+            actions: performed
+          }
+        }
+
+        const event: AgentStepEvent = { description: finish.summary, index: step, max: MAX_STEPS }
+        updateOverlay(event)
+        onStep?.(event)
         const stoodAside = yielding.summary()
         return {
           ok: true,
-          summary: stoodAside ? `${action.summary}
-
-${stoodAside}` : action.summary,
+          summary: stoodAside ? `${finish.summary}\n\n${stoodAside}` : finish.summary,
           actions: performed
         }
       }
 
-      if (stoppedByUser || signal.aborted) {
-        return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
-      }
+      for (const [index, action] of batch.entries()) {
+        if (stoppedByUser || signal.aborted) {
+          return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
+        }
 
-      attempted.push(action)
-      lastResult = await asAgent(() => perform(action, capture, control.signal))
-      if (lastResult === 'ok' || lastResult.startsWith('launched') || lastResult.startsWith('opened')) {
-        performed.push(action)
-      }
+        const event: AgentStepEvent = {
+          description:
+            batch.length > 1
+              ? `${describeAction(action)} (${index + 1}/${batch.length})`
+              : describeAction(action),
+          index: step,
+          max: MAX_STEPS
+        }
+        updateOverlay(event)
+        onStep?.(event)
 
-      // Going in circles. Repeating an action that "worked" is the one failure
-      // the model cannot see: it is told "ok" every time, and a fresh
-      // screenshot it has already misread once is not enough to change its
-      // mind. Saying so plainly is.
-      if (isStuck(attempted)) {
-        return { ok: false, summary: stuckSummary(attempted), actions: performed }
+        // Budgets first: a task over its limit stops before doing anything more.
+        if (limits.maxSteps !== null && attempted.length >= limits.maxSteps) {
+          return {
+            ok: false,
+            summary: `Stopped at your limit of ${limits.maxSteps} steps. Everything so far is left as it is on screen — raise it with "/limits steps <n>".`,
+            actions: performed
+          }
+        }
+        if (limits.maxMinutes !== null && Date.now() - startedAt > limits.maxMinutes * 60_000) {
+          return {
+            ok: false,
+            summary: `Stopped at your limit of ${limits.maxMinutes} min. Everything so far is left as it is on screen — raise it with "/limits minutes <n>".`,
+            actions: performed
+          }
+        }
+
+        // The fence. Checked against what Windows says has focus, not what the
+        // model believes it is looking at, and never offered for approval:
+        // a limit the user can be talked past in the moment is not a limit.
+        const outside = checkLimits(action, limits, { windowTitle: await activeWindowTitle() })
+        if (outside) {
+          blockedCount++
+          updateOverlay({ description: `Blocked: ${outside}`, index: step, max: MAX_STEPS })
+          onStep?.({ description: `Blocked: ${outside}`, index: step, max: MAX_STEPS })
+          if (blockedCount >= 3) {
+            return {
+              ok: false,
+              summary: `Stopped: the task kept needing steps outside your limits — last one: ${outside}. Change them with "/limits" if you meant to allow it.`,
+              actions: performed
+            }
+          }
+          lastResults.push(
+            `BLOCKED by the user's limits and NOT run: ${outside}. This is enforced by the system. Do not try to get around it; ` +
+              'find a way inside the limits, or call task_done and say which limit is in the way.'
+          )
+          break
+        }
+
+        // Irreversible steps wait for the user. A refusal ends the task there:
+        // the model is not given the chance to look for another way round.
+        const decision = await gateAction(action, describedTask(), control.signal)
+        if (decision.kind === 'stop') {
+          return {
+            ok: false,
+            summary: `Stopped before "${decision.title}" — you did not approve it. Everything up to that step is done and left as it is on screen.`,
+            actions: performed
+          }
+        }
+        if (decision.kind === 'change') {
+          // Not run. The user's correction goes back to the model as the
+          // result of this step, and the rest of the batch is dropped - it was
+          // planned for the version the user just turned down.
+          changes.push(decision.note)
+          lastResults.push(
+            `NOT DONE - the user reviewed this step ("${decision.title}") and asked for a change first: "${decision.note}". ` +
+              'This is an instruction from the user. Make that change on screen, check it in the next screenshot, then take this step again - they will be asked to approve it again.'
+          )
+          break
+        }
+        if (stoppedByUser || signal.aborted) {
+          return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
+        }
+
+        attempted.push(action)
+        let result = await asAgent(() => perform(action, capture, control.signal))
+
+        // An approved send is done. Without saying so, a model that sees the
+        // compose window still closing can decide it did not work and send
+        // the same email a second time.
+        if (riskOf(action) && !result.startsWith('failed') && result !== 'cancelled') {
+          result = `${result}. This irreversible step has been carried out - do NOT repeat it. If the screen does not show it yet, wait and check; never do it a second time.`
+        }
+        if (!result.startsWith('failed') && result !== 'cancelled') performed.push(action)
+
+        // Going in circles. Repeating an action that "worked" is the one failure
+        // the model cannot see: it is told "ok" every time, and a fresh
+        // screenshot it has already misread once is not enough to change its
+        // mind. Saying so plainly is.
+        if (isStuck(attempted)) {
+          return { ok: false, summary: stuckSummary(attempted), actions: performed }
+        }
+        const advice = loopAdvice(attempted)
+        if (advice) result = `${result}. ${advice}`
+        lastResults.push(result)
+
+        // The rest of the batch was planned against a screen where this
+        // worked. It did not, so they are left for the model to reconsider.
+        if (result.startsWith('failed') || result === 'cancelled') break
+
+        // Between batched actions, give the UI a beat to react - a click has
+        // to focus the field before the text after it can land there.
+        if (index < batch.length - 1) await new Promise((resolve) => setTimeout(resolve, 150))
       }
-      const advice = loopAdvice(attempted)
-      if (advice) lastResult = `${lastResult}. ${advice}`
       await new Promise((resolve) => setTimeout(resolve, SETTLE_MS))
     }
 
@@ -188,5 +335,38 @@ async function perform(
     )
   } catch (error) {
     return `failed: ${error instanceof Error ? error.message : String(error)}`
+  }
+}
+
+/** The model that checks finishes. Lite: its own free quota, and fast. */
+const CHECKER_MODEL = 'gemini-2.5-flash-lite'
+
+/**
+ * Asks the checker about a finish. Null when it could not be asked - no key,
+ * no quota, Google down - in which case the run ends as the agent said:
+ * failing a task because the second opinion was unavailable would be wrong.
+ */
+async function checkFinish(
+  task: string,
+  summary: string,
+  evidence: string | undefined,
+  screenshot: Buffer,
+  signal: AbortSignal
+): Promise<Verdict | null> {
+  const key = configuredKeys()[0]
+  if (!key) return null
+  try {
+    return await verifyCompletion({
+      apiKey: key,
+      model: CHECKER_MODEL,
+      fallbackModels: ['gemini-flash-lite-latest', loadSettings().agentModel],
+      task,
+      summary,
+      ...(evidence ? { evidence } : {}),
+      screenshot,
+      signal
+    })
+  } catch {
+    return null
   }
 }

@@ -1,9 +1,9 @@
-import { Button, Key, keyboard, mouse } from '@nut-tree-fork/nut-js'
-import { shell } from 'electron'
+import { Key, keyboard } from '@nut-tree-fork/nut-js'
+import { clipboard, shell } from 'electron'
 import { toScreenPoint, type AgentAction, type ScreenSize } from '../shared/agent'
 import { launchApp } from './appIndex'
 import { PACES } from '../shared/cursorPath'
-import { glideTo, markClick } from './cursor'
+import { clickHere, glideTo, markTyping, scrollHere } from './cursor'
 import { loadSettings } from './settingsStore'
 
 // nut-js' own mouseSpeed is not used: `glideTo` tweens the pointer itself so
@@ -52,6 +52,41 @@ function resolveKey(name: string): Key | null {
 }
 
 /**
+ * Longer than this, or spread over lines, and text is pasted, not typed.
+ *
+ * Typing a blog post key by key took minutes and did not survive the trip:
+ * Google Docs turned "1. " into list items, autocorrect rewrote words, and one
+ * stray focus change sent the rest of it somewhere else. A paste lands the
+ * exact text in one keystroke. Short text is still typed, because watching a
+ * URL or a search appear is how the user follows along.
+ */
+const PASTE_THRESHOLD = 40
+
+async function enterText(text: string, pace: keyof typeof PACES): Promise<string> {
+  await markTyping()
+  if (text.length <= PASTE_THRESHOLD && !text.includes('\n')) {
+    keyboard.config.autoDelayMs = PACES[pace].typeDelayMs
+    await keyboard.type(text)
+    return 'ok'
+  }
+
+  // Borrow the clipboard and hand it back. Only text is restored - an image
+  // on the clipboard cannot be read back as text, so it is left alone rather
+  // than overwritten with nothing.
+  const previous = await clipboard.readText()
+  await clipboard.writeText(text)
+  await keyboard.pressKey(Key.LeftControl, Key.V)
+  await keyboard.releaseKey(Key.LeftControl, Key.V)
+  // Apps read the clipboard asynchronously after Ctrl+V; restoring too soon
+  // pastes the old contents instead.
+  await new Promise((resolve) => setTimeout(resolve, 400))
+  if (previous) await clipboard.writeText(previous)
+
+  const lines = text.split('\n').length
+  return `pasted ${text.length} characters${lines > 1 ? ` (${lines} lines)` : ''} - check the screenshot that all of it landed in the right place`
+}
+
+/**
  * Performs one action on the real desktop.
  * Throws when an action names a key we can't map, so the loop can report it
  * back to the model rather than silently doing nothing.
@@ -94,28 +129,18 @@ export async function executeAction(
       // A stop mid-glide must not land a click somewhere the model never chose.
       if (signal?.aborted) return 'cancelled'
 
-      await markClick()
-      const button = action.button === 'right' ? Button.RIGHT : Button.LEFT
-      if (action.double) {
-        await mouse.doubleClick(button)
-      } else {
-        await mouse.click(button)
-      }
+      await clickHere(action.button, action.double)
       return 'ok'
     }
 
     case 'type':
-      // Typing is worth watching, so it runs at the same pace as the pointer.
-      keyboard.config.autoDelayMs = PACES[pace].typeDelayMs
-      await keyboard.type(action.text)
-      return 'ok'
+      return await enterText(action.text, pace)
 
     case 'typeInto': {
       await glideTo(toScreenPoint(action.x, action.y, screen), pace, signal)
       if (signal?.aborted) return 'cancelled'
 
-      await markClick()
-      await mouse.click(Button.LEFT)
+      await clickHere('left')
       // Focus does not always land on the same tick as the click.
       await new Promise((resolve) => setTimeout(resolve, 120))
 
@@ -126,8 +151,7 @@ export async function executeAction(
       await keyboard.pressKey(Key.LeftControl, Key.A)
       await keyboard.releaseKey(Key.LeftControl, Key.A)
 
-      keyboard.config.autoDelayMs = PACES[pace].typeDelayMs
-      await keyboard.type(action.text)
+      const entered = await enterText(action.text, pace)
 
       if (action.submit) {
         // Kill the browser's inline autocompletion before committing.
@@ -148,7 +172,7 @@ export async function executeAction(
         // catches a blank page mid-load, and the model plans against nothing.
         await new Promise((resolve) => setTimeout(resolve, 350))
       }
-      return 'ok'
+      return entered
     }
 
     case 'keys': {
@@ -164,11 +188,7 @@ export async function executeAction(
 
     case 'scroll': {
       const clicks = Math.max(1, Math.min(20, action.clicks))
-      if (action.direction === 'down') {
-        await mouse.scrollDown(clicks * 100)
-      } else {
-        await mouse.scrollUp(clicks * 100)
-      }
+      await scrollHere(action.direction, clicks * 100)
       return 'ok'
     }
 

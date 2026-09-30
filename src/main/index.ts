@@ -29,6 +29,8 @@ import { runAgentTask } from './agentLoop'
 import type { AgentAction, ScreenSize } from '../shared/agent'
 import { rememberRun, type AgentRunRecord } from '../shared/agentHistory'
 import { parseKeyCommand } from '../shared/commands'
+import { describeSafety, parseSafetyCommand } from '../shared/safety'
+import { describeLimits, limitsLine, parseLimitsCommand } from '../shared/limits'
 import {
   keySource,
   needsKey,
@@ -238,7 +240,7 @@ function setupHotkey(): string | null {
 function providerHasKey(provider: ProviderName, settings = loadSettings()): boolean {
   switch (provider) {
     case 'gemini':
-      return Boolean(settings.geminiApiKey || process.env['GEMINI_API_KEY'])
+      return configuredKeys().length > 0
     case 'claude':
       return Boolean(settings.claudeApiKey || process.env['ANTHROPIC_API_KEY'])
     case 'openai':
@@ -448,6 +450,34 @@ function handleSlashCommand(text: string): SubmitResult | null {
     return ok('All Gemini keys removed. Add one with "/key <your-key>".')
   }
 
+  const limitsCommand = parseLimitsCommand(text, settings.limits)
+  if (limitsCommand.kind === 'show') return ok(describeLimits(settings.limits))
+  if (limitsCommand.kind === 'bad') return fail(limitsCommand.message)
+  if (limitsCommand.kind === 'set') {
+    updateSettings({ limits: limitsCommand.limits })
+    return ok(`${limitsCommand.message}\n${limitsLine(limitsCommand.limits)}`)
+  }
+
+  const safety = parseSafetyCommand(text)
+  if (safety.kind === 'status') {
+    return ok(
+      [
+        describeSafety(settings.approvalMode),
+        '',
+        '/safety on      ask before sending, paying, deleting, installing (default)',
+        '/safety strict  ask before every action',
+        '/safety off     never ask'
+      ].join('\n')
+    )
+  }
+  if (safety.kind === 'set') {
+    updateSettings({ approvalMode: safety.mode })
+    return ok(describeSafety(safety.mode))
+  }
+  if (safety.kind === 'bad') {
+    return fail(`"/safety ${safety.raw}" isn't a setting. Try "/safety on", "/safety strict" or "/safety off".`)
+  }
+
   const aiModel = handleAiModelCommand(text)
   if (aiModel) return aiModel
 
@@ -537,6 +567,8 @@ function handleSlashCommand(text: string): SubmitResult | null {
         '/new                  start a fresh chat',
         '/forget               delete all saved chats',
         'agent <task>          take control of the machine',
+        '/safety [on|strict|off]  when the agent asks before acting',
+        '/limits               apps, sites and actions the agent may never cross',
         '/save <name>          keep the last Agent run',
         '/workflows            saved runs you can replay for free',
         '/run <name>           replay one, no model call',
@@ -788,7 +820,14 @@ async function runRecall(question: string): Promise<SubmitResult> {
     )
   }
 
-  const provider = createRecallProvider()
+  let provider: ReturnType<typeof createRecallProvider>
+  try {
+    provider = createRecallProvider()
+  } catch (error) {
+    // No key yet. Thrown here it escaped the IPC handler as a raw
+    // "Error invoking remote method" instead of the message it carries.
+    return fail(error instanceof Error ? error.message : 'Screen memory is unavailable.')
+  }
   const bar = getRequestBar()
 
   abortInFlight()

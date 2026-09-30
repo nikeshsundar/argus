@@ -258,5 +258,7 @@ export function renderCatalogue(options: {
  */
 export const OVERLOAD_FALLBACKS = [
   'gemini-2.5-flash-lite',
-  'gemini-2.5-flash'
+  'gemini-2.5-flash',
+  'gemini-flash-lite-latest',
+  'gemini-flash-latest'
 ]

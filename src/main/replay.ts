@@ -4,9 +4,14 @@ import type { AgentStepEvent } from '../shared/types'
 import { REPLAY_SETTLE_MS, type Workflow } from '../shared/workflow'
 import { watchEscape } from './hotkey'
 import { executeAction } from './inputSim'
+import { gateAction } from './approval'
+import { checkLimits } from '../shared/limits'
+import { activeWindowTitle } from './activeWindow'
+import { loadSettings } from './settingsStore'
 import { hideOverlay, showOverlay, updateOverlay } from './overlayWindow'
 import { asAgent, watchUser } from './userPresence'
 import { createYielding } from './yield'
+import { presentGhost } from './cursor'
 
 export interface ReplayResult {
   ok: boolean
@@ -62,6 +67,7 @@ export async function replayWorkflow({
   })
 
   showOverlay()
+  void presentGhost()
 
   // A replay drives the pointer exactly as the agent does, so it owes the user
   // the same courtesy: stand aside the moment they touch anything.
@@ -69,6 +75,7 @@ export async function replayWorkflow({
   const yielding = createYielding(control.signal)
 
   try {
+    const limits = loadSettings().limits
     for (const [index, action] of workflow.actions.entries()) {
       if (stoppedByUser || signal.aborted) {
         return { ok: false, summary: `Stopped after ${index} of ${total} steps.` }
@@ -87,6 +94,24 @@ export async function replayWorkflow({
       }
       updateOverlay(event)
       onStep?.(event)
+
+      // A saved run obeys today's limits, not the ones it was recorded under.
+      const outside = checkLimits(action, limits, { windowTitle: await activeWindowTitle() })
+      if (outside) {
+        return {
+          ok: false,
+          summary: `Stopped at step ${index + 1} of ${total} — blocked by your limits: ${outside}. Nothing after it was run.`
+        }
+      }
+
+      // No "Change" here: a replay has no model to carry a correction out.
+      const decision = await gateAction(action, workflow.task, control.signal, false)
+      if (decision.kind !== 'allow') {
+        return {
+          ok: false,
+          summary: `Stopped at step ${index + 1} of ${total} — you did not approve "${decision.title}". Nothing after it was run.`
+        }
+      }
 
       try {
         await asAgent(() => executeAction(action, size, control.signal))

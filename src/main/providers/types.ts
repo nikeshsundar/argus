@@ -37,10 +37,12 @@ export interface VisionProvider {
 /** One task's worth of agent conversation, held by the provider. */
 export interface AgentSession {
   /**
-   * Decides the next action from the current screen.
-   * `lastResult` reports how the previous action went, so the model can adapt.
+   * Decides the next actions from the current screen - one, or a short batch
+   * the model is sure of without seeing an intermediate screen.
+   * `lastResults` reports how each action of the previous batch went, in order.
+   * A `done` action is only ever returned on its own.
    */
-  next(screenshot: Buffer, lastResult?: string): Promise<AgentAction>
+  next(screenshot: Buffer, lastResults?: string[]): Promise<AgentAction[]>
 }
 
 /** Agent Mode: drive the machine, one action at a time. */
@@ -55,7 +57,9 @@ export interface ComputerUseProvider {
     task: string,
     signal?: AbortSignal,
     installedApps?: string[],
-    history?: AgentRunRecord[]
+    history?: AgentRunRecord[],
+    /** The user's hard limits, spelled out so the model plans inside them. */
+    constraints?: string
   ): AgentSession
 }
 

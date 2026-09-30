@@ -64,6 +64,26 @@ export interface AgentStepEvent {
   max: number
 }
 
+/** A step waiting for the user's OK, shown as a card under the overlay banner. */
+export interface ApprovalRequest {
+  id: number
+  /** What will happen, in the user's terms: "Click Send". */
+  title: string
+  task: string
+  /** The exact action, for anyone who wants to check the detail. */
+  step: string
+  /** The text about to be typed or sent, when there is any. */
+  text?: string
+  /** Whether "Change" is offered - only when a model is there to act on it. */
+  canChange: boolean
+}
+
+/** What the user chose on an approval card. */
+export type ApprovalDecision =
+  | { kind: 'allow' }
+  | { kind: 'stop' }
+  | { kind: 'change'; note: string }
+
 /**
  * The agent's pointer, in CSS pixels relative to the overlay's display.
  * `click` additionally asks the overlay to fire a one-shot ring.
@@ -71,7 +91,7 @@ export interface AgentStepEvent {
 export interface AgentCursorEvent {
   x: number
   y: number
-  phase: 'move' | 'click'
+  phase: 'move' | 'click' | 'scroll' | 'type'
 }
 
 /** Which face the overlay wears: driving the machine, or pointing at it. */

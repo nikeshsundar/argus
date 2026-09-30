@@ -1,4 +1,5 @@
 import { OVERLOAD_FALLBACKS } from '../../shared/models'
+import { configuredKeys } from '../geminiKeys'
 import { loadSettings } from '../settingsStore'
 import { createClaudeProvider } from './claude'
 import { createGeminiProvider } from './gemini'
@@ -16,7 +17,7 @@ export function createTalkProvider(): VisionProvider {
     case 'gemini':
       return createGeminiProvider({
         // An env var is handy in development; the saved key is what ships.
-        apiKey: settings.geminiApiKey || process.env['GEMINI_API_KEY'] || '',
+        apiKey: configuredKeys()[0] ?? '',
         model: settings.geminiModel
       })
 
@@ -47,7 +48,7 @@ export function createTalkProvider(): VisionProvider {
  */
 export function createAgentProvider(): ComputerUseProvider {
   const settings = loadSettings()
-  const geminiKey = settings.geminiApiKey || process.env['GEMINI_API_KEY'] || ''
+  const geminiKey = configuredKeys()[0] ?? ''
 
   if (!geminiKey) {
     throw new ProviderUnavailableError(
@@ -71,7 +72,7 @@ export function createAgentProvider(): ComputerUseProvider {
  */
 export function createTeachProvider(): ReturnType<typeof createGeminiTeachProvider> {
   const settings = loadSettings()
-  const geminiKey = settings.geminiApiKey || process.env['GEMINI_API_KEY'] || ''
+  const geminiKey = configuredKeys()[0] ?? ''
 
   if (!geminiKey) {
     throw new ProviderUnavailableError(
@@ -95,7 +96,7 @@ export function createTeachProvider(): ReturnType<typeof createGeminiTeachProvid
  */
 export function createRecallProvider(): RecallProvider {
   const settings = loadSettings()
-  const geminiKey = settings.geminiApiKey || process.env['GEMINI_API_KEY'] || ''
+  const geminiKey = configuredKeys()[0] ?? ''
 
   if (!geminiKey) {
     throw new ProviderUnavailableError(

@@ -49,7 +49,9 @@ export function createGeminiProvider(options: { apiKey: string; model: string })
       const body = {
         systemInstruction: { parts: [{ text: TALK_SYSTEM_PROMPT }] },
         contents,
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.2 }
+        // Thinking tokens count against this cap on 2.5 Flash; at 1024 it could
+        // spend the lot deliberating and return a truncated or empty answer.
+        generationConfig: { maxOutputTokens: 8192, temperature: 0.2 }
       }
 
       /**

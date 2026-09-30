@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { describeAction, toScreenPoint } from '../src/shared/agent'
+import { describeAction, MAX_BATCH, planBatch, toScreenPoint } from '../src/shared/agent'
 
 const SCREEN = { width: 1920, height: 1080 }
 
@@ -63,5 +63,35 @@ describe('typeInto', () => {
     })
     expect(described.length).toBeLessThan(60)
     expect(described).toContain('…')
+  })
+})
+
+describe('planBatch', () => {
+  const click = { type: 'click', x: 500, y: 500, button: 'left', double: false } as const
+  const type = { type: 'type', text: 'hello' } as const
+  const done = { type: 'done', summary: 'finished' } as const
+
+  it('runs a single action as it is', () => {
+    expect(planBatch([click])).toEqual({ actions: [click], presets: [undefined] })
+  })
+
+  it('refuses task_done in the same turn as work nobody has checked', () => {
+    const plan = planBatch([click, type, done])
+    expect(plan.actions).toEqual([click, type])
+    expect(plan.presets[2]).toMatch(/on its own/)
+  })
+
+  it('stops the batch after anything that changes the whole screen', () => {
+    const open = { type: 'openUrl', url: 'https://docs.new' } as const
+    const plan = planBatch([open, click, type])
+    expect(plan.actions).toEqual([open])
+    expect(plan.presets[1]).toMatch(/changed the screen/)
+    expect(plan.presets[2]).toMatch(/changed the screen/)
+  })
+
+  it('caps how much runs from one screenshot', () => {
+    const plan = planBatch(Array.from({ length: MAX_BATCH + 2 }, () => click))
+    expect(plan.actions).toHaveLength(MAX_BATCH)
+    expect(plan.presets.filter(Boolean)).toHaveLength(2)
   })
 })

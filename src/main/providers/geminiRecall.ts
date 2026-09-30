@@ -1,4 +1,5 @@
 import { callGemini, consumeStream, describeGeminiFailure, extractText } from './geminiClient'
+import { OVERLOAD_FALLBACKS } from '../../shared/models'
 import { RECALL_SYSTEM_PROMPT } from './prompt'
 import { ProviderUnavailableError } from './types'
 
@@ -63,12 +64,14 @@ export function createGeminiRecallProvider(options: {
       const body = {
         systemInstruction: { parts: [{ text: RECALL_SYSTEM_PROMPT }] },
         contents: [{ role: 'user', parts }],
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.1 }
+        // Room for thinking tokens too, which count against this cap.
+        generationConfig: { maxOutputTokens: 8192, temperature: 0.1 }
       }
 
       const streamed = await callGemini({
         apiKey,
         model,
+        fallbackModels: OVERLOAD_FALLBACKS,
         method: 'streamGenerateContent',
         body,
         signal
@@ -78,7 +81,14 @@ export function createGeminiRecallProvider(options: {
       if (streamed.status !== 404) throw new Error(await describeGeminiFailure(streamed, model))
 
       // This model has no streaming method; the plain one still answers.
-      const response = await callGemini({ apiKey, model, method: 'generateContent', body, signal })
+      const response = await callGemini({
+        apiKey,
+        model,
+        fallbackModels: OVERLOAD_FALLBACKS,
+        method: 'generateContent',
+        body,
+        signal
+      })
       if (!response.ok) throw new Error(await describeGeminiFailure(response, model))
 
       const text = extractText(await response.json())
