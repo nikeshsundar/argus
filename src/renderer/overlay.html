@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     />
     <title>Argus Agent</title>
     <style>
@@ -307,10 +307,19 @@
         }
       }
 
+      /*
+       * Teach Mode points, so it shows the pointing hand - at twice size, with
+       * crisp pixels, because a learner has to find it across the screen. The
+       * fingertip is at (13, 8) in the 32px drawing, so (26, 16) here.
+       */
       .ghost-arrow {
         position: absolute;
-        left: -2px;
-        top: -2px;
+        left: -26px;
+        top: -16px;
+        width: 64px;
+        height: 64px;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
       }
 
       .caption {
@@ -391,11 +400,12 @@
         transition: transform 34ms linear;
       }
 
+      /* Sits exactly on the hotspot; each drawing is offset by its own tip. */
       .cursor-body {
         position: absolute;
-        left: -2px;
-        top: -2px;
-        transform-origin: 2px 2px;
+        left: 0;
+        top: 0;
+        transform-origin: 0 0;
         transition: transform 140ms cubic-bezier(0.3, 1.6, 0.5, 1);
         animation: cursor-in 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
       }
@@ -407,12 +417,47 @@
         }
       }
 
-      .mac-arrow {
+      .cursor-img {
+        position: absolute;
         display: block;
-        width: 22px;
-        height: 30px;
-        overflow: visible;
-        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
+        transition: opacity 90ms ease;
+      }
+
+      /*
+       * The arrow is solid black with no edge of its own, so it would vanish
+       * on anything dark. Four hairline white shadows draw the outline macOS
+       * gives its pointer, and a soft one lifts it off the page. Its tip is
+       * at (5, 1) in the 24px drawing.
+       */
+      .cursor-arrow {
+        left: -5px;
+        top: -1px;
+        width: 24px;
+        height: 24px;
+        filter: drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff)
+          drop-shadow(0 -1px 0 #fff) drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+      }
+
+      /*
+       * The pointing hand, shown as it clicks. The hand fills only half of its
+       * 32px drawing, so at 1.5x it matches the arrow's size; the fingertip,
+       * (13, 8) in the drawing, lands on the hotspot at (20, 12).
+       */
+      .cursor-hand {
+        left: -20px;
+        top: -12px;
+        width: 48px;
+        height: 48px;
+        opacity: 0;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.4));
+      }
+
+      .pointer.hand .cursor-arrow {
+        opacity: 0;
+      }
+
+      .pointer.hand .cursor-hand {
+        opacity: 1;
       }
 
       /* Pressed: the arrow dips, like a finger going down on a trackpad. */
@@ -422,8 +467,8 @@
 
       .cursor-tag {
         position: absolute;
-        left: 14px;
-        top: 20px;
+        left: 16px;
+        top: 22px;
         display: flex;
         align-items: center;
         gap: 5px;
@@ -684,31 +729,14 @@
     </div>
     <div class="pointer" id="pointer" hidden>
       <div class="cursor-body">
-        <svg class="mac-arrow" viewBox="0 0 22 30" aria-hidden="true">
-          <path
-            d="M2 2 V24.5 L7.4 19.3 L11.2 27.9 L14.9 26.3 L11.2 17.8 L18.6 17.8 Z"
-            fill="#0b0b0c"
-            stroke="#fff"
-            stroke-width="1.7"
-            stroke-linejoin="round"
-          />
-        </svg>
+        <img class="cursor-img cursor-arrow" src="./assets/cursor-arrow.png" alt="" />
+        <img class="cursor-img cursor-hand" src="./assets/cursor-hand.png" alt="" />
         <span class="cursor-tag"><span class="cursor-name">Argus</span><span class="cursor-state" id="cursor-state"></span></span>
       </div>
     </div>
     <div class="ghost" id="ghost" hidden>
       <div class="ghost-ping"></div>
-      <div class="ghost-arrow">
-        <svg class="mac-arrow" viewBox="0 0 22 30" aria-hidden="true">
-          <path
-            d="M2 2 V24.5 L7.4 19.3 L11.2 27.9 L14.9 26.3 L11.2 17.8 L18.6 17.8 Z"
-            fill="#0b0b0c"
-            stroke="#fff"
-            stroke-width="1.7"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </div>
+      <img class="ghost-arrow" src="./assets/cursor-hand.png" alt="" />
       <div class="caption">
         <div class="caption-step" id="caption-step"></div>
         <div class="caption-title" id="caption-title"></div>

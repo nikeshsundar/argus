@@ -8,6 +8,9 @@ const cursorState = document.querySelector<HTMLSpanElement>('#cursor-state')!
 /** Clears the "typing" / "scrolling" note once the agent moves on. */
 let stateTimer: number | undefined
 let pressTimer: number | undefined
+/** How long the pointing hand stays up after a click. */
+const HAND_HOLD_MS = 450
+let handUntil = 0
 
 const ghost = document.querySelector<HTMLDivElement>('#ghost')!
 const captionStep = document.querySelector<HTMLDivElement>('#caption-step')!
@@ -55,9 +58,16 @@ window.argus.onAgentCursor(({ x, y, phase }) => {
 
   if (phase === 'click') {
     ripple(x, y)
-    pointer.classList.add('press')
+    // The arrow becomes the pointing hand as it clicks, the way macOS turns
+    // it into a hand over anything clickable, and dips as it presses.
+    pointer.classList.add('press', 'hand')
+    handUntil = Date.now() + HAND_HOLD_MS
     window.clearTimeout(pressTimer)
     pressTimer = window.setTimeout(() => pointer.classList.remove('press'), 160)
+  } else if (phase === 'move' && Date.now() > handUntil) {
+    // Back to the arrow once it moves on - but only after the hand has been
+    // seen, so a click followed at once by a glide still shows it.
+    pointer.classList.remove('hand')
   }
 
   if (phase === 'type' || phase === 'scroll') {
