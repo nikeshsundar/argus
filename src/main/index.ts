@@ -26,6 +26,8 @@ for (const stream of [process.stdout, process.stderr]) {
   })
 }
 import { runAgentTask } from './agentLoop'
+import { runSop } from './sopRunner'
+import { parseSopCommand } from '../shared/sop'
 import type { AgentAction, ScreenSize } from '../shared/agent'
 import { rememberRun, type AgentRunRecord } from '../shared/agentHistory'
 import { parseKeyCommand } from '../shared/commands'
@@ -567,6 +569,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
         '/new                  start a fresh chat',
         '/forget               delete all saved chats',
         'agent <task>          take control of the machine',
+        '/sop <long procedure> many writers in parallel (one per key) + the agent',
         '/safety [on|strict|off]  when the agent asks before acting',
         '/limits               apps, sites and actions the agent may never cross',
         '/save <name>          keep the last Agent run',
@@ -1012,6 +1015,43 @@ async function runReplay(flow: Workflow): Promise<SubmitResult> {
   }
 }
 
+/**
+ * "/sop": a long procedure split between parallel writers (one per key) and
+ * the on-screen agent. Same lifecycle as an Agent run - the bar steps aside
+ * and comes back with the merged report.
+ */
+async function runSopFromBar(sop: string): Promise<SubmitResult> {
+  const bar = getRequestBar()
+  clearPendingCapture()
+  abortInFlight()
+
+  const controller = new AbortController()
+  inFlight = controller
+  hideRequestBar()
+
+  try {
+    const result = await runSop({
+      sop,
+      signal: controller.signal,
+      onStep: (event) => bar?.webContents.send('argus:agent-step', event)
+    })
+    agentRuns = rememberRun(agentRuns, {
+      task: `SOP: ${sop.slice(0, 120)}`,
+      summary: result.summary.slice(0, 600),
+      ok: result.ok,
+      at: Date.now()
+    })
+    await reopenAfterRun(result.summary, !result.ok)
+    return { ok: result.ok, mode: 'agent', message: result.summary }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The SOP could not start.'
+    await reopenAfterRun(message, true)
+    return { ok: false, mode: 'agent', message }
+  } finally {
+    if (inFlight === controller) inFlight = null
+  }
+}
+
 async function runAgent(task: string): Promise<SubmitResult> {
   const bar = getRequestBar()
   // Taken before the bar is hidden and before anything moves, so a saved
@@ -1086,6 +1126,21 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('argus:submit', async (_event, text: string, forced?: Mode) => {
+    // "/sop" before everything else: like "/run" it has to await a whole run,
+    // and the unknown-command guard in handleSlashCommand would reject it.
+    const sopCommand = parseSopCommand(text)
+    if (sopCommand) {
+      if (!sopCommand.sop) {
+        return {
+          ok: false,
+          mode: 'agent' as const,
+          message:
+            'Paste the whole SOP after "/sop". Writing steps run in parallel, one per API key; screen steps run in order. e.g. /sop write and send 3 emails: ...'
+        }
+      }
+      return await runSopFromBar(sopCommand.sop)
+    }
+
     // Workflows are handled first: "/run" has to await a replay, and the
     // unknown-command guard at the end of handleSlashCommand would otherwise
     // reject every one of these before they were understood.

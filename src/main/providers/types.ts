@@ -1,5 +1,6 @@
 import type { AgentAction } from '../../shared/agent'
 import type { AgentRunRecord } from '../../shared/agentHistory'
+import type { PreparedBlock } from '../../shared/sop'
 import type { Turn } from '../../shared/types'
 import type { ProviderName } from '../settingsStore'
 
@@ -59,7 +60,12 @@ export interface ComputerUseProvider {
     installedApps?: string[],
     history?: AgentRunRecord[],
     /** The user's hard limits, spelled out so the model plans inside them. */
-    constraints?: string
+    constraints?: string,
+    /**
+     * Text already written for this task (by SOP writers). The model pastes
+     * a block by its id instead of retyping it - exact, and instant.
+     */
+    blocks?: PreparedBlock[]
   ): AgentSession
 }
 

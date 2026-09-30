@@ -1,5 +1,6 @@
 import { asWebAddress, planBatch, realLineBreaks, type AgentAction } from '../../shared/agent'
 import { formatAgentHistory, type AgentRunRecord } from '../../shared/agentHistory'
+import type { PreparedBlock } from '../../shared/sop'
 import { MODEL_IMAGE_MIME } from '../screenshot'
 import { requestStep, STEP_TIMEOUT_MS, dropStaleImages, type GeminiPart } from './geminiClient'
 import { noteOverlay } from '../overlayWindow'
@@ -212,6 +213,20 @@ const FUNCTION_DECLARATIONS = [
   }
 ]
 
+/** Offered only when an SOP writer has prepared text for this task. */
+const PASTE_BLOCK_DECLARATION = {
+  name: 'paste_block',
+  description:
+    'Paste a prepared text block at the current focus, exactly as written. Click where the text goes first. Use this for every prepared block - never retype one.',
+  parameters: {
+    type: 'OBJECT',
+    properties: {
+      id: { type: 'STRING', description: 'The block id, e.g. "s2".' }
+    },
+    required: ['id']
+  }
+}
+
 interface Content {
   role: 'user' | 'model'
   parts: unknown[]
@@ -240,9 +255,23 @@ export function createGeminiAgentProvider(options: {
       signal?: AbortSignal,
       installedApps: string[] = [],
       history: AgentRunRecord[] = [],
-      constraints = ''
+      constraints = '',
+      blocks: PreparedBlock[] = []
     ): AgentSession {
       const contents: Content[] = []
+      // paste_block exists only when there is something to paste, so a normal
+      // task never sees a tool it cannot use.
+      const declarations = blocks.length
+        ? [...FUNCTION_DECLARATIONS, PASTE_BLOCK_DECLARATION]
+        : FUNCTION_DECLARATIONS
+      const blockList = blocks.length
+        ? `\n\nPrepared text blocks - already written for this task. To insert one, click where it goes, then call paste_block with its id. Never retype or rewrite them:\n${blocks
+            .map(
+              (block) =>
+                `[${block.id}] ${block.title} - ${block.text.length} characters, begins: "${block.text.slice(0, 90).replace(/\s+/g, ' ')}…"`
+            )
+            .join('\n')}`
+        : ''
       /**
        * The function calls of the last model turn, in order. Gemini requires a
        * response for every one of them. `preset` is filled in for calls that
@@ -274,7 +303,7 @@ export function createGeminiAgentProvider(options: {
           if (contents.length === 0) {
             contents.push({
               role: 'user',
-              parts: [image, { text: `${preamble}Task: ${task}${appList}` }]
+              parts: [image, { text: `${preamble}Task: ${task}${blockList}${appList}` }]
             })
           } else {
             // Report each previous call's outcome, then show the new screen.
@@ -316,7 +345,7 @@ export function createGeminiAgentProvider(options: {
             body: {
               systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
               contents,
-              tools: [{ functionDeclarations: FUNCTION_DECLARATIONS }],
+              tools: [{ functionDeclarations: declarations }],
               toolConfig: { functionCallingConfig: { mode: 'ANY' } },
               generationConfig: { temperature: 0 }
             }
@@ -347,7 +376,7 @@ export function createGeminiAgentProvider(options: {
           // isn't echoed back, so never reconstruct this from just the call.
           contents.push({ role: 'model', parts })
 
-          const plan = planBatch(calls.map((call) => toAction(call.name, call.args ?? {})))
+          const plan = planBatch(calls.map((call) => toAction(call.name, call.args ?? {}, blocks)))
           pending = calls.map((call, index) => ({
             name: call.name,
             preset: plan.presets[index]
@@ -359,11 +388,26 @@ export function createGeminiAgentProvider(options: {
   }
 }
 
-function toAction(name: string, args: Record<string, unknown>): AgentAction {
+function toAction(
+  name: string,
+  args: Record<string, unknown>,
+  blocks: PreparedBlock[] = []
+): AgentAction {
   const num = (value: unknown, fallback = 0): number =>
     typeof value === 'number' && Number.isFinite(value) ? value : fallback
 
   switch (name) {
+    case 'paste_block': {
+      // Resolved here, by reference: the model names the block and the exact
+      // text the writer produced is what lands - never a retyped copy of it.
+      const wanted = String(args['id'] ?? '').trim().replace(/^\[|\]$/g, '').toLowerCase()
+      const block =
+        blocks.find((one) => one.id.toLowerCase() === wanted) ??
+        (blocks.length === 1 ? blocks[0] : undefined)
+      return block
+        ? { type: 'type', text: block.text, purpose: `Paste the prepared "${block.title}"` }
+        : { type: 'type', text: '', purpose: `Paste an unknown block "${wanted}"` }
+    }
     case 'launch_app':
       return { type: 'launch', name: String(args['name'] ?? '') }
     case 'open_url':

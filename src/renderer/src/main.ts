@@ -469,7 +469,29 @@ window.argus.onDelta((delta) => {
 })
 
 window.argus.onAgentStep((event) => {
-  setStatus(`${event.description} (step ${event.index}/${event.max})`, 'busy')
+  // Notes (planning, writers finishing) carry no step count.
+  setStatus(
+    event.max > 0 ? `${event.description} (step ${event.index}/${event.max})` : event.description,
+    'busy'
+  )
+})
+
+// The bar is one line, and a single-line input drops line breaks on paste -
+// "1. Open Gmail\n2. Write" arrives as "1. Open Gmail2. Write". A pasted SOP
+// keeps its steps apart instead.
+input.addEventListener('paste', (event) => {
+  const pasted = event.clipboardData?.getData('text/plain') ?? ''
+  if (!/[\r\n]/.test(pasted)) return
+  event.preventDefault()
+  const flattened = pasted
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' / ')
+  const start = input.selectionStart ?? input.value.length
+  const end = input.selectionEnd ?? input.value.length
+  input.setRangeText(flattened, start, end, 'end')
+  input.dispatchEvent(new Event('input', { bubbles: true }))
 })
 
 closeButton.addEventListener('click', () => {

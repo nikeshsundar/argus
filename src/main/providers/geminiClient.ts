@@ -1,4 +1,4 @@
-import { hasReadyKey, poolSize, restAfterRefusal, secondsUntilReady, takeKey } from '../geminiKeys'
+import { hasReadyKey, isKeyReady, poolSize, restAfterRefusal, secondsUntilReady, takeKey } from '../geminiKeys'
 
 export const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -193,6 +193,13 @@ export async function callGemini(options: {
   onModelChosen?: (model: string) => void
   /** Overrides the default deadline. Small, frequent calls should ask for less. */
   timeoutMs?: number
+  /**
+   * Try this key first instead of the pool's first ready one. Parallel SOP
+   * writers each pin their own key - otherwise every one of them would take
+   * key #1 and the other keys would sit idle. Falls back to the pool if it is
+   * refused.
+   */
+  preferKey?: string
 }): Promise<Response> {
   const candidates = preferAvailable(
     modelCandidates(options.model, options.fallbackModels),
@@ -344,6 +351,7 @@ async function attempt(
     /** True when another model is queued behind this one. */
     hasAlternatives?: boolean
     timeoutMs?: number
+    preferKey?: string
   }
 ): Promise<Response> {
   const query = options.method === 'streamGenerateContent' ? '?alt=sse' : ''
@@ -417,7 +425,8 @@ async function attempt(
   // One attempt per key. A refused key is rested and the next one picked up,
   // so a quota that runs out mid-task does not end the task.
   for (let attempt = 0; attempt < Math.max(1, poolSize()); attempt++) {
-    const key = takeKey() ?? options.apiKey
+    const pinned = attempt === 0 && options.preferKey && isKeyReady(options.preferKey)
+    const key = pinned ? options.preferKey! : (takeKey() ?? options.apiKey)
     const response = await post(body, key)
 
     // 429 is a quota window that reopens; 401/403 is a key that never will.

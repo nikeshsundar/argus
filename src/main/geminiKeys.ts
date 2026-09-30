@@ -102,6 +102,12 @@ export function rejectedKeys(now: number = Date.now()): string[] {
     .map((state) => state.key)
 }
 
+/** True when this particular key is configured and not resting. */
+export function isKeyReady(key: string, now: number = Date.now()): boolean {
+  const state = syncStates().find((candidate) => candidate.key === key)
+  return Boolean(state && state.cooldownUntil <= now)
+}
+
 /** True while at least one more key is worth trying. */
 export function hasReadyKey(now: number = Date.now()): boolean {
   return pickKey(syncStates(), now) !== null

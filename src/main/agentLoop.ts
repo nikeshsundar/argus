@@ -1,6 +1,7 @@
 import { describeAction, type AgentAction } from '../shared/agent'
 import type { AgentRunRecord } from '../shared/agentHistory'
 import { isStuck, loopAdvice, stuckSummary } from '../shared/loop'
+import type { PreparedBlock } from '../shared/sop'
 import type { AgentStepEvent } from '../shared/types'
 import { loadAppIndex } from './appIndex'
 import { watchEscape } from './hotkey'
@@ -45,6 +46,8 @@ export interface AgentRunOptions {
    * nothing, and "open it in Edge instead" is read as the whole job.
    */
   history?: AgentRunRecord[]
+  /** Text an SOP writer already prepared, pasted by reference. */
+  blocks?: PreparedBlock[]
 }
 
 export interface AgentRunResult {
@@ -70,14 +73,22 @@ export async function runAgentTask({
   task,
   signal,
   onStep,
-  history = []
+  history = [],
+  blocks = []
 }: AgentRunOptions): Promise<AgentRunResult> {
   const provider = createAgentProvider()
   const installedApps = (await loadAppIndex()).map((entry) => entry.name).slice(0, 200)
   // Read once: limits changed mid-run would move the fence under a task that
   // was planned inside it.
   const limits = loadSettings().limits
-  const session = provider.startTask(task, signal, installedApps, history, limitsForModel(limits))
+  const session = provider.startTask(
+    task,
+    signal,
+    installedApps,
+    history,
+    limitsForModel(limits),
+    blocks
+  )
   const startedAt = Date.now()
   /** Steps the limits refused. Past a few, the task cannot be done inside them. */
   let blockedCount = 0
