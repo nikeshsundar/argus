@@ -15,3 +15,20 @@ export async function activeWindowTitle(): Promise<string | null> {
     return null
   }
 }
+
+/** Where the focused window is, in physical pixels. Null when unreadable. */
+export async function activeWindowRegion(): Promise<{
+  left: number
+  top: number
+  width: number
+  height: number
+} | null> {
+  try {
+    const window = await getActiveWindow()
+    const region = await window.region
+    if (region.width < 50 || region.height < 50) return null
+    return { left: region.left, top: region.top, width: region.width, height: region.height }
+  } catch {
+    return null
+  }
+}

@@ -28,6 +28,8 @@ for (const stream of [process.stdout, process.stderr]) {
 import { runAgentTask } from './agentLoop'
 import { runSop } from './sopRunner'
 import { parseSopCommand } from '../shared/sop'
+import { runRecipe } from './recipes'
+import { parseRecipe, recipeMenu, RECIPE_USAGE, type RecipeCommand } from '../shared/recipes'
 import type { AgentAction, ScreenSize } from '../shared/agent'
 import { rememberRun, type AgentRunRecord } from '../shared/agentHistory'
 import { parseKeyCommand } from '../shared/commands'
@@ -570,6 +572,7 @@ function handleSlashCommand(text: string): SubmitResult | null {
         '/forget               delete all saved chats',
         'agent <task>          take control of the machine',
         '/sop <long procedure> many writers in parallel (one per key) + the agent',
+        '/wow                  five one-line workflows: /brief /sheet /mail /meet /launch',
         '/safety [on|strict|off]  when the agent asks before acting',
         '/limits               apps, sites and actions the agent may never cross',
         '/save <name>          keep the last Agent run',
@@ -1052,6 +1055,43 @@ async function runSopFromBar(sop: string): Promise<SubmitResult> {
   }
 }
 
+/**
+ * One of the five built-in workflows. The screen as it was when the bar
+ * opened is handed over first - /sheet reads its table from it.
+ */
+async function runRecipeFromBar(recipe: RecipeCommand): Promise<SubmitResult> {
+  const bar = getRequestBar()
+  const screenshot = pendingCapture?.model.png ?? null
+  clearPendingCapture()
+  abortInFlight()
+
+  const controller = new AbortController()
+  inFlight = controller
+  hideRequestBar()
+
+  try {
+    const result = await runRecipe(recipe, {
+      signal: controller.signal,
+      screenshot,
+      onStep: (event) => bar?.webContents.send('argus:agent-step', event)
+    })
+    agentRuns = rememberRun(agentRuns, {
+      task: `/${recipe.kind} ${recipe.arg}`.trim(),
+      summary: result.summary.slice(0, 600),
+      ok: result.ok,
+      at: Date.now()
+    })
+    await reopenAfterRun(result.summary, !result.ok)
+    return { ok: result.ok, mode: 'agent', message: result.summary }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'That workflow could not start.'
+    await reopenAfterRun(message, true)
+    return { ok: false, mode: 'agent', message }
+  } finally {
+    if (inFlight === controller) inFlight = null
+  }
+}
+
 async function runAgent(task: string): Promise<SubmitResult> {
   const bar = getRequestBar()
   // Taken before the bar is hidden and before anything moves, so a saved
@@ -1139,6 +1179,16 @@ function registerIpc(): void {
         }
       }
       return await runSopFromBar(sopCommand.sop)
+    }
+
+    // The five built-in workflows, and "/wow" to list them.
+    const recipe = parseRecipe(text)
+    if (recipe) {
+      if (recipe.kind === 'menu') return { ok: true, mode: 'talk' as const, message: recipeMenu() }
+      if (!recipe.arg && recipe.kind !== 'sheet') {
+        return { ok: false, mode: 'agent' as const, message: `Try: ${RECIPE_USAGE[recipe.kind]}` }
+      }
+      return await runRecipeFromBar(recipe)
     }
 
     // Workflows are handled first: "/run" has to await a replay, and the
