@@ -120,6 +120,18 @@ function clearThread(): void {
   activeAnswer = null
 }
 
+/**
+ * Takes a failed exchange out of the transcript, question and all.
+ *
+ * Removing only the empty answer left the question stranded in the thread with
+ * nothing under it, while the error appeared at the bottom - every failed
+ * request added another orphan line.
+ */
+function dropExchange(answer: HTMLElement): void {
+  const exchange = answer.closest('.turn') ?? answer
+  exchange.remove()
+}
+
 /** Paints one tutorial page into the transcript and remembers where we are. */
 function showTutorialPage(index: number): void {
   const page = clampPage(index)
@@ -375,6 +387,14 @@ function submit(text: string): void {
   renderOptions()
 
   const forced = manualMode ?? undefined
+  /**
+   * A question that failed - over quota, Gemini busy, no capture - goes back
+   * in the box so Enter retries it. Only a question still showing in the
+   * transcript qualifies: agent runs reopen the bar fresh (which clears it),
+   * and commands and pasted keys never create an exchange, so neither is ever
+   * put back.
+   */
+  let retry = ''
 
   void window.argus
     .submit(isBareKey ? `/key ${trimmed}` : trimmed, forced)
@@ -383,12 +403,18 @@ function submit(text: string): void {
         activeAnswer.textContent = result.message
         setStatus('')
       } else {
-        if (activeAnswer && !result.ok) activeAnswer.remove()
+        if (activeAnswer && !result.ok) {
+          dropExchange(activeAnswer)
+          retry = trimmed
+        }
         setStatus(result.message, result.ok ? 'done' : 'error')
       }
     })
     .catch((error: unknown) => {
-      activeAnswer?.remove()
+      if (activeAnswer) {
+        dropExchange(activeAnswer)
+        retry = trimmed
+      }
       setStatus(errorText(error, 'Something went wrong.'), 'error')
     })
     .finally(() => {
@@ -396,10 +422,14 @@ function submit(text: string): void {
       streaming = false
       activeAnswer = null
       input.disabled = false
-      input.value = ''
-      manualMode = null
+      input.value = retry
+      // A retry keeps the mode it was asked in. Re-guessing it from the
+      // wording could turn a question asked in Talk into an Agent run.
+      manualMode = retry ? (forced ?? null) : null
       syncChip()
       input.focus()
+      // Selected, so Enter retries it and typing replaces it.
+      if (retry) input.select()
       renderOptions()
       thread.scrollTop = thread.scrollHeight
     })

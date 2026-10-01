@@ -283,6 +283,36 @@ body {
   display: none;
 }
 
+/*
+ * The transcript and the palette scroll. Left alone, Windows draws its classic
+ * grey scrollbar with arrow buttons - a square, flat control bolted onto a
+ * rounded, lit surface. A thin pill thumb on a clear track matches the rest of
+ * the bar, and the arrows go (the wheel and the thumb are how anyone scrolls).
+ */
+.thread::-webkit-scrollbar,
+.options::-webkit-scrollbar {
+  width: 10px;
+}
+
+.thread::-webkit-scrollbar-track,
+.options::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.thread::-webkit-scrollbar-thumb,
+.options::-webkit-scrollbar-thumb {
+  /* The clear border insets the pill from the edge without a separate gutter. */
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-color: rgba(0, 0, 0, 0.18);
+  background-clip: padding-box;
+}
+
+.thread::-webkit-scrollbar-thumb:hover,
+.options::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.32);
+}
+
 .option {
   display: flex;
   align-items: baseline;

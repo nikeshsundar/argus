@@ -21,6 +21,15 @@ const captionHint = document.querySelector<HTMLDivElement>('#caption-hint')!
 /** Space the caption needs beside the ghost before it has to swap sides. */
 const CAPTION_MARGIN = { x: 380, y: 220 }
 
+/**
+ * Space the "Argus · typing…" tag needs below-right of the pointer.
+ *
+ * Without a flip the tag ran straight off screen at the right and bottom
+ * edges - exactly where chat boxes, Send buttons and the system tray live, so
+ * the label vanished just when it mattered most.
+ */
+const TAG_MARGIN = { x: 170, y: 56 }
+
 
 window.argus.onOverlayKind((kind) => {
   document.body.dataset['kind'] = kind
@@ -55,6 +64,9 @@ window.argus.onAgentStep(({ description, index, max }) => {
 window.argus.onAgentCursor(({ x, y, phase }) => {
   pointer.hidden = false
   pointer.style.transform = `translate3d(${x}px, ${y}px, 0)`
+  // Same rule as the Teach caption: swap to whichever side has room.
+  pointer.dataset['flipX'] = String(x + TAG_MARGIN.x > window.innerWidth)
+  pointer.dataset['flipY'] = String(y + TAG_MARGIN.y > window.innerHeight)
 
   if (phase === 'click') {
     ripple(x, y)
