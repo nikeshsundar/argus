@@ -106,6 +106,7 @@ import {
   selectFrames
 } from '../shared/recall'
 import { isProviderConfigured, loadSettings, updateSettings, type ProviderName } from './settingsStore'
+import { hardenWindows } from './harden'
 import { createTray, refreshTrayMenu } from './tray'
 
 /**
@@ -1333,6 +1334,8 @@ if (!app.requestSingleInstanceLock()) {
   app.on('second-instance', () => void openRequestBar())
 
   void app.whenReady().then(() => {
+    // Registered before any window exists, so it governs all of them.
+    hardenWindows()
     createRequestBar()
     allowMicrophone()
     registerIpc()

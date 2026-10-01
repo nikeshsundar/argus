@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'node:path'
 import type { TeachStep } from '../shared/teach'
 import type {
@@ -61,7 +61,7 @@ function ensureOverlay(): BrowserWindow {
     if (overlayRequested && win && !win.isDestroyed()) win.showInactive()
   })
 
-  if (process.env['ELECTRON_RENDERER_URL']) {
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/overlay.html`)
   } else {
     void win.loadFile(join(__dirname, '../renderer/overlay.html'))

@@ -233,6 +233,16 @@ Every Agent Mode step re-captures the screen before deciding the next move — i
 - Screenshots are **held in memory only** — never written to disk, never logged, and dropped when you dismiss the bar. Saved chats keep their text, never the image.
 - **By default, the screen is captured only when you press the hotkey.** Nothing runs in the background watching you.
 - You bring your own API key. There is no Argus server; your screen goes to the model provider *you* choose, and nowhere else.
+- **Your API keys are encrypted at rest.** They are stored through the Windows keystore (DPAPI, via Electron `safeStorage`), not as plain text — so `settings.json` on its own is not enough to read them. Chat history and saved workflows are plain local files; delete them any time with `/forget` and `/workflows clear`.
+
+### Where your screen actually goes
+
+Argus talks to exactly one network destination: **the AI provider you chose** (Google Gemini by default, or OpenAI / Anthropic if you set a key for them). There is no analytics, no telemetry, and no Argus server in between — you can confirm this yourself: every outbound request in the code goes to `generativelanguage.googleapis.com`, `api.openai.com`, or the Anthropic SDK, and nothing else.
+
+One thing to be clear about, because "privacy-first" can be read too generously: a screenshot you ask about **does leave your machine** — it goes to that provider, over HTTPS, to be answered. That is unavoidable for a cloud model. What it means in practice:
+
+- **Read your provider's data terms.** Google's **free** Gemini tier, in particular, has allowed submitted content to be used to improve their products and to be reviewed by humans. If you are looking at something sensitive, use a paid key (whose terms usually forbid that) or a local model.
+- Argus never sends anything you did not trigger. Recording alone (Screen Memory) stays local until you run `/recall`.
 
 ### The one exception: Screen Memory
 
@@ -241,10 +251,31 @@ Every Agent Mode step re-captures the screen before deciding the next move — i
 - **Frames never touch the disk.** They are JPEG buffers in one process. `/memory off`, `/memory purge`, and quitting each drop them; there is no code path that writes one out, and nothing survives a restart.
 - **It stops recording while Argus's own windows are up** — the bar, the agent overlay, or any request in flight. The bar is where you type, including sometimes an API key, and none of that belongs in a recording.
 - **Nothing is sent anywhere until you ask a question.** Recording is entirely local. Only when you run `/recall` do up to eight frames go to the model — the same provider, the same key, the same one-off request as any other question.
-- **It says so, every time.** A red pill in the bar on every open, and the tray tooltip whenever you hover it. `settings.json` holds the flag in plain text; the frames are held nowhere.
+- **It says so, every time.** A red pill in the bar on every open, and the tray tooltip whenever you hover it. `settings.json` holds the on/off flag in plain text; the frames are held nowhere.
 - Bounded by default: 10 minutes, capped at 60. It samples every 5 seconds and drops frames that are near-identical to the one before, so ten idle minutes cost one frame and a busy ten cost about 8 MB of RAM.
 
 This is the feature that most needs the source to be readable, which is a large part of why it is here rather than in something you'd have to trust. If you would rather it did not exist, leaving it off is enough — nothing else in Argus depends on it.
+
+## Safety — when Argus drives the machine
+
+Agent Mode operates your real mouse and keyboard, so the guardrails are in the code, not left to the model's good behaviour:
+
+- **Stop, instantly.** Press <kbd>Esc</kbd> anywhere and the run ends — mid-move, mid-type, whenever.
+- **It's your machine first.** Touch the mouse, keyboard or wheel and the agent stands aside until you go quiet again. Argus does **not** log your keystrokes — it only notices *that* a key was pressed so it can yield; it never records which.
+- **It asks before the dangerous, irreversible steps** — sending, posting, paying, deleting, installing, opening a shell or the Run dialog, or anything the model marks as committing. Two independent checks decide this: the model's own declaration *and* a rule in code that reads the step itself, so a forgotten flag is still caught. `/safety strict` asks before **every** step; `/safety off` turns it off entirely (your call).
+- **Hard limits you set in advance.** `/limits apps chrome, gmail` and `/limits sites gmail.com, docs.google.com` fence the agent in, checked against the window that actually has focus and the address actually being opened — not the model's word for it. `/limits never delete, pay` blocks whole categories outright. These are enforced in code and cannot be talked past mid-task.
+- **It only opens web and mail links.** A URL the agent tries to open is refused unless it is `http`, `https` or `mailto` — so a page cannot steer it into opening a local program (`file:…`) or a Windows protocol handler.
+- **Honesty check on "done".** When the agent says a task is finished, a second model looks at the same screenshot and has to agree before you're told it succeeded.
+- **Model output is data, never code.** AI answers are shown as plain text in the bar; nothing a model or a web page writes can execute inside Argus.
+
+### What the guardrails *don't* catch — know these two
+
+Being straight about the limits matters more than sounding safe:
+
+1. **A cloud model can be misled by what's on your screen.** The agent is told to treat page and email text as data, and the committing-step approval is your backstop — but a page crafted to look like a normal instruction could still get the agent to do something you didn't intend *inside* what's allowed (for example, open a normal-looking web link that carries information in its address). For anything sensitive, run with `/safety strict`, set `/limits sites`, and watch the run.
+2. **The "ask before risky" rule leans on the step being recognisable.** A send or delete the model labels plainly is caught; one it mislabels as something harmless may not be. `/safety strict` closes this by asking before everything.
+
+If either of these matters for your use, the honest answer is **strict mode plus limits**, or a local model — not blind trust.
 
 ## Requirements
 
@@ -504,7 +535,7 @@ A hook can *see* a keystroke but cannot *block* it from reaching other apps. Tha
 - [ ] On-screen annotations (arrows, highlights, boxes)
 - [ ] Replayable lessons — save a Teach Mode walkthrough and share it
 - [ ] Settings UI (currently all in-bar commands)
-- [ ] Encrypt stored API keys with Electron `safeStorage`
+- [x] Encrypt stored API keys with Electron `safeStorage`
 - [ ] Prebuilt installers in GitHub Releases
 - [ ] Multi-monitor support optimization
 

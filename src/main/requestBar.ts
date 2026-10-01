@@ -1,4 +1,4 @@
-import { BrowserWindow, screen } from 'electron'
+import { app, BrowserWindow, screen } from 'electron'
 import { join } from 'node:path'
 import { anchorToCursor, fitsOnDisplay } from '../shared/anchor'
 import type { MemoryIndicator, OpenedEvent } from '../shared/types'
@@ -44,7 +44,10 @@ export function createRequestBar(): BrowserWindow {
     lastPosition = { x, y }
   })
 
-  if (process.env['ELECTRON_RENDERER_URL']) {
+  // The dev-server URL is honoured only in development. A packaged build always
+  // loads its own bundled file, so a stray ELECTRON_RENDERER_URL in the
+  // environment cannot point the renderer at a remote page.
+  if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
     void win.loadFile(join(__dirname, '../renderer/index.html'))
