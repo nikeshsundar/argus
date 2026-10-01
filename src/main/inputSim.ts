@@ -1,6 +1,7 @@
 import { Key, keyboard } from '@nut-tree-fork/nut-js'
 import { clipboard, shell } from 'electron'
 import { toScreenPoint, type AgentAction, type ScreenSize } from '../shared/agent'
+import { externalUrlBlockReason } from '../shared/urlSafety'
 import { launchApp } from './appIndex'
 import { PACES } from '../shared/cursorPath'
 import { clickHere, glideTo, markTyping, scrollHere } from './cursor'
@@ -114,6 +115,12 @@ export async function executeAction(
     }
 
     case 'openUrl': {
+      // The last line of defence before the OS shell. openExternal would also
+      // launch programs and reach files; only web and mail links get through,
+      // whatever the model was talked into asking for. Throwing here becomes
+      // feedback the agent can read, and stops a blind replay in its tracks.
+      const blocked = externalUrlBlockReason(action.url)
+      if (blocked) throw new Error(blocked)
       await shell.openExternal(action.url)
       await new Promise((resolve) => setTimeout(resolve, 450))
       return `opened ${action.url}`

@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, safeStorage } from 'electron'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
@@ -101,6 +101,59 @@ function settingsPath(): string {
   return join(app.getPath('userData'), 'settings.json')
 }
 
+/**
+ * API keys at rest.
+ *
+ * The keys are the one genuinely sensitive thing in settings.json, and they
+ * used to sit there in plain text - readable by anything running as the user,
+ * and easy to leak by copying the file. They are now encrypted with the OS
+ * keystore (DPAPI on Windows) via Electron's safeStorage: still bound to this
+ * user on this machine, but no longer a plain string on disk.
+ *
+ * In memory the keys are always plain text, so the rest of the app is
+ * unchanged - only the bytes written to and read from disk are wrapped.
+ *
+ * The wrapper is transparent and backwards compatible:
+ *  - A value with the prefix is ciphertext; anything else is read as-is, so a
+ *    file written by an older build (or on a system without a keystore) still
+ *    works and is re-encrypted the next time settings are saved.
+ *  - If the keystore is unavailable, values are left in plain text rather than
+ *    failing to start - the same position as before this change, and the only
+ *    honest option without a password to derive a key from.
+ *  - A value that is marked encrypted but cannot be decrypted (the file was
+ *    carried to another machine or account) is dropped to empty, so a bogus
+ *    credential is never sent to a provider; the user is prompted to add one.
+ */
+const SECRET_PREFIX = 'enc.v1:'
+
+function keystoreReady(): boolean {
+  try {
+    return safeStorage.isEncryptionAvailable()
+  } catch {
+    return false
+  }
+}
+
+function encryptSecret(value: string): string {
+  if (!value || value.startsWith(SECRET_PREFIX) || !keystoreReady()) return value
+  try {
+    return SECRET_PREFIX + safeStorage.encryptString(value).toString('base64')
+  } catch {
+    return value
+  }
+}
+
+function decryptSecret(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  if (!value.startsWith(SECRET_PREFIX)) return value // legacy plain text
+  if (!keystoreReady()) return ''
+  try {
+    return safeStorage.decryptString(Buffer.from(value.slice(SECRET_PREFIX.length), 'base64'))
+  } catch {
+    return ''
+  }
+}
+
 /** Defaults we have shipped before, so an old one can be upgraded in place. */
 const SUPERSEDED_HOTKEYS = ['Control+Space', 'Control+Shift+Space', 'Super+`']
 
@@ -119,6 +172,12 @@ export function loadSettings(): Settings {
     if (!stored.geminiKeyCooldowns || typeof stored.geminiKeyCooldowns !== 'object') {
       stored.geminiKeyCooldowns = {}
     }
+    // Decrypt the keys back to plain text for use in memory. Dropping blanks
+    // keeps an undecryptable entry from lingering as an empty slot.
+    stored.geminiApiKey = decryptSecret(stored.geminiApiKey)
+    stored.claudeApiKey = decryptSecret(stored.claudeApiKey)
+    stored.openaiApiKey = decryptSecret(stored.openaiApiKey)
+    stored.geminiApiKeys = stored.geminiApiKeys.map(decryptSecret).filter(Boolean)
     cache = healModelNames(stored)
   } catch {
     // No settings file yet (first run), or it is unreadable/corrupt - fall back
@@ -158,10 +217,17 @@ function healModelNames(settings: Settings): Settings {
 
 export function updateSettings(patch: Partial<Settings>): Settings {
   const next = { ...loadSettings(), ...patch }
-  cache = next
+  cache = next // in memory the keys stay plain text; only the disk copy is wrapped
   const file = settingsPath()
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, JSON.stringify(next, null, 2), 'utf8')
+  const onDisk = {
+    ...next,
+    geminiApiKey: encryptSecret(next.geminiApiKey),
+    claudeApiKey: encryptSecret(next.claudeApiKey),
+    openaiApiKey: encryptSecret(next.openaiApiKey),
+    geminiApiKeys: next.geminiApiKeys.map(encryptSecret)
+  }
+  writeFileSync(file, JSON.stringify(onDisk, null, 2), 'utf8')
   return next
 }
 

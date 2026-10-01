@@ -14,6 +14,7 @@ import {
   type RecipeCommand
 } from '../shared/recipes'
 import { createKeyGate, parallelSavings, SOP_MAX_WRITERS, type SopStep } from '../shared/sop'
+import { externalUrlBlockReason } from '../shared/urlSafety'
 import type { AgentStepEvent } from '../shared/types'
 import { activeWindowRegion, activeWindowTitle } from './activeWindow'
 import { runAgentTask } from './agentLoop'
@@ -127,6 +128,10 @@ export async function runRecipe(
  * the first run left open for the one it just asked for.
  */
 async function openAndWait(url: string, loaded: RegExp, what: string, signal: AbortSignal): Promise<void> {
+  // These URLs are built by Argus and are always https, but the scheme gate is
+  // cheap and keeps every path to the OS shell honest.
+  const unopenable = externalUrlBlockReason(url)
+  if (unopenable) throw new Error(unopenable)
   const blocked = checkLimits({ type: 'openUrl', url }, loadSettings().limits, { windowTitle: null })
   if (blocked) throw new Error(`Blocked by your limits: ${blocked}`)
 

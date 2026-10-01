@@ -1,4 +1,5 @@
 import type { AgentAction } from './agent'
+import { externalUrlBlockReason } from './urlSafety'
 
 /**
  * Deciding which agent actions need the user's say-so first.
@@ -96,9 +97,60 @@ const RISKY_PATTERN = new RegExp(
   'i'
 )
 
-/** Programs that can change the system itself, not just a document. */
-const RISKY_PROGRAMS =
-  /\b(cmd|command prompt|powershell|pwsh|terminal|wt|regedit|registry|diskpart|task manager|taskmgr|control panel|services|group policy|gpedit|computer management|disk management)\b/i
+/**
+ * Programs that can run commands or change the system itself, matched on a
+ * squashed form of the name so spacing and punctuation cannot slip one past.
+ *
+ * `launch_app` takes a free-text name that a fuzzy matcher later resolves to an
+ * installed program, so "Power Shell", "powershell_ise" and "Git Bash" all
+ * reach a shell. The window-boundary regex this replaced missed every one of
+ * those. Substrings catch the descriptive names; the exact set holds the short
+ * ones ("wt", "cmd") that would false-positive as a substring of ordinary apps.
+ */
+const RISKY_LAUNCH_SUBSTRINGS = [
+  'powershell',
+  'commandprompt',
+  'terminal',
+  'regedit',
+  'registry',
+  'diskpart',
+  'taskmgr',
+  'taskmanager',
+  'controlpanel',
+  'grouppolicy',
+  'gpedit',
+  'computermanagement',
+  'diskmanagement',
+  'gitbash',
+  'bash',
+  'python',
+  'mshta',
+  'cscript',
+  'wscript',
+  'cmder'
+]
+
+/** Short program names that are risky exactly, but common as substrings. */
+const RISKY_LAUNCH_EXACT = new Set(['wt', 'cmd', 'pwsh', 'mmc', 'wsl', 'sh', 'services'])
+
+/** True when launching this (fuzzy) program name could run commands. */
+function launchIsRisky(name: string): boolean {
+  const squashed = name.toLowerCase().replace(/[^a-z0-9]/g, '')
+  if (!squashed) return false
+  return RISKY_LAUNCH_EXACT.has(squashed) || RISKY_LAUNCH_SUBSTRINGS.some((token) => squashed.includes(token))
+}
+
+/**
+ * Win+R opens the Run dialog, which runs any command typed into it. The keys
+ * carry no Enter or Delete, so the committing-step check below would wave them
+ * past; this names the combination so the user is asked before the dialog that
+ * turns "type then Enter" into arbitrary execution even appears.
+ */
+function isRunDialog(keys: string[]): boolean {
+  const pressed = keys.map((key) => key.trim().toLowerCase())
+  const hasMeta = pressed.some((key) => ['super', 'win', 'meta', 'cmd', 'command'].includes(key))
+  return pressed.length === 2 && pressed.includes('r') && hasMeta
+}
 
 /** Key combinations that send or destroy without a visible button. */
 const RISKY_KEYS: string[][] = [
@@ -143,14 +195,23 @@ export function riskOf(action: AgentAction): string | null {
 
   switch (action.type) {
     case 'launch':
-      return RISKY_PROGRAMS.test(action.name)
+      return launchIsRisky(action.name)
         ? `Open ${action.name}, which can change system settings or run commands`
         : null
 
-    case 'openUrl':
+    case 'openUrl': {
+      // A scheme the OS could turn into a program launch or a file read is
+      // refused outright at execution time; here it is also surfaced as the
+      // reason the user is asked, rather than a bare "Open <url>".
+      const unopenable = externalUrlBlockReason(action.url)
+      if (unopenable) return unopenable
       return RISKY_URL.test(action.url) ? `Open ${action.url}` : null
+    }
 
     case 'keys':
+      if (isRunDialog(action.keys)) {
+        return purpose || 'Press Win+R to open the Run dialog, which can run any command'
+      }
       if (RISKY_KEY_SETS.has(keySet(action.keys))) {
         return purpose || `Press ${action.keys.join('+')}, which can send or delete`
       }
@@ -187,8 +248,9 @@ function canCommit(action: AgentAction): boolean {
     case 'typeInto':
       return action.submit
     case 'keys':
-      return action.keys.some((key) =>
-        /^(enter|return|delete|del|backspace|alt|f4)$/i.test(key.trim())
+      return (
+        isRunDialog(action.keys) ||
+        action.keys.some((key) => /^(enter|return|delete|del|backspace|alt|f4)$/i.test(key.trim()))
       )
     case 'scroll':
     case 'wait':
