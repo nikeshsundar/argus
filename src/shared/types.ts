@@ -1,3 +1,5 @@
+import { parseTeachRequest } from './teach'
+
 /** Which of the two product modes a request is asking for. */
 export type Mode = 'talk' | 'agent'
 
@@ -147,9 +149,26 @@ const TALK_VERBS = new Set([
   'summarise', 'summarize', 'explain', 'describe', 'translate', 'define',
   'analyse', 'analyze', 'compare', 'identify', 'read', 'transcribe', 'tell',
   'list', 'name', 'rate', 'review', 'critique', 'suggest', 'recommend',
-  'teach', 'show', 'write', 'draft', 'compose', 'create', 'make', 'generate',
-  'help'
+  'show', 'help'
 ])
+
+/**
+ * Verbs that make something - and whether the result belongs in the bar or on
+ * the machine depends on what is being made, so these are judged by their object.
+ *
+ * They used to sit in TALK_VERBS outright, which sent "create a new repository"
+ * and "make a folder on the desktop" to a chat answer instead of the agent:
+ * the chip flipped to Talk the moment the first word was typed.
+ */
+const MAKER_VERBS = new Set(['write', 'draft', 'compose', 'create', 'make', 'generate'])
+
+/** What a maker verb produces when the answer is text to read in the bar. */
+const CONTENT_NOUNS =
+  /\b(?:poems?|story|stories|jokes?|essays?|summary|summaries|lists?|ideas?|outlines?|captions?|bios?|taglines?|slogans?|haikus?|songs?|lyrics|quotes?|titles?|headlines?|names?|paragraphs?|descriptions?|explanations?|answers?|questions?|passwords?|bullet points?)\b/i
+
+/** Somewhere on the machine or the web - what is made has to land there. */
+const DESTINATION =
+  /\b(?:in|on|into|inside|onto)\s+(?:(?:the|a|an|my|new|this)\s+)*(?:notepad|word|docs?|google\s+docs?|sheets?|google\s+sheets?|excel|powerpoint|slides|gmail|outlook|github|slack|whatsapp|teams|discord|chrome|edge|browser|desktop|folder|file|calendar|drive|notion|canva|vs\s*code|terminal|document|spreadsheet)\b/i
 
 /**
  * Openers that make a sentence a question even without a question mark.
@@ -207,10 +226,27 @@ export function parseMode(text: string): { mode: Mode; prompt: string } {
   }
 
   const talk = { mode: 'talk', prompt } as const
+  const agent = { mode: 'agent', prompt } as const
+
+  // "teach me how to ..." means the walkthrough on the real screen - Teach
+  // Mode, which runs from Agent. It used to land in Talk because "teach" and
+  // "show" were talk verbs, so typing it gave written steps unless the chip
+  // was flipped by hand. Talk is still one click (or "ask teach me ...") away.
+  if (parseTeachRequest(prompt).teach) return agent
+
   if (prompt.endsWith('?')) return talk
 
   const opener = firstWord(prompt)
   if (TALK_VERBS.has(opener) || QUESTION_WORDS.has(opener)) return talk
 
-  return { mode: 'agent', prompt }
+  if (MAKER_VERBS.has(opener)) {
+    // "write a poem in notepad" names a place, so the work happens there.
+    if (DESTINATION.test(prompt)) return agent
+    // "write a poem", "generate 5 title ideas": text to read, answered here.
+    if (CONTENT_NOUNS.test(prompt)) return talk
+    // "create a repo", "make a folder": something made on the machine.
+    return agent
+  }
+
+  return agent
 }
