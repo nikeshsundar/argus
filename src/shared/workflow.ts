@@ -69,7 +69,9 @@ export function nameProblem(raw: string): string | null {
  * nobody is waiting on.
  */
 export function recordable(actions: AgentAction[]): AgentAction[] {
-  const kept = actions.filter((action) => action.type !== 'done')
+  // A lookup is thinking, not doing: the typed text it led to is already in
+  // the recording, so a replay has no reason to search again.
+  const kept = actions.filter((action) => action.type !== 'done' && action.type !== 'research')
   while (kept.length > 0 && kept[kept.length - 1]!.type === 'wait') kept.pop()
   return kept
 }

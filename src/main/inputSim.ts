@@ -1,6 +1,7 @@
 import { Key, keyboard } from '@nut-tree-fork/nut-js'
 import { clipboard, shell } from 'electron'
-import { toScreenPoint, type AgentAction, type ScreenSize } from '../shared/agent'
+import { isSpreadsheetTitle, toScreenPoint, type AgentAction, type ScreenSize } from '../shared/agent'
+import { activeWindowTitle } from './activeWindow'
 import { externalUrlBlockReason } from '../shared/urlSafety'
 import { launchApp } from './appIndex'
 import { PACES } from '../shared/cursorPath'
@@ -151,12 +152,18 @@ export async function executeAction(
       // Focus does not always land on the same tick as the click.
       await new Promise((resolve) => setTimeout(resolve, 120))
 
+      // In a spreadsheet, Ctrl+A selects the whole sheet and the Delete below
+      // would then clear it. Typing into a selected cell replaces it anyway.
+      const spreadsheet = isSpreadsheetTitle(await activeWindowTitle())
+
       // Replace what is in the field rather than adding to it. A click puts a
       // caret somewhere in the existing value; typing from there produced
       // things like "chatgpt.comchatgpt.com". type_text is the action for
       // adding to what is already there.
-      await keyboard.pressKey(Key.LeftControl, Key.A)
-      await keyboard.releaseKey(Key.LeftControl, Key.A)
+      if (!spreadsheet) {
+        await keyboard.pressKey(Key.LeftControl, Key.A)
+        await keyboard.releaseKey(Key.LeftControl, Key.A)
+      }
 
       const entered = await enterText(action.text, pace)
 
@@ -168,9 +175,11 @@ export async function executeAction(
         // you once visited. Enter accepts the completion, not what was typed,
         // and the agent lands somewhere it never asked for and cannot explain.
         // Delete removes the selected part and leaves exactly the typed text.
-        await keyboard.pressKey(Key.Delete)
-        await keyboard.releaseKey(Key.Delete)
-        await new Promise((resolve) => setTimeout(resolve, 80))
+        if (!spreadsheet) {
+          await keyboard.pressKey(Key.Delete)
+          await keyboard.releaseKey(Key.Delete)
+          await new Promise((resolve) => setTimeout(resolve, 80))
+        }
 
         await keyboard.pressKey(Key.Enter)
         await keyboard.releaseKey(Key.Enter)
@@ -204,6 +213,11 @@ export async function executeAction(
         setTimeout(resolve, Math.min(10, Math.max(0, action.seconds)) * 1000)
       )
       return 'ok'
+
+    case 'research':
+      // Run by the agent loop, which has the model to hand the answer to. A
+      // replay never records one, so this is only a guard.
+      return 'skipped - web_search is not a desktop action'
 
     case 'done':
       return 'ok'

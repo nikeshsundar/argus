@@ -9,7 +9,12 @@ export interface GeminiPart {
 }
 
 export interface GeminiResponse {
-  candidates?: { content?: { parts?: GeminiPart[] }; finishReason?: string }[]
+  candidates?: {
+    content?: { parts?: GeminiPart[] }
+    finishReason?: string
+    /** Present when Google Search grounded the answer: the pages it read. */
+    groundingMetadata?: unknown
+  }[]
   error?: { message?: string }
 }
 
@@ -640,6 +645,9 @@ export async function requestStep(
 export async function collectStream(body: ReadableStream<Uint8Array>): Promise<GeminiResponse> {
   const parts: (GeminiPart & Record<string, unknown>)[] = []
   let finishReason: string | undefined
+  // Arrives on the last chunk when Search was used. Kept, because the pages a
+  // researched answer came from are what let the user check it.
+  let groundingMetadata: unknown
 
   for await (const event of readServerSentEvents(body)) {
     if (!event) continue
@@ -659,9 +667,18 @@ export async function collectStream(body: ReadableStream<Uint8Array>): Promise<G
       parts.push({ ...part })
     }
     finishReason = candidate?.finishReason ?? finishReason
+    groundingMetadata = candidate?.groundingMetadata ?? groundingMetadata
   }
 
-  return { candidates: [{ content: { parts }, ...(finishReason ? { finishReason } : {}) }] }
+  return {
+    candidates: [
+      {
+        content: { parts },
+        ...(finishReason ? { finishReason } : {}),
+        ...(groundingMetadata ? { groundingMetadata } : {})
+      }
+    ]
+  }
 }
 
 /** Reads a streamed answer, reporting each chunk as it lands. */

@@ -46,7 +46,7 @@ export function parseRecipe(input: string): RecipeCommand | null {
 /** What each one needs to be given, for the menu and for mistakes. */
 export const RECIPE_USAGE: Record<Exclude<RecipeKind, 'menu'>, string> = {
   brief: '/brief <topic> — 4 AI researchers search the web at once and write a formatted Google Doc',
-  sheet: '/sheet — turns the table on your screen into a real Google Sheet',
+  sheet: '/sheet [topic] — the table on your screen, or one researched on the web, as a real Google Sheet',
   mail: '/mail <email> <what to say> — one sentence becomes a full email, ready to send',
   meet: '/meet <who, when, what> — one sentence becomes a Google Calendar invite',
   launch: '/launch <product> — 5 writers at once build a launch kit in a Google Doc'
@@ -60,6 +60,7 @@ export function recipeMenu(): string {
     '   e.g. /brief AI agents in healthcare',
     `2. ${RECIPE_USAGE.sheet}`,
     '   open any page with a table, press the hotkey, type /sheet',
+    '   or research one: /sheet top 10 Indian companies by revenue',
     `3. ${RECIPE_USAGE.mail}`,
     '   e.g. /mail priya@example.com the demo moved to Friday 4pm',
     `4. ${RECIPE_USAGE.meet}`,
@@ -276,6 +277,72 @@ export function tableClipboard(table: Table): { html: string; text: string } {
     html: `<meta charset="utf-8"><table>${head}${body}</table>`,
     text: lines.join('\n')
   }
+}
+
+/**
+ * The request for a researched table ("/sheet top 10 companies by revenue").
+ *
+ * Agent Mode has no web access, so asked to type such a table it filled the
+ * cells from memory - plausible, confidently wrong numbers. This goes to a
+ * writer with Google Search instead, and every rule here is about not
+ * inventing: an empty cell is better than a made-up figure.
+ */
+export function researchTablePrompt(topic: string, today: string): string {
+  return `Research this on the web and return it as a table: "${topic}".
+Today is ${today}.
+
+Rules:
+- Use the most recent complete figures you can find in reliable sources (annual reports, exchanges, major financial or official sites).
+- Never invent or estimate a number. If a value cannot be found, leave that cell empty.
+- Put the unit, currency and period in the header itself, e.g. "Revenue (₹ crore, FY2024-25)", so every number in the column means the same thing.
+- Write numbers as plain digits with no thousands separators and no units in the cell (e.g. 975000), so the spreadsheet can sort and chart them.
+- One row per item, ranked as the request asks. No more than 25 rows unless a larger number is asked for.
+
+Reply with ONLY a JSON object and nothing else:
+{"title": "<what the table shows, with the period>", "headers": ["<column>", ...], "rows": [["<cell>", ...], ...]}`
+}
+
+/**
+ * The web pages a grounded answer was built from, by site name.
+ *
+ * Taken from Google's own grounding record, not from the model's text, so the
+ * sources shown under a researched table are pages that were actually read.
+ */
+export function groundingSources(payload: unknown, max = 5): string[] {
+  const candidates = (payload as { candidates?: unknown })?.candidates
+  const first = Array.isArray(candidates) ? (candidates[0] as Record<string, unknown> | undefined) : undefined
+  const metadata = first?.['groundingMetadata'] as { groundingChunks?: unknown } | undefined
+  const chunks = metadata?.groundingChunks
+  if (!Array.isArray(chunks)) return []
+
+  const names: string[] = []
+  for (const chunk of chunks) {
+    const web = (chunk as { web?: { title?: unknown; uri?: unknown } } | null)?.web
+    const title = typeof web?.title === 'string' ? web.title.trim() : ''
+    const name = title || hostName(web?.uri)
+    if (name && !names.includes(name)) names.push(name)
+    if (names.length >= max) break
+  }
+  return names
+}
+
+function hostName(uri: unknown): string {
+  if (typeof uri !== 'string') return ''
+  try {
+    return new URL(uri).hostname.replace(/^www\./, '')
+  } catch {
+    return ''
+  }
+}
+
+/** A blank row, then where the figures came from - kept in the sheet with the data. */
+export function withSources(table: Table, sources: string[], checkedOn: string): Table {
+  const width = Math.max(table.headers.length, table.rows[0]?.length ?? 1)
+  const line = (text: string): string[] => [text, ...Array(Math.max(0, width - 1)).fill('')]
+  const note = sources.length
+    ? `Sources (via Google Search, ${checkedOn}): ${sources.join(', ')}`
+    : `Not web-checked (${checkedOn}): figures are from the model's memory - verify before use`
+  return { ...table, rows: [...table.rows, line(''), line(note)] }
 }
 
 /** "Fri 2 Oct, 4:00 pm" for the summary line. */

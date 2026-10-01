@@ -42,6 +42,14 @@ type AgentActionKind =
   | { type: 'scroll'; direction: 'up' | 'down'; clicks: number }
   | { type: 'wait'; seconds: number }
   /**
+   * Look facts up with Google Search instead of recalling them.
+   *
+   * Without this the agent had nowhere to get a figure it could not see, so it
+   * typed one from memory - confidently, and wrong. Not a desktop action: the
+   * loop runs it and hands the sourced answer back as the call's result.
+   */
+  | { type: 'research'; query: string }
+  /**
    * `evidence` is what the model says it can see that proves the task is
    * done - checked independently before the run is allowed to end.
    */
@@ -71,6 +79,19 @@ export function planBatch(calls: AgentAction[]): {
   presets: (string | undefined)[]
 } {
   if (calls.length === 1) return { actions: calls, presets: [undefined] }
+
+  // Looking something up comes before using it. A turn that asks for a
+  // web_search runs only that: everything else in it was planned before the
+  // answer existed, so any figure it would type is a guess.
+  const lookup = calls.find((call) => call.type === 'research')
+  if (lookup) {
+    return {
+      actions: [lookup],
+      presets: calls.map((call) =>
+        call === lookup ? undefined : 'skipped - web_search runs alone; act on its result next turn'
+      )
+    }
+  }
 
   const onlyDone = calls.find((call) => call.type === 'done')
   if (onlyDone && calls.every((call) => call.type === 'done')) {
@@ -158,6 +179,8 @@ export function describeAction(action: AgentAction): string {
       return `Scroll ${action.direction}`
     case 'wait':
       return `Wait ${action.seconds}s`
+    case 'research':
+      return `Search the web: "${action.query.length > 60 ? `${action.query.slice(0, 60)}…` : action.query}"`
     case 'done':
       return action.summary
   }
@@ -174,6 +197,20 @@ export function describeAction(action: AgentAction): string {
 export function realLineBreaks(text: string): string {
   if (text.includes('\n')) return text
   return text.replace(/\\r\\n|\\n/g, '\n').replace(/\\t/g, '\t')
+}
+
+/**
+ * True when the focused window is a spreadsheet.
+ *
+ * type_into clears a field with Ctrl+A before typing, and presses Delete
+ * before Enter to drop a browser's autocomplete. In a spreadsheet Ctrl+A
+ * selects the whole sheet and Delete then clears it - which is how an agent
+ * run erased the rows it had just written, and rewrote them, for twenty
+ * minutes. Typing into a selected cell already replaces it, so neither key is
+ * needed there.
+ */
+export function isSpreadsheetTitle(title: string | null): boolean {
+  return title !== null && /google sheets|\bexcel\b|libreoffice calc|\bspreadsheet\b|\.xlsx\b|\.csv\b/i.test(title)
 }
 
 /** Endings that make a bare word a web address - and not a file name. */

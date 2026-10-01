@@ -34,6 +34,7 @@ import { createYielding } from './yield'
 import { presentGhost } from './cursor'
 import { configuredKeys } from './geminiKeys'
 import { verifyCompletion } from './providers/geminiVerify'
+import { webSearch } from './providers/geminiResearch'
 import { MAX_REJECTIONS, type Verdict } from '../shared/verify'
 
 /**
@@ -289,6 +290,25 @@ Not confirmed: ${verdict.problem}. Please check the screen.`,
             summary: `Stopped at your limit of ${limits.maxMinutes} min. Everything so far is left as it is on screen — raise it with "/limits minutes <n>".`,
             actions: performed
           }
+        }
+
+        // A lookup, not a move on the desktop: nothing to fence or approve.
+        // The sourced answer goes back to the model as the call's result, and
+        // planBatch has already made sure nothing else rode along with it.
+        if (action.type === 'research') {
+          attempted.push(action)
+          let found: string
+          try {
+            found = await webSearch(action.query, control.signal)
+          } catch {
+            return { ok: false, summary: `Stopped after ${step - 1} steps.`, actions: performed }
+          }
+          if (isStuck(attempted)) {
+            return { ok: false, summary: stuckSummary(attempted), actions: performed }
+          }
+          const advice = loopAdvice(attempted)
+          lastResults.push(advice ? `${found}\n\n${advice}` : found)
+          continue
         }
 
         // The fence. Checked against what Windows says has focus, not what the

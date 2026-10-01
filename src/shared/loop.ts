@@ -46,6 +46,8 @@ export function actionSignature(action: AgentAction): string {
       return `scroll:${action.direction}`
     case 'wait':
       return 'wait'
+    case 'research':
+      return `research:${action.query.toLowerCase()}`
     case 'done':
       return 'done'
   }

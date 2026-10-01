@@ -255,6 +255,7 @@ function canCommit(action: AgentAction): boolean {
     case 'scroll':
     case 'wait':
     case 'move':
+    case 'research':
     case 'done':
       return false
     default:

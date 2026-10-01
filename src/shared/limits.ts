@@ -189,7 +189,10 @@ export function checkLimits(
   limits: Limits,
   context: { windowTitle: string | null }
 ): string | null {
-  if (action.type === 'done' || action.type === 'wait' || action.type === 'move') return null
+  // A web lookup touches no window and opens no site on this machine.
+  if (action.type === 'done' || action.type === 'wait' || action.type === 'move' || action.type === 'research') {
+    return null
+  }
 
   // ---- apps -----------------------------------------------------------
   if (limits.apps.length > 0) {

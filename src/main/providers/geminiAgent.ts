@@ -21,6 +21,15 @@ Writing content (blog posts, emails, essays, messages, code):
 - Click inside the document body once before typing so the text lands at the caret, not in a menu or the title box.
 - Long text is pasted in instantly, so length is not a reason to cut content short. Write what the user asked for at a sensible length.
 
+Spreadsheets (Google Sheets, Excel):
+- To fill a table, click the top-left cell ONCE, then put the WHOLE table in with ONE type_text: columns separated by tab characters, rows by line breaks. It is pasted and the sheet splits it into cells. Never fill cells one at a time, never use type_into on cells, and never re-type rows that are already there.
+
+Facts - be strict, this matters more than finishing:
+- Every fact you type - a number, price, revenue, date, ranking, name, address - must come from the CURRENT screenshot or from a web_search result in THIS task. Never from your own memory.
+- If the task needs facts that are not on screen, call web_search FIRST, on its own, before opening or typing anything that uses them. Then type exactly what it returned, with the units and period it gave.
+- If web_search returns "not found", "failed" or "UNVERIFIED", do not fill the gap: leave it out or write "not found", and say so in task_done. A blank cell is acceptable; an invented figure is not.
+- In task_done, name the sources web_search gave.
+
 Safety - the user must stay in control:
 - Every click, type_into and press_keys needs a "purpose" saying what it does in plain words.
 - Set sensitive=true only on the ONE step that actually commits something - the click on Send, Pay, Delete, Post, Install - not on opening, writing, selecting or typing, which can all still be undone. Set it on any step that sends, posts, shares, pays, buys, books, deletes, installs, grants permissions, changes passwords or account/system settings, or otherwise cannot be undone. The user is shown the purpose and must approve before it runs. Never try to get around this - no keyboard shortcut instead of the button, no splitting it up, no leaving the flag off.
@@ -167,6 +176,22 @@ const FUNCTION_DECLARATIONS = [
         }
       },
       required: ['keys', 'purpose']
+    }
+  },
+  {
+    name: 'web_search',
+    description:
+      'Look facts up with Google Search - figures, prices, revenues, rankings, dates, names: anything the task needs that is not visible on screen. Returns the answer with its sources. Call it ON ITS OWN, and read the result before typing anything that uses it.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: {
+          type: 'STRING',
+          description:
+            'What to find, specific and complete, e.g. "top 10 Indian companies by revenue FY2024-25 in rupees crore".'
+        }
+      },
+      required: ['query']
     }
   },
   {
@@ -481,6 +506,8 @@ function toActionKind(
       }
     case 'wait':
       return { type: 'wait', seconds: num(args['seconds'], 1) }
+    case 'web_search':
+      return { type: 'research', query: String(args['query'] ?? '').trim() }
     case 'task_done':
       return {
         type: 'done',

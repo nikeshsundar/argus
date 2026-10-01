@@ -7,9 +7,12 @@ import {
   describeWhen,
   extractEmails,
   gmailComposeUrl,
+  groundingSources,
   normaliseTable,
   parseJsonObject,
+  researchTablePrompt,
   tableClipboard,
+  withSources,
   type DocSection,
   type RecipeCommand
 } from '../shared/recipes'
@@ -98,7 +101,9 @@ export async function runRecipe(
       case 'launch':
         return await launch(command.arg, run)
       case 'sheet':
-        return await sheet(context.screenshot, run)
+        return command.arg
+          ? await researchSheet(command.arg, run)
+          : await sheet(context.screenshot, run)
       case 'mail':
         return await mail(command.arg, run, context.onStep)
       case 'meet':
@@ -468,6 +473,75 @@ async function sheet(screenshot: Buffer | null, run: Run): Promise<RecipeResult>
   return {
     ok: true,
     summary: `Copied a ${table.rows.length}×${columns} table${table.title ? ` ("${table.title}")` : ''} from your screen into a new Google Sheet.`
+  }
+}
+
+/**
+ * "/sheet <topic>": a table researched on the web, pasted into a new Sheet.
+ *
+ * The job this replaces went badly as a free-form Agent task: the agent has no
+ * web access, so it typed figures from memory, and it filled cells one at a
+ * time - a screenshot and a model call per cell, twenty minutes for ten rows.
+ * Here one writer with Google Search returns the whole table, and it lands in
+ * one paste. The sources Google actually read go underneath it.
+ */
+async function researchSheet(topic: string, run: Run): Promise<RecipeResult> {
+  const started = Date.now()
+  const today = new Date().toISOString().slice(0, 10)
+  run.say(`Researching "${topic}" on the web…`)
+
+  const ask = (withWeb: boolean): ReturnType<typeof requestStep> =>
+    requestStep({
+      apiKey: run.keys[0]!,
+      preferKey: run.keys[0]!,
+      ...run.models,
+      timeoutMs: withWeb ? 45_000 : 25_000,
+      signal: run.signal,
+      thinking: 'low',
+      body: {
+        contents: [{ role: 'user', parts: [{ text: researchTablePrompt(topic, today) }] }],
+        ...(withWeb ? { tools: [{ google_search: {} }] } : {}),
+        generationConfig: { temperature: 0, maxOutputTokens: 8192 }
+      }
+    })
+
+  let payload
+  try {
+    payload = await ask(true)
+  } catch (error) {
+    // Search grounding is not offered on every key and model. A table from
+    // memory is still useful, as long as it says so - see withSources.
+    const message = error instanceof Error ? error.message : String(error)
+    if (run.signal.aborted || !/\b400\b|tool|search|ground/i.test(message)) throw error
+    payload = await ask(false)
+  }
+
+  const raw = parseJsonObject(extractText(payload))
+  const found = raw ? normaliseTable(raw) : null
+  if (!found) {
+    return { ok: false, summary: `I couldn't build a table for "${topic}". Try wording it as a list, e.g. "top 10 Indian companies by revenue".` }
+  }
+
+  const sources = groundingSources(payload)
+  const table = withSources(found, sources, today)
+  const columns = Math.max(found.headers.length, found.rows[0]?.length ?? 0)
+
+  run.say(`Found ${found.rows.length} rows × ${columns} columns — opening a new Google Sheet…`)
+  await openAndWait('https://sheets.new', /Untitled spreadsheet/i, 'Google Sheets', run.signal)
+  // A new sheet starts with A1 selected, so the paste lands in the corner.
+  await sleep(2000, run.signal)
+  run.say('Filling in the cells…')
+  await pasteRich(tableClipboard(table))
+
+  const seconds = Math.round((Date.now() - started) / 1000)
+  return {
+    ok: true,
+    summary: [
+      `${found.title || topic}: ${found.rows.length} rows × ${columns} columns in a new Google Sheet, in ${seconds}s.`,
+      sources.length
+        ? `Researched with Google Search — sources: ${sources.join(', ')}.`
+        : 'Web search was not available, so these figures are from the model — check them before using.'
+    ].join('\n')
   }
 }
 
